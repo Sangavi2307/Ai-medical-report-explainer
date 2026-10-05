@@ -30,20 +30,26 @@ if uploaded_file is not None:
         f"✅ File uploaded: {uploaded_file.name}"
     )
 
-    extracted_text = extract_text_from_pdf(uploaded_file)
+    if st.button("🔍 Analyze Report"):
 
-    st.subheader("📋 Extracted Report Text")
+        with st.spinner("Analyzing your report..."):
 
-    if extracted_text.strip():
+            extracted_text = extract_text_from_pdf(uploaded_file)
 
-        st.text_area(
-            "Report content",
-            extracted_text,
-            height=400
-        )
+        st.success("✅ Report analyzed successfully!")
 
-    else:
+        st.subheader("📋 Extracted Report Text")
 
-        st.warning(
-            "No text could be extracted from this PDF."
-        )
+        if extracted_text.strip():
+
+            st.text_area(
+                "Report content",
+                extracted_text,
+                height=400
+            )
+
+        else:
+
+            st.warning(
+                "No text could be extracted from this PDF."
+            )
