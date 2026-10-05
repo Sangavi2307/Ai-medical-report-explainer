@@ -7,23 +7,17 @@ st.set_page_config(
 
 st.title("🩺 AI Medical Report Explainer")
 
-st.info(
-    "This application provides educational information "
-    "and does not replace professional medical advice."
-)
+st.write("Upload a medical report for testing.")
 
-st.subheader("📄 Upload Your Medical Report")
+st.subheader("📄 Upload Medical Report")
 
 uploaded_file = st.file_uploader(
-    "Choose a PDF medical report",
+    "Choose a PDF file",
     type=["pdf"]
 )
 
-if uploaded_file is not None:
+if uploaded_file:
+    st.success("✅ PDF uploaded successfully!")
 
-    st.success(f"✅ Uploaded: {uploaded_file.name}")
-
+    st.write("File name:", uploaded_file.name)
     st.write("File size:", uploaded_file.size, "bytes")
-
-    if st.button("🔍 Analyze Report"):
-        st.write("The report is ready for analysis.")
