@@ -10,11 +10,16 @@ def analyze_report(text):
 
     for line in lines:
 
+        line = line.strip()
+
+        # Example:
+        # Hemoglobin 12.8 g/dL 12.0 - 15.5
+
         pattern = (
             r"(.+?)\s+"
             r"(\d+(?:\.\d+)?)\s+"
             r"([a-zA-Z/%µ]+)\s+"
-            r"(\d+(?:\.\d+)?)\s*[–-]\s*"
+            r"(\d+(?:\.\d+)?)\s*[-–]\s*"
             r"(\d+(?:\.\d+)?)"
         )
 
@@ -25,13 +30,18 @@ def analyze_report(text):
             test_name = match.group(1).strip()
             value = float(match.group(2))
             unit = match.group(3)
+
             low = float(match.group(4))
             high = float(match.group(5))
 
+            # Compare result with reference range
+
             if value < low:
                 status = "Below Range"
+
             elif value > high:
                 status = "Above Range"
+
             else:
                 status = "Within Range"
 
