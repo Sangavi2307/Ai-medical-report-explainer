@@ -1,5 +1,4 @@
 import streamlit as st
-from extractor import extract_text_from_pdf
 
 st.set_page_config(
     page_title="AI Medical Report Explainer",
@@ -7,10 +6,6 @@ st.set_page_config(
 )
 
 st.title("🩺 AI Medical Report Explainer")
-
-st.write(
-    "Upload a medical report and get a simple educational explanation."
-)
 
 st.info(
     "This application provides educational information "
@@ -20,36 +15,15 @@ st.info(
 st.subheader("📄 Upload Your Medical Report")
 
 uploaded_file = st.file_uploader(
-    "Choose a medical report",
+    "Choose a PDF medical report",
     type=["pdf"]
 )
 
 if uploaded_file is not None:
 
-    st.success(
-        f"✅ File uploaded: {uploaded_file.name}"
-    )
+    st.success(f"✅ Uploaded: {uploaded_file.name}")
+
+    st.write("File size:", uploaded_file.size, "bytes")
 
     if st.button("🔍 Analyze Report"):
-
-        with st.spinner("Analyzing your report..."):
-
-            extracted_text = extract_text_from_pdf(uploaded_file)
-
-        st.success("✅ Report analyzed successfully!")
-
-        st.subheader("📋 Extracted Report Text")
-
-        if extracted_text.strip():
-
-            st.text_area(
-                "Report content",
-                extracted_text,
-                height=400
-            )
-
-        else:
-
-            st.warning(
-                "No text could be extracted from this PDF."
-            )
+        st.write("The report is ready for analysis.")
