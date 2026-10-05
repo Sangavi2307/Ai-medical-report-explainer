@@ -1,23 +1,17 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="PDF Upload Test",
-    page_icon="📄"
+    page_title="Upload Test"
 )
 
 st.title("📄 PDF Upload Test")
 
 uploaded_file = st.file_uploader(
-    "Upload any PDF",
+    "Choose a PDF",
     type=["pdf"]
 )
 
 if uploaded_file is not None:
-    st.success("✅ PDF uploaded successfully!")
-
-    st.write("File name:", uploaded_file.name)
-    st.write("File size:", uploaded_file.size, "bytes")
-
-    pdf_bytes = uploaded_file.getvalue()
-
-    st.write("PDF received:", len(pdf_bytes), "bytes")
+    st.success("✅ Upload successful!")
+    st.write("File:", uploaded_file.name)
+    st.write("Size:", uploaded_file.size)
