@@ -1,8 +1,8 @@
 import streamlit as st
-from extractor import (
-    extract_text_from_pdf,
-    extract_text_from_image
-)
+from extractor import extract_text_from_pdf
+from analyzer import analyze_report
+from ai_explainer import ai_explain_report
+from ocr_service import extract_text_from_image
 from analyzer import analyze_report
 
 
