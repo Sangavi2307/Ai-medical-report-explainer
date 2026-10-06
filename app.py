@@ -2,6 +2,7 @@ import streamlit as st
 from extractor import extract_text_from_pdf
 from analyzer import analyze_report
 from ai_explainer import ai_explain_report
+from ocr_service import extract_text_from_image
 
 
 st.set_page_config(
@@ -23,8 +24,8 @@ st.info(
 st.subheader("📄 Upload Medical Report")
 
 uploaded_file = st.file_uploader(
-    "Choose a PDF file",
-    type=["pdf"]
+    "Choose a PDF or image file",
+    type=["pdf", "jpg", "jpeg", "png"]
 )
 
 if uploaded_file is not None:
@@ -35,9 +36,23 @@ if uploaded_file is not None:
 
     try:
 
-        extracted_text = extract_text_from_pdf(
-            uploaded_file
-        )
+        file_type = uploaded_file.name.lower()
+
+        # PDF extraction
+        if file_type.endswith(".pdf"):
+
+            extracted_text = extract_text_from_pdf(
+                uploaded_file
+            )
+
+        # Image OCR extraction
+        else:
+
+            with st.spinner("🔎 Reading text from the image..."):
+
+                extracted_text = extract_text_from_image(
+                    uploaded_file
+                )
 
         if extracted_text.strip():
 
@@ -100,10 +115,18 @@ if uploaded_file is not None:
                         "🔴 Above Range",
                         above
                     )
-                    st.subheader("🤖 AI Educational Explanation")
 
-                    with st.spinner("AI is analyzing the report..."):
-                        ai_summary = ai_explain_report(extracted_text)
+                    st.subheader(
+                        "🤖 AI Educational Explanation"
+                    )
+
+                    with st.spinner(
+                        "AI is analyzing the report..."
+                    ):
+
+                        ai_summary = ai_explain_report(
+                            extracted_text
+                        )
 
                     st.markdown(ai_summary)
 
@@ -116,17 +139,26 @@ if uploaded_file is not None:
         else:
 
             st.warning(
-                "The PDF was uploaded successfully, "
+                "The file was uploaded successfully, "
                 "but no text was found."
             )
 
-            st.info(
-                "This may be a scanned or image-based PDF. "
-                "OCR support will be added later."
-            )
+            if not file_type.endswith(".pdf"):
+
+                st.info(
+                    "OCR could not detect readable text in this image. "
+                    "Try uploading a clearer image."
+                )
+
+            else:
+
+                st.info(
+                    "This PDF may be scanned or image-based. "
+                    "Try uploading the report as a JPG or PNG image."
+                )
 
     except Exception as e:
 
         st.error(
-            f"Could not process the PDF: {e}"
+            f"Could not process the file: {e}"
         )
