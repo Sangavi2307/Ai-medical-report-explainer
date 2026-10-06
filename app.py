@@ -46,6 +46,43 @@ if uploaded_file is not None:
                 extracted_text,
                 height=400
             )
+     st.subheader("📊 Medical Test Analysis")
+
+if st.button("🔍 Analyze Report"):
+
+    results = analyze_report(extracted_text)
+
+    if not results.empty:
+
+        st.dataframe(
+            results,
+            use_container_width=True
+        )
+
+        st.subheader("📌 Summary")
+
+        within = len(
+            results[results["Status"] == "Within Range"]
+        )
+
+        below = len(
+            results[results["Status"] == "Below Range"]
+        )
+
+        above = len(
+            results[results["Status"] == "Above Range"]
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric("🟢 Within Range", within)
+        col2.metric("🟠 Below Range", below)
+        col3.metric("🔴 Above Range", above)
+
+    else:
+        st.warning(
+            "No laboratory test results were detected."
+        )
 
         else:
 
