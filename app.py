@@ -1,5 +1,6 @@
 import streamlit as st
 from extractor import extract_text_from_pdf
+from analyzer import analyze_report
 
 st.set_page_config(
     page_title="AI Medical Report Explainer",
