@@ -6,24 +6,43 @@ def analyze_report(text):
 
     results = []
 
-    # Clean OCR/PDF text
+    # ---------------------------------------------
+    # CLEAN OCR / PDF TEXT
+    # ---------------------------------------------
+
     lines = []
 
     for line in text.splitlines():
 
         line = line.strip()
 
-        if line:
+        if not line:
+            continue
 
-            line = re.sub(r"\s+", " ", line)
+        # Clean repeated spaces
+        line = re.sub(r"\s+", " ", line)
 
-            # Normalize different dash characters
-            line = line.replace("—", "-")
-            line = line.replace("–", "-")
+        # Normalize OCR dash characters
+        line = line.replace("–", "-")
+        line = line.replace("—", "-")
+        line = line.replace("−", "-")
 
-            lines.append(line)
+        lines.append(line)
+
+
+    # ---------------------------------------------
+    # WORDS THAT ARE NOT TEST NAMES
+    # ---------------------------------------------
 
     skip_words = {
+        "test",
+        "result",
+        "reference",
+        "reference range",
+        "normal range",
+        "ref range",
+        "laboratory results",
+        "laboratory test results",
         "patient information",
         "patient name",
         "age / gender",
@@ -37,60 +56,78 @@ def analyze_report(text):
         "temperature",
         "blood pressure",
         "pulse rate",
-        "laboratory results",
-        "laboratory test results",
-        "test",
-        "result",
-        "reference range",
-        "reference",
         "assessment",
-        "advice"
+        "advice",
     }
 
-    # -------------------------------------------------
-    # Pattern 1
-    # Test
+
+    # ---------------------------------------------
+    # UNIT PATTERN
+    # ---------------------------------------------
+
+    unit_pattern = (
+        r"(?:"
+        r"g/dL|mg/dL|mg/L|g/L|"
+        r"/µL|/uL|/UL|"
+        r"µL|uL|UL|"
+        r"lakh/µL|lakh/uL|"
+        r"mmol/L|µmol/L|"
+        r"ng/mL|pg/mL|"
+        r"%|"
+        r"bpm|"
+        r"°F|°C"
+        r")"
+    )
+
+
+    # ---------------------------------------------
+    # NUMBER
+    # ---------------------------------------------
+
+    number_pattern = r"[\d,.]+"
+
+
+    # ---------------------------------------------
+    # PATTERN 1
+    #
+    # Hemoglobin
     # 13.2 g/dL
     # 12-16 g/dL
-    # -------------------------------------------------
+    # ---------------------------------------------
 
     i = 0
 
     while i < len(lines):
 
-        test_name = lines[i]
+        test_name = lines[i].strip()
 
         if test_name.lower() in skip_words:
             i += 1
             continue
+
 
         if i + 2 < len(lines):
 
             result_line = lines[i + 1]
             reference_line = lines[i + 2]
 
+
             result_match = re.match(
-                r"^([\d,]+(?:\.\d+)?)\s*"
-                r"([a-zA-Zµμ/%]+(?:/[a-zA-Zµμ]+)?)$",
+                rf"^({number_pattern})\s*({unit_pattern})$",
                 result_line,
                 re.IGNORECASE
             )
 
+
             range_match = re.match(
-                r"^([\d,.]+)\s*-\s*([\d,.]+)"
-                r"\s*([a-zA-Zµμ/%]+(?:/[a-zA-Zµμ]+)?)?$",
+                rf"^({number_pattern})\s*-\s*"
+                rf"({number_pattern})\s*({unit_pattern})?$",
                 reference_line,
                 re.IGNORECASE
             )
 
-            less_match = re.match(
-                r"^<\s*([\d,.]+)"
-                r"\s*([a-zA-Zµμ/%]+(?:/[a-zA-Zµμ]+)?)?$",
-                reference_line,
-                re.IGNORECASE
-            )
 
-            if result_match and (range_match or less_match):
+            if result_match and range_match:
 
                 value = float(
                     result_match.group(1).replace(",", "")
@@ -98,81 +135,78 @@ def analyze_report(text):
 
                 unit = result_match.group(2)
 
-                if range_match:
+                low = float(
+                    range_match.group(1).replace(",", "")
+                )
 
-                    low = float(
-                        range_match.group(1).replace(",", "")
-                    )
+                high = float(
+                    range_match.group(2).replace(",", "")
+                )
 
-                    high = float(
-                        range_match.group(2).replace(",", "")
-                    )
 
-                    if value < low:
-                        status = "Below Range"
+                if value < low:
 
-                    elif value > high:
-                        status = "Above Range"
+                    status = "Below Range"
 
-                    else:
-                        status = "Within Range"
+                elif value > high:
 
-                    results.append({
-                        "Test": test_name,
-                        "Result": value,
-                        "Unit": unit,
-                        "Reference Range":
-                            f"{low:g} - {high:g}",
-                        "Status": status
-                    })
+                    status = "Above Range"
 
-                    i += 3
-                    continue
+                else:
 
-                if less_match:
+                    status = "Within Range"
 
-                    high = float(
-                        less_match.group(1).replace(",", "")
-                    )
 
-                    if value < high:
-                        status = "Within Range"
+                results.append({
 
-                    else:
-                        status = "Above Range"
+                    "Test": test_name,
 
-                    results.append({
-                        "Test": test_name,
-                        "Result": value,
-                        "Unit": unit,
-                        "Reference Range":
-                            f"< {high:g}",
-                        "Status": status
-                    })
+                    "Result": value,
 
-                    i += 3
-                    continue
+                    "Unit": unit,
+
+                    "Reference Range":
+                        f"{low:g} - {high:g}",
+
+                    "Status": status
+
+                })
+
+
+                i += 3
+
+                continue
+
 
         i += 1
 
-    # -------------------------------------------------
-    # Pattern 2
-    # Test: Hemoglobin 13.2 g/dL
+
+    # ---------------------------------------------
+    # PATTERN 2
+    #
+    # Hemoglobin 13.2 g/dL
     # Reference Range: 12-16 g/dL
-    # -------------------------------------------------
+    # ---------------------------------------------
 
     full_text = " ".join(lines)
 
+
     pattern = re.compile(
-        r"([A-Za-z][A-Za-z0-9 ()/%-]{2,40})"
-        r"\s*:?\s*"
-        r"([\d,]+(?:\.\d+)?)\s*"
-        r"([a-zA-Zµμ/%]+(?:/[a-zA-Zµμ]+)?)"
-        r"\s*(?:Reference Range|Normal Range|Ref Range)"
-        r"\s*:?\s*"
-        r"([\d,.]+)\s*-\s*([\d,.]+)",
+
+        rf"([A-Za-z][A-Za-z0-9 ()/%-]{{2,40}})"
+        rf"\s*:?\s*"
+        rf"({number_pattern})\s*"
+        rf"({unit_pattern})"
+        rf"\s*"
+        rf"(?:Reference Range|Normal Range|Ref Range)"
+        rf"\s*:?\s*"
+        rf"({number_pattern})\s*-\s*"
+        rf"({number_pattern})",
+
         re.IGNORECASE
+
     )
+
 
     for match in pattern.finditer(full_text):
 
@@ -181,11 +215,13 @@ def analyze_report(text):
         if test_name.lower() in skip_words:
             continue
 
+
         value = float(
             match.group(2).replace(",", "")
         )
 
         unit = match.group(3)
+
 
         low = float(
             match.group(4).replace(",", "")
@@ -195,27 +231,114 @@ def analyze_report(text):
             match.group(5).replace(",", "")
         )
 
+
         if value < low:
+
             status = "Below Range"
 
         elif value > high:
+
             status = "Above Range"
 
         else:
+
             status = "Within Range"
 
+
         results.append({
+
             "Test": test_name,
+
             "Result": value,
+
             "Unit": unit,
+
             "Reference Range":
                 f"{low:g} - {high:g}",
+
             "Status": status
+
         })
 
-    # -------------------------------------------------
-    # Remove duplicate tests
-    # -------------------------------------------------
+
+    # ---------------------------------------------
+    # PATTERN 3
+    #
+    # Hemoglobin 13.2 g/dL 12-16 g/dL
+    # ---------------------------------------------
+
+    pattern2 = re.compile(
+
+        rf"([A-Za-z][A-Za-z0-9 ()/%-]{{2,40}})"
+        rf"\s+"
+        rf"({number_pattern})\s*"
+        rf"({unit_pattern})"
+        rf"\s+"
+        rf"({number_pattern})\s*-\s*"
+        rf"({number_pattern})"
+        rf"\s*({unit_pattern})?",
+
+        re.IGNORECASE
+
+    )
+
+
+    for match in pattern2.finditer(full_text):
+
+        test_name = match.group(1).strip()
+
+        if test_name.lower() in skip_words:
+            continue
+
+
+        value = float(
+            match.group(2).replace(",", "")
+        )
+
+        unit = match.group(3)
+
+
+        low = float(
+            match.group(4).replace(",", "")
+        )
+
+        high = float(
+            match.group(5).replace(",", "")
+        )
+
+
+        if value < low:
+
+            status = "Below Range"
+
+        elif value > high:
+
+            status = "Above Range"
+
+        else:
+
+            status = "Within Range"
+
+
+        results.append({
+
+            "Test": test_name,
+
+            "Result": value,
+
+            "Unit": unit,
+
+            "Reference Range":
+                f"{low:g} - {high:g}",
+
+            "Status": status
+
+        })
+
+
+    # ---------------------------------------------
+    # REMOVE DUPLICATES
+    # ---------------------------------------------
 
     if results:
 
@@ -227,6 +350,11 @@ def analyze_report(text):
         )
 
         return dataframe
+
+
+    # ---------------------------------------------
+    # EMPTY RESULT
+    # ---------------------------------------------
 
     return pd.DataFrame(
         columns=[
