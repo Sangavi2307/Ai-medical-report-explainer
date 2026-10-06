@@ -2,6 +2,7 @@ import streamlit as st
 from extractor import extract_text_from_pdf
 from analyzer import analyze_report
 
+
 st.set_page_config(
     page_title="AI Medical Report Explainer",
     page_icon="🩺"
@@ -10,7 +11,7 @@ st.set_page_config(
 st.title("🩺 AI Medical Report Explainer")
 
 st.write(
-    "Upload a medical report and extract its text."
+    "Upload a medical report and extract and analyze laboratory results."
 )
 
 st.info(
@@ -46,43 +47,64 @@ if uploaded_file is not None:
                 extracted_text,
                 height=400
             )
-     st.subheader("📊 Medical Test Analysis")
 
-if st.button("🔍 Analyze Report"):
+            st.subheader("📊 Medical Test Analysis")
 
-    results = analyze_report(extracted_text)
+            if st.button("🔍 Analyze Report"):
 
-    if not results.empty:
+                results = analyze_report(
+                    extracted_text
+                )
 
-        st.dataframe(
-            results,
-            use_container_width=True
-        )
+                if not results.empty:
 
-        st.subheader("📌 Summary")
+                    st.dataframe(
+                        results,
+                        use_container_width=True
+                    )
 
-        within = len(
-            results[results["Status"] == "Within Range"]
-        )
+                    st.subheader("📌 Summary")
 
-        below = len(
-            results[results["Status"] == "Below Range"]
-        )
+                    within = len(
+                        results[
+                            results["Status"] == "Within Range"
+                        ]
+                    )
 
-        above = len(
-            results[results["Status"] == "Above Range"]
-        )
+                    below = len(
+                        results[
+                            results["Status"] == "Below Range"
+                        ]
+                    )
 
-        col1, col2, col3 = st.columns(3)
+                    above = len(
+                        results[
+                            results["Status"] == "Above Range"
+                        ]
+                    )
 
-        col1.metric("🟢 Within Range", within)
-        col2.metric("🟠 Below Range", below)
-        col3.metric("🔴 Above Range", above)
+                    col1, col2, col3 = st.columns(3)
 
-    else:
-        st.warning(
-            "No laboratory test results were detected."
-        )
+                    col1.metric(
+                        "🟢 Within Range",
+                        within
+                    )
+
+                    col2.metric(
+                        "🟠 Below Range",
+                        below
+                    )
+
+                    col3.metric(
+                        "🔴 Above Range",
+                        above
+                    )
+
+                else:
+
+                    st.warning(
+                        "No laboratory test results were detected."
+                    )
 
         else:
 
@@ -92,8 +114,8 @@ if st.button("🔍 Analyze Report"):
             )
 
             st.info(
-                "This may be a scanned/image-based PDF. "
-                "We will add OCR support next."
+                "This may be a scanned or image-based PDF. "
+                "OCR support will be added later."
             )
 
     except Exception as e:
