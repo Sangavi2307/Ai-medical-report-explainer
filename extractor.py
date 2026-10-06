@@ -1,7 +1,7 @@
 import pymupdf
 
-
 def extract_text_from_pdf(uploaded_file):
+
     uploaded_file.seek(0)
 
     pdf_bytes = uploaded_file.read()
@@ -15,6 +15,7 @@ def extract_text_from_pdf(uploaded_file):
 
     for page in document:
         text += page.get_text()
+        text += "\n"
 
     document.close()
 
