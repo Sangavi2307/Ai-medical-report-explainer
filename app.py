@@ -1,6 +1,7 @@
 import streamlit as st
 from extractor import extract_text_from_pdf
 from analyzer import analyze_report
+from ai_explainer import ai_explain_report
 
 
 st.set_page_config(
@@ -99,6 +100,12 @@ if uploaded_file is not None:
                         "🔴 Above Range",
                         above
                     )
+                    st.subheader("🤖 AI Educational Explanation")
+
+                    with st.spinner("AI is analyzing the report..."):
+                        ai_summary = ai_explain_report(extracted_text)
+
+                    st.markdown(ai_summary)
 
                 else:
 
