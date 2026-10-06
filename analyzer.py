@@ -66,18 +66,19 @@ def analyze_report(text):
     # ---------------------------------------------
 
     unit_pattern = (
-        r"(?:"
-        r"g/dL|mg/dL|mg/L|g/L|"
-        r"/µL|/uL|/UL|"
-        r"µL|uL|UL|"
-        r"lakh/µL|lakh/uL|"
-        r"mmol/L|µmol/L|"
-        r"ng/mL|pg/mL|"
-        r"%|"
-        r"bpm|"
-        r"°F|°C"
-        r")"
-    )
+    r"(?:"
+    r"g/dL|mg/dL|mg/L|g/L|"
+    r"/µL|/uL|/UL|"
+    r"µL|uL|UL|"
+    r"lakh/µL|lakh/uL|lakh/ul|"
+    r"lakhiL|lakhuL|"
+    r"mmol/L|µmol/L|"
+    r"ng/mL|pg/mL|"
+    r"%|"
+    r"bpm|"
+    r"°F|°C"
+    r")"
+)
 
 
     # ---------------------------------------------
