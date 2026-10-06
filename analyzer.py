@@ -15,25 +15,42 @@ def analyze_report(text):
         if not line:
             continue
 
-        # Pattern for:
+        # Remove extra spaces
+        line = re.sub(r"\s+", " ", line)
+
+        # Pattern:
         # Hemoglobin 12.8 g/dL 12.0 - 15.5
         pattern = re.search(
             r"^(.+?)\s+"
-            r"(\d+(?:\.\d+)?)\s+"
-            r"([a-zA-Z/%µ]+)\s+"
-            r"(\d+(?:\.\d+)?)\s*[-–]\s*"
-            r"(\d+(?:\.\d+)?)\s*$",
+            r"([\d,]+(?:\.\d+)?)\s+"
+            r"([a-zA-Z/%µμ]+)"
+            r"\s+"
+            r"(?:(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)"
+            r"|<\s*(\d+(?:\.\d+)?))"
+            r"\s*$",
             line
         )
 
-        if pattern:
+        if not pattern:
+            continue
 
-            test_name = pattern.group(1).strip()
-            value = float(pattern.group(2))
-            unit = pattern.group(3)
+        test_name = pattern.group(1).strip()
 
-            low = float(pattern.group(4))
-            high = float(pattern.group(5))
+        value = float(
+            pattern.group(2).replace(",", "")
+        )
+
+        unit = pattern.group(3)
+
+        low = pattern.group(4)
+        high = pattern.group(5)
+        upper_limit = pattern.group(6)
+
+        # Normal reference range
+        if low is not None and high is not None:
+
+            low = float(low)
+            high = float(high)
 
             if value < low:
                 status = "Below Range"
@@ -44,12 +61,30 @@ def analyze_report(text):
             else:
                 status = "Within Range"
 
-            results.append({
-                "Test": test_name,
-                "Result": value,
-                "Unit": unit,
-                "Reference Range": f"{low} - {high}",
-                "Status": status
-            })
+            reference_range = f"{low:g} - {high:g}"
+
+        # Reference such as < 200
+        elif upper_limit is not None:
+
+            upper_limit = float(upper_limit)
+
+            if value < upper_limit:
+                status = "Within Range"
+
+            else:
+                status = "Above Range"
+
+            reference_range = f"< {upper_limit:g}"
+
+        else:
+            continue
+
+        results.append({
+            "Test": test_name,
+            "Result": value,
+            "Unit": unit,
+            "Reference Range": reference_range,
+            "Status": status
+        })
 
     return pd.DataFrame(results)
