@@ -5,86 +5,214 @@ import pandas as pd
 def analyze_report(text):
 
     results = []
-
     lines = text.splitlines()
 
-    for line in lines:
+    i = 0
 
-        line = line.strip()
+    while i < len(lines):
+
+        line = lines[i].strip()
 
         if not line:
+            i += 1
             continue
 
-        # Remove extra spaces
+        # Clean extra spaces
         line = re.sub(r"\s+", " ", line)
 
-        # Pattern:
-        # Hemoglobin 12.8 g/dL 12.0 - 15.5
-        pattern = re.search(
-            r"^(.+?)\s+"
+        # -------------------------------------------------
+        # FORMAT 1
+        # Test: 12.8 g/dL
+        # Reference Range: 12.0 - 15.5
+        # -------------------------------------------------
+
+        test_match = re.match(
+            r"^(.+?):\s*"
             r"([\d,]+(?:\.\d+)?)\s+"
-            r"([a-zA-Z/%µμ]+)"
-            r"\s+"
-            r"(?:(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)"
-            r"|<\s*(\d+(?:\.\d+)?))"
-            r"\s*$",
+            r"([a-zA-Z/%µμ]+(?:/[a-zA-Z]+)?)\s*$",
             line
         )
 
-        if not pattern:
-            continue
+        if test_match and i + 1 < len(lines):
 
-        test_name = pattern.group(1).strip()
+            test_name = test_match.group(1).strip()
 
-        value = float(
-            pattern.group(2).replace(",", "")
+            try:
+                value = float(
+                    test_match.group(2).replace(",", "")
+                )
+            except ValueError:
+                i += 1
+                continue
+
+            unit = test_match.group(3)
+
+            next_line = re.sub(
+                r"\s+",
+                " ",
+                lines[i + 1].strip()
+            )
+
+            reference_match = re.match(
+                r"^Reference Range:\s*"
+                r"(\d+(?:\.\d+)?)\s*[-–]\s*"
+                r"(\d+(?:\.\d+)?)\s*$",
+                next_line,
+                re.IGNORECASE
+            )
+
+            less_than_match = re.match(
+                r"^Reference Range:\s*<\s*"
+                r"(\d+(?:\.\d+)?)\s*$",
+                next_line,
+                re.IGNORECASE
+            )
+
+            if reference_match:
+
+                low = float(reference_match.group(1))
+                high = float(reference_match.group(2))
+
+                if value < low:
+                    status = "Below Range"
+                elif value > high:
+                    status = "Above Range"
+                else:
+                    status = "Within Range"
+
+                results.append({
+                    "Test": test_name,
+                    "Result": value,
+                    "Unit": unit,
+                    "Reference Range": f"{low:g} - {high:g}",
+                    "Status": status
+                })
+
+                i += 2
+                continue
+
+            elif less_than_match:
+
+                high = float(
+                    less_than_match.group(1)
+                )
+
+                if value < high:
+                    status = "Within Range"
+                else:
+                    status = "Above Range"
+
+                results.append({
+                    "Test": test_name,
+                    "Result": value,
+                    "Unit": unit,
+                    "Reference Range": f"< {high:g}",
+                    "Status": status
+                })
+
+                i += 2
+                continue
+
+        # -------------------------------------------------
+        # FORMAT 2
+        # Hemoglobin 12.8 g/dL 12.0 - 15.5
+        # -------------------------------------------------
+
+        normal_match = re.match(
+            r"^(.+?)\s+"
+            r"([\d,]+(?:\.\d+)?)\s+"
+            r"([a-zA-Z/%µμ]+(?:/[a-zA-Z]+)?)\s+"
+            r"(\d+(?:\.\d+)?)\s*[-–]\s*"
+            r"(\d+(?:\.\d+)?)$",
+            line
         )
 
-        unit = pattern.group(3)
+        if normal_match:
 
-        low = pattern.group(4)
-        high = pattern.group(5)
-        upper_limit = pattern.group(6)
+            test_name = normal_match.group(1).strip()
 
-        # Normal reference range
-        if low is not None and high is not None:
+            value = float(
+                normal_match.group(2).replace(",", "")
+            )
 
-            low = float(low)
-            high = float(high)
+            unit = normal_match.group(3)
+
+            low = float(normal_match.group(4))
+            high = float(normal_match.group(5))
 
             if value < low:
                 status = "Below Range"
-
             elif value > high:
                 status = "Above Range"
-
             else:
                 status = "Within Range"
 
-            reference_range = f"{low:g} - {high:g}"
+            results.append({
+                "Test": test_name,
+                "Result": value,
+                "Unit": unit,
+                "Reference Range": f"{low:g} - {high:g}",
+                "Status": status
+            })
 
-        # Reference such as < 200
-        elif upper_limit is not None:
+        # -------------------------------------------------
+        # FORMAT 3
+        # Total Cholesterol 185 mg/dL < 200
+        # -------------------------------------------------
 
-            upper_limit = float(upper_limit)
+        less_match = re.match(
+            r"^(.+?)\s+"
+            r"([\d,]+(?:\.\d+)?)\s+"
+            r"([a-zA-Z/%µμ]+(?:/[a-zA-Z]+)?)\s+"
+            r"<\s*(\d+(?:\.\d+)?)$",
+            line
+        )
 
-            if value < upper_limit:
+        if less_match:
+
+            test_name = less_match.group(1).strip()
+
+            value = float(
+                less_match.group(2).replace(",", "")
+            )
+
+            unit = less_match.group(3)
+
+            high = float(less_match.group(4))
+
+            if value < high:
                 status = "Within Range"
-
             else:
                 status = "Above Range"
 
-            reference_range = f"< {upper_limit:g}"
+            results.append({
+                "Test": test_name,
+                "Result": value,
+                "Unit": unit,
+                "Reference Range": f"< {high:g}",
+                "Status": status
+            })
 
-        else:
-            continue
+        i += 1
 
-        results.append({
-            "Test": test_name,
-            "Result": value,
-            "Unit": unit,
-            "Reference Range": reference_range,
-            "Status": status
-        })
+    # Remove duplicate tests
+    if results:
 
-    return pd.DataFrame(results)
+        dataframe = pd.DataFrame(results)
+
+        dataframe = dataframe.drop_duplicates(
+            subset=["Test"],
+            keep="first"
+        )
+
+        return dataframe
+
+    return pd.DataFrame(
+        columns=[
+            "Test",
+            "Result",
+            "Unit",
+            "Reference Range",
+            "Status"
+        ]
+    )
