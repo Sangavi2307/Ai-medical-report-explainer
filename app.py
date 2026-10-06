@@ -1,164 +1,160 @@
 import streamlit as st
-from extractor import extract_text_from_pdf
+from extractor import (
+    extract_text_from_pdf,
+    extract_text_from_image
+)
 from analyzer import analyze_report
-from ai_explainer import ai_explain_report
-from ocr_service import extract_text_from_image
 
 
 st.set_page_config(
     page_title="AI Medical Report Explainer",
-    page_icon="🩺"
+    page_icon="🩺",
+    layout="wide"
 )
+
 
 st.title("🩺 AI Medical Report Explainer")
 
 st.write(
-    "Upload a medical report and extract and analyze laboratory results."
+    "Upload a medical report in PDF or image format "
+    "and analyze the test results."
 )
 
 st.info(
-    "This application provides informational explanations "
-    "and does not replace professional medical evaluation."
+    "⚠️ Educational purpose only. "
+    "This application does not provide diagnosis or treatment."
 )
 
-st.subheader("📄 Upload Medical Report")
 
 uploaded_file = st.file_uploader(
-    "Choose a PDF or image file",
-    type=["pdf", "jpg", "jpeg", "png"]
+    "📄 Choose a medical report",
+    type=["pdf", "png", "jpg", "jpeg"]
 )
 
-if uploaded_file is not None:
+
+if uploaded_file:
 
     st.success(
-        f"✅ Upload successful: {uploaded_file.name}"
+        f"✅ File uploaded: {uploaded_file.name}"
     )
 
-    try:
+    # ---------------------------------
+    # PDF
+    # ---------------------------------
 
-        file_type = uploaded_file.name.lower()
+    if uploaded_file.type == "application/pdf":
 
-        # PDF extraction
-        if file_type.endswith(".pdf"):
+        with st.spinner("📄 Extracting text from PDF..."):
 
             extracted_text = extract_text_from_pdf(
                 uploaded_file
             )
 
-        # Image OCR extraction
-        else:
+    # ---------------------------------
+    # IMAGE
+    # ---------------------------------
 
-            with st.spinner("🔎 Reading text from the image..."):
+    else:
 
-                extracted_text = extract_text_from_image(
-                    uploaded_file
-                )
+        with st.spinner("🖼️ Reading image using OCR..."):
 
-        if extracted_text.strip():
-
-            st.subheader("📋 Extracted Report Text")
-
-            st.text_area(
-                "Report content",
-                extracted_text,
-                height=400
+            extracted_text = extract_text_from_image(
+                uploaded_file
             )
+
+
+    # ---------------------------------
+    # SHOW EXTRACTED TEXT
+    # ---------------------------------
+
+    st.subheader("📄 Extracted Text")
+
+    if extracted_text.strip():
+
+        st.text_area(
+            "Text extracted from your report:",
+            extracted_text,
+            height=300
+        )
+
+    else:
+
+        st.warning(
+            "⚠️ No text could be extracted from this report."
+        )
+
+
+    # ---------------------------------
+    # ANALYZE
+    # ---------------------------------
+
+    if st.button("🔍 Analyze Report"):
+
+        with st.spinner("🔎 Analyzing laboratory results..."):
+
+            results = analyze_report(
+                extracted_text
+            )
+
+
+        if not results.empty:
 
             st.subheader("📊 Medical Test Analysis")
 
-            if st.button("🔍 Analyze Report"):
+            st.dataframe(
+                results,
+                use_container_width=True
+            )
 
-                results = analyze_report(
-                    extracted_text
-                )
 
-                if not results.empty:
+            # Count statuses
+            below = len(
+                results[
+                    results["Status"] == "Below Range"
+                ]
+            )
 
-                    st.dataframe(
-                        results,
-                        use_container_width=True
-                    )
+            within = len(
+                results[
+                    results["Status"] == "Within Range"
+                ]
+            )
 
-                    st.subheader("📌 Summary")
+            above = len(
+                results[
+                    results["Status"] == "Above Range"
+                ]
+            )
 
-                    within = len(
-                        results[
-                            results["Status"] == "Within Range"
-                        ]
-                    )
 
-                    below = len(
-                        results[
-                            results["Status"] == "Below Range"
-                        ]
-                    )
+            col1, col2, col3 = st.columns(3)
 
-                    above = len(
-                        results[
-                            results["Status"] == "Above Range"
-                        ]
-                    )
 
-                    col1, col2, col3 = st.columns(3)
+            col1.metric(
+                "🟢 Within Range",
+                within
+            )
 
-                    col1.metric(
-                        "🟢 Within Range",
-                        within
-                    )
 
-                    col2.metric(
-                        "🟠 Below Range",
-                        below
-                    )
+            col2.metric(
+                "🟡 Below Range",
+                below
+            )
 
-                    col3.metric(
-                        "🔴 Above Range",
-                        above
-                    )
 
-                    st.subheader(
-                        "🤖 AI Educational Explanation"
-                    )
+            col3.metric(
+                "🔴 Above Range",
+                above
+            )
 
-                    with st.spinner(
-                        "AI is analyzing the report..."
-                    ):
-
-                        ai_summary = ai_explain_report(
-                            extracted_text
-                        )
-
-                    st.markdown(ai_summary)
-
-                else:
-
-                    st.warning(
-                        "No laboratory test results were detected."
-                    )
 
         else:
 
             st.warning(
-                "The file was uploaded successfully, "
-                "but no text was found."
+                "⚠️ No laboratory test results were detected."
             )
 
-            if not file_type.endswith(".pdf"):
-
-                st.info(
-                    "OCR could not detect readable text in this image. "
-                    "Try uploading a clearer image."
-                )
-
-            else:
-
-                st.info(
-                    "This PDF may be scanned or image-based. "
-                    "Try uploading the report as a JPG or PNG image."
-                )
-
-    except Exception as e:
-
-        st.error(
-            f"Could not process the file: {e}"
+            st.info(
+                "Please make sure the report contains "
+                "test values and reference ranges."
         )
