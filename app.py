@@ -266,11 +266,12 @@ if uploaded_file is not None:
                             extracted_text
                         )
 
-                    st.markdown(ai_summary)
-                 
-                     # ----------------------------------
-                     # DOWNLOAD REPORT
-                    # ------------------------------
+                   st.markdown(ai_summary)
+
+# ----------------------------------
+# DOWNLOAD REPORT
+# ----------------------------------
+
 pdf_report = generate_report(
     results,
     ai_summary
@@ -283,20 +284,6 @@ st.download_button(
     mime="application/pdf",
     use_container_width=True
 )
-Then
-Save app.py
-Commit to main
-Wait for Streamlit to redeploy
-Upload your PDF/JPG
-Click 🔍 Analyze Report
-Scroll down
-
-You should see:
-
-📥 Download Report
-
-Clicking it should download a PDF containing the laboratory results, AI explanation, and disclaimer.
-
 
                     # ----------------------------------
                     # FINAL DISCLAIMER
