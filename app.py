@@ -7,392 +7,754 @@ from ocr_service import extract_text_from_image
 from report_generator import generate_report
 
 
-# =========================================================
-# PAGE SETTINGS
-# =========================================================
+# ============================================================
+# PAGE CONFIGURATION
+# ============================================================
 
 st.set_page_config(
     page_title="AI Medical Report Explainer",
     page_icon="🩺",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 
-# =========================================================
-# CSS
-# =========================================================
+# ============================================================
+# PROFESSIONAL UI CSS
+# ============================================================
 
 st.markdown(
     """
-    <style>
+<style>
 
-    .stApp {
-        background-color: #f5f8fc;
-    }
+/* ---------------------------------------------------------
+   GENERAL
+--------------------------------------------------------- */
 
-    [data-testid="stSidebar"] {
-        display: none;
-    }
+.stApp {
+    background: #f4f8fc;
+}
+
+.block-container {
+    max-width: 1180px;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+
+/* ---------------------------------------------------------
+   HIDE SIDEBAR
+--------------------------------------------------------- */
+
+[data-testid="stSidebar"] {
+    display: none;
+}
+
+[data-testid="collapsedControl"] {
+    display: none;
+}
+
+
+/* ---------------------------------------------------------
+   HERO HEADER
+--------------------------------------------------------- */
+
+.hero {
+    background: linear-gradient(
+        135deg,
+        #0d3b66 0%,
+        #1261a0 55%,
+        #1683c4 100%
+    );
+
+    padding: 34px 36px;
+    border-radius: 24px;
+    margin-bottom: 26px;
+
+    box-shadow:
+        0 12px 30px rgba(13, 59, 102, 0.20);
+}
+
+.hero-icon {
+    font-size: 42px;
+    margin-bottom: 8px;
+}
+
+.hero-title {
+    color: white;
+    font-size: 36px;
+    font-weight: 750;
+    line-height: 1.2;
+    margin-bottom: 10px;
+}
+
+.hero-subtitle {
+    color: #e9f5ff;
+    font-size: 17px;
+    line-height: 1.6;
+    max-width: 750px;
+}
+
+.badges {
+    margin-top: 20px;
+}
+
+.badge {
+    display: inline-block;
+    color: white;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 30px;
+    padding: 7px 13px;
+    margin-right: 7px;
+    margin-bottom: 7px;
+    font-size: 13px;
+}
+
+
+/* ---------------------------------------------------------
+   SECTION HEADINGS
+--------------------------------------------------------- */
+
+.section-heading {
+    color: #123b63;
+    font-size: 25px;
+    font-weight: 750;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+.section-description {
+    color: #687b8d;
+    font-size: 15px;
+    margin-top: -5px;
+    margin-bottom: 18px;
+}
+
+
+/* ---------------------------------------------------------
+   HOW IT WORKS
+--------------------------------------------------------- */
+
+.step-card {
+    background: white;
+    border: 1px solid #e0e9f1;
+    border-radius: 18px;
+    padding: 20px 16px;
+    min-height: 175px;
+
+    box-shadow:
+        0 5px 18px rgba(24, 63, 95, 0.07);
+
+    text-align: center;
+}
+
+.step-number {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 10px auto;
+
+    border-radius: 50%;
+
+    background: #e8f3fb;
+    color: #1261a0;
+
+    font-size: 20px;
+    font-weight: 700;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.step-icon {
+    font-size: 27px;
+    margin-bottom: 6px;
+}
+
+.step-title {
+    color: #123b63;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.step-text {
+    color: #718294;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+
+/* ---------------------------------------------------------
+   UPLOAD CARD
+--------------------------------------------------------- */
+
+.upload-card {
+    background: white;
+    border: 1px solid #dce7f0;
+    border-radius: 20px;
+    padding: 25px;
+
+    box-shadow:
+        0 6px 20px rgba(20, 55, 90, 0.07);
+}
+
+.upload-title {
+    color: #123b63;
+    font-size: 21px;
+    font-weight: 700;
+}
+
+.upload-description {
+    color: #718294;
+    font-size: 14px;
+    margin-top: 5px;
+    margin-bottom: 12px;
+}
+
+
+/* ---------------------------------------------------------
+   STREAMLIT FILE UPLOADER
+--------------------------------------------------------- */
+
+[data-testid="stFileUploader"] {
+    background: #f8fbfe !important;
+    border: 2px dashed #8dbbd8 !important;
+    border-radius: 16px !important;
+    padding: 10px !important;
+}
+
+[data-testid="stFileUploader"] section {
+    background: transparent !important;
+}
+
+[data-testid="stFileUploaderDropzoneInstructions"] {
+    color: #526b80 !important;
+}
+
+
+/* ---------------------------------------------------------
+   BUTTON
+--------------------------------------------------------- */
+
+.stButton > button {
+    width: 100%;
+    min-height: 48px;
+
+    background: linear-gradient(
+        135deg,
+        #1261a0,
+        #1683c4
+    );
+
+    color: white !important;
+
+    border: none;
+    border-radius: 12px;
+
+    font-size: 16px;
+    font-weight: 700;
+
+    box-shadow:
+        0 5px 15px rgba(18, 97, 160, 0.20);
+}
+
+.stButton > button:hover {
+    background: #0d568f;
+    color: white !important;
+}
+
+
+/* ---------------------------------------------------------
+   METRIC CARDS
+--------------------------------------------------------- */
+
+.metric-card {
+    background: white;
+    border: 1px solid #e0e8f0;
+    border-radius: 17px;
+
+    padding: 20px 10px;
+
+    text-align: center;
+
+    min-height: 125px;
+
+    box-shadow:
+        0 5px 18px rgba(24, 63, 95, 0.07);
+}
+
+.metric-icon {
+    font-size: 22px;
+}
+
+.metric-label {
+    color: #718294;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+.metric-value {
+    font-size: 30px;
+    font-weight: 750;
+    margin-top: 4px;
+}
+
+.blue {
+    color: #1261a0;
+}
+
+.green {
+    color: #159447;
+}
+
+.orange {
+    color: #df8700;
+}
+
+.red {
+    color: #d53d3d;
+}
+
+
+/* ---------------------------------------------------------
+   RESULT SUMMARY
+--------------------------------------------------------- */
+
+.summary-card {
+    background: white;
+
+    border-left: 5px solid #1683c4;
+
+    border-radius: 14px;
+
+    padding: 20px;
+
+    margin-top: 10px;
+
+    box-shadow:
+        0 5px 18px rgba(24, 63, 95, 0.06);
+}
+
+.summary-title {
+    color: #123b63;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 7px;
+}
+
+.summary-text {
+    color: #627588;
+    line-height: 1.7;
+}
+
+
+/* ---------------------------------------------------------
+   AI BOX
+--------------------------------------------------------- */
+
+.ai-card {
+    background: white;
+
+    border: 1px solid #dce7f0;
+    border-left: 5px solid #1261a0;
+
+    border-radius: 16px;
+
+    padding: 23px;
+
+    box-shadow:
+        0 6px 20px rgba(20, 55, 90, 0.07);
+
+    color: #3e5366;
+
+    line-height: 1.75;
+}
+
+
+/* ---------------------------------------------------------
+   DOWNLOAD CARD
+--------------------------------------------------------- */
+
+.download-card {
+    background: #edf7ff;
+    border: 1px solid #cce7f8;
+
+    border-radius: 16px;
+
+    padding: 20px;
+
+    margin-top: 15px;
+}
+
+.download-title {
+    color: #123b63;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.download-text {
+    color: #657a8c;
+    font-size: 14px;
+}
+
+
+/* ---------------------------------------------------------
+   DISCLAIMER
+--------------------------------------------------------- */
+
+.disclaimer {
+    background: #fff8e8;
+
+    border-left: 5px solid #e6a21a;
+
+    border-radius: 14px;
+
+    padding: 20px;
+
+    margin-top: 25px;
+
+    color: #69531e;
+
+    line-height: 1.7;
+}
+
+.disclaimer-title {
+    font-weight: 750;
+    font-size: 17px;
+}
+
+
+/* ---------------------------------------------------------
+   FOOTER
+--------------------------------------------------------- */
+
+.footer {
+    text-align: center;
+
+    color: #7a8b9b;
+
+    font-size: 13px;
+
+    margin-top: 35px;
+    padding: 20px 0;
+}
+
+
+/* ---------------------------------------------------------
+   MOBILE RESPONSIVE
+--------------------------------------------------------- */
+
+@media (max-width: 700px) {
 
     .block-container {
-        max-width: 1200px;
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 1rem;
     }
 
-    .main-title {
-        font-size: 38px;
-        font-weight: 700;
-        color: #123b63;
-        margin-bottom: 5px;
-    }
-
-    .subtitle {
-        color: #60758a;
-        font-size: 17px;
-        margin-bottom: 25px;
-    }
-
-    .section-title {
-        font-size: 24px;
-        font-weight: 700;
-        color: #123b63;
-        margin-top: 25px;
-        margin-bottom: 12px;
-    }
-
-    .info-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 14px;
-        border: 1px solid #dce6f0;
-        box-shadow: 0 3px 12px rgba(20, 55, 90, 0.08);
-        margin-bottom: 18px;
-    }
-
-    .info-card h3 {
-        color: #123b63;
-        margin-bottom: 8px;
-    }
-
-    .info-card p {
-        color: #60758a;
-        line-height: 1.6;
-    }
-
-    .metric-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 14px;
-        border: 1px solid #dce6f0;
-        box-shadow: 0 3px 12px rgba(20, 55, 90, 0.08);
-        text-align: center;
-        min-height: 120px;
-    }
-
-    .metric-label {
-        color: #60758a;
-        font-size: 15px;
-    }
-
-    .metric-number {
-        font-size: 32px;
-        font-weight: 700;
-        margin-top: 8px;
-    }
-
-    .blue-number {
-        color: #1769aa;
-    }
-
-    .green-number {
-        color: #159447;
-    }
-
-    .orange-number {
-        color: #e38b18;
-    }
-
-    .red-number {
-        color: #d63b3b;
-    }
-
-    [data-testid="stFileUploader"] {
-        background-color: white;
-        border: 2px dashed #8bb7dd;
-        border-radius: 14px;
-        padding: 15px;
-    }
-
-    .ai-box {
-        background-color: white;
-        border-left: 5px solid #1769aa;
-        padding: 22px;
-        border-radius: 12px;
-        border-top: 1px solid #dce6f0;
-        border-right: 1px solid #dce6f0;
-        border-bottom: 1px solid #dce6f0;
-        box-shadow: 0 3px 12px rgba(20, 55, 90, 0.08);
-        line-height: 1.7;
-        color: #34495e;
-    }
-
-    .medical-disclaimer {
-        background-color: #fff7e6;
-        border-left: 5px solid #f0a500;
-        padding: 18px;
-        border-radius: 10px;
-        color: #684d00;
-        margin-top: 20px;
-        line-height: 1.6;
-    }
-
-    .footer {
-        text-align: center;
-        color: #718096;
-        font-size: 13px;
-        padding: 30px 0 10px 0;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# =========================================================
-# HEADER
-# =========================================================
-
-st.markdown(
-    """
-    <style>
-
-    /* your existing CSS */
-
-    .main-title {
-        ...
-    }
-
-    .subtitle {
-        ...
-    }
-
-
-    /* ADD THE NEW HERO CSS HERE */
-
-    .hero-section {
-        background: linear-gradient(
-            135deg,
-            #123b63,
-            #1769aa
-        );
-        padding: 35px;
-        border-radius: 22px;
-        display: flex;
-        align-items: center;
-        gap: 25px;
-        margin-bottom: 28px;
-        box-shadow: 0 8px 25px rgba(20, 55, 90, 0.18);
-    }
-
-    .hero-icon {
-        background: rgba(255, 255, 255, 0.15);
-        width: 85px;
-        height: 85px;
+    .hero {
+        padding: 25px 22px;
         border-radius: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 45px;
     }
 
     .hero-title {
-        color: white;
-        font-size: 36px;
-        font-weight: 700;
+        font-size: 27px;
     }
 
     .hero-subtitle {
-        color: #e5f1fb;
-        font-size: 17px;
-        margin-top: 8px;
+        font-size: 15px;
     }
 
-    .hero-badges {
-        display: flex;
-        gap: 10px;
-        margin-top: 18px;
-        flex-wrap: wrap;
+    .section-heading {
+        font-size: 21px;
     }
 
-    .hero-badges span {
-        background: rgba(255, 255, 255, 0.14);
-        color: white;
-        padding: 7px 12px;
-        border-radius: 20px;
-        font-size: 13px;
+    .step-card {
+        min-height: auto;
+        margin-bottom: 10px;
     }
 
+    .upload-card {
+        padding: 17px;
+    }
 
-    /* your other existing CSS */
+    .metric-card {
+        margin-bottom: 10px;
+    }
 
+}
 
-    </style>
-    """,
+</style>
+""",
     unsafe_allow_html=True
 )
-# =========================================================
-# PROFESSIONAL HEADER
-# =========================================================
+
+
+# ============================================================
+# HERO HEADER
+# ============================================================
 
 st.markdown(
     """
-    <div class="hero-section">
+<div class="hero">
 
-        <div class="hero-title">
-            🩺 AI Medical Report Explainer
-        </div>
-
-        <div class="hero-subtitle">
-            Understand your laboratory reports with clear,
-            simple and educational AI explanations.
-        </div>
-
-        <div class="hero-badges">
-            <span>🔒 Privacy Focused</span>
-            <span>🤖 AI Assisted</span>
-            <span>📊 Easy to Understand</span>
-        </div>
-
+    <div class="hero-icon">
+        🩺
     </div>
-    """,
+
+    <div class="hero-title">
+        AI Medical Report Explainer
+    </div>
+
+    <div class="hero-subtitle">
+        Understand your laboratory reports with clear,
+        simple and educational AI explanations.
+    </div>
+
+    <div class="badges">
+        <span class="badge">🔒 Privacy Focused</span>
+        <span class="badge">🤖 AI Assisted</span>
+        <span class="badge">📊 Easy to Understand</span>
+    </div>
+
+</div>
+""",
     unsafe_allow_html=True
 )
-# =========================================================
+
+
+# ============================================================
 # HOW IT WORKS
-# =========================================================
+# ============================================================
 
 st.markdown(
-    '<div class="info-card">'
-    '<h3>📋 How it works</h3>'
-    '<p>Upload your medical report → Extract the report text → '
-    'Identify laboratory results → Get an educational AI explanation.</p>'
+    '<div class="section-heading">📋 How It Works</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="section-description">'
+    'Four simple steps to understand your uploaded report.'
     '</div>',
     unsafe_allow_html=True
 )
 
 
-# =========================================================
-# UPLOAD
-# =========================================================
+step1, step2, step3, step4 = st.columns(4)
+
+
+with step1:
+
+    st.markdown(
+        """
+        <div class="step-card">
+
+            <div class="step-number">1</div>
+
+            <div class="step-icon">📄</div>
+
+            <div class="step-title">
+                Upload Report
+            </div>
+
+            <div class="step-text">
+                Upload your medical report
+                as PDF or image.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+with step2:
+
+    st.markdown(
+        """
+        <div class="step-card">
+
+            <div class="step-number">2</div>
+
+            <div class="step-icon">🔎</div>
+
+            <div class="step-title">
+                Extract Text
+            </div>
+
+            <div class="step-text">
+                The application reads
+                information from the report.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+with step3:
+
+    st.markdown(
+        """
+        <div class="step-card">
+
+            <div class="step-number">3</div>
+
+            <div class="step-icon">🧪</div>
+
+            <div class="step-title">
+                Analyze Results
+            </div>
+
+            <div class="step-text">
+                Laboratory values and
+                reference ranges are identified.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+with step4:
+
+    st.markdown(
+        """
+        <div class="step-card">
+
+            <div class="step-number">4</div>
+
+            <div class="step-icon">🤖</div>
+
+            <div class="step-title">
+                AI Explanation
+            </div>
+
+            <div class="step-text">
+                Results are explained in
+                simple educational language.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# ============================================================
+# UPLOAD SECTION
+# ============================================================
 
 st.markdown(
-    '<div class="section-title">📄 Upload Medical Report</div>',
+    '<div class="section-heading">📄 Upload Medical Report</div>',
     unsafe_allow_html=True
 )
 
+st.markdown(
+    '<div class="upload-card">'
+    '<div class="upload-title">Choose your report</div>'
+    '<div class="upload-description">'
+    'Supported formats: PDF, JPG, JPEG and PNG'
+    '</div>'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown("")
+
+
 uploaded_file = st.file_uploader(
-    "Choose a PDF or image file",
-    type=["pdf", "jpg", "jpeg", "png"],
-    help="Supported formats: PDF, JPG, JPEG and PNG"
+    "Upload your medical report",
+    type=[
+        "pdf",
+        "jpg",
+        "jpeg",
+        "png"
+    ],
+    help="Maximum file size depends on your Streamlit deployment settings.",
+    label_visibility="collapsed"
 )
 
 
-# =========================================================
-# FILE PROCESSING
-# =========================================================
+# ============================================================
+# FILE UPLOADED
+# ============================================================
 
 if uploaded_file is not None:
 
     st.success(
-        "✅ Upload successful: " + uploaded_file.name
+        "✅ File uploaded successfully: "
+        + uploaded_file.name
     )
 
     file_name = uploaded_file.name.lower()
 
-    try:
 
-        # -------------------------------------------------
-        # PDF
-        # -------------------------------------------------
+    # ========================================================
+    # EXTRACT TEXT
+    # ========================================================
+
+    try:
 
         if file_name.endswith(".pdf"):
 
-            with st.spinner("📄 Extracting text from PDF..."):
+            with st.spinner(
+                "📄 Reading your PDF report..."
+            ):
 
                 extracted_text = extract_text_from_pdf(
                     uploaded_file
                 )
 
-        # -------------------------------------------------
-        # IMAGE
-        # -------------------------------------------------
-
         else:
 
-            with st.spinner("🔎 Reading text from image..."):
+            with st.spinner(
+                "🔎 Reading text from your image..."
+            ):
 
                 extracted_text = extract_text_from_image(
                     uploaded_file
                 )
 
 
-        # -------------------------------------------------
-        # NO TEXT
-        # -------------------------------------------------
+        # ====================================================
+        # TEXT FOUND
+        # ====================================================
 
-        if not extracted_text or not extracted_text.strip():
-
-            st.error(
-                "❌ No readable text was found in the uploaded file."
-            )
-
-            if file_name.endswith(".pdf"):
-
-                st.info(
-                    "This PDF may be scanned or image-based. "
-                    "Try uploading the report as JPG or PNG."
-                )
-
-            else:
-
-                st.info(
-                    "Try uploading a clearer image with good lighting "
-                    "and readable text."
-                )
-
-
-        else:
-
-            # -------------------------------------------------
-            # EXTRACTED TEXT
-            # -------------------------------------------------
+        if extracted_text and extracted_text.strip():
 
             st.markdown(
-                '<div class="section-title">📋 Extracted Report Text</div>',
+                '<div class="section-heading">'
+                '📋 Extracted Report'
+                '</div>',
                 unsafe_allow_html=True
             )
 
             with st.expander(
                 "View extracted report text",
-                expanded=True
+                expanded=False
             ):
 
                 st.text_area(
-                    "Report text",
+                    "Extracted text",
                     extracted_text,
                     height=300,
                     label_visibility="collapsed"
                 )
 
 
-            # -------------------------------------------------
+            # =================================================
             # ANALYZE BUTTON
-            # -------------------------------------------------
+            # =================================================
+
+            st.markdown("")
 
             analyze_clicked = st.button(
-                "🔍 Analyze Report",
+                "🔍 Analyze Medical Report",
                 use_container_width=True
             )
 
@@ -408,17 +770,19 @@ if uploaded_file is not None:
                     )
 
 
-                # -------------------------------------------------
-                # RESULTS
-                # -------------------------------------------------
-
-                st.markdown(
-                    '<div class="section-title">🧪 Laboratory Results</div>',
-                    unsafe_allow_html=True
-                )
-
+                # =================================================
+                # RESULTS FOUND
+                # =================================================
 
                 if not results.empty:
+
+                    st.markdown(
+                        '<div class="section-heading">'
+                        '📊 Laboratory Results Dashboard'
+                        '</div>',
+                        unsafe_allow_html=True
+                    )
+
 
                     total_tests = len(results)
 
@@ -441,286 +805,143 @@ if uploaded_file is not None:
                     )
 
 
-                    # -------------------------------------------------
-                    # DASHBOARD CARDS
-                    # -------------------------------------------------
+                    # =================================================
+                    # METRICS
+                    # =================================================
 
-                    col1, col2, col3, col4 = st.columns(4)
+                    m1, m2, m3, m4 = st.columns(4)
 
 
-                    with col1:
+                    with m1:
 
                         st.markdown(
-                            '<div class="metric-card">'
-                            '<div class="metric-label">🧪 Total Tests</div>'
-                            '<div class="metric-number blue-number">'
-                            + str(total_tests) +
-                            '</div>'
-                            '</div>',
+                            f"""
+                            <div class="metric-card">
+
+                                <div class="metric-icon">
+                                    🧪
+                                </div>
+
+                                <div class="metric-label">
+                                    Total Tests
+                                </div>
+
+                                <div class="metric-value blue">
+                                    {total_tests}
+                                </div>
+
+                            </div>
+                            """,
                             unsafe_allow_html=True
                         )
 
 
-                    with col2:
+                    with m2:
 
                         st.markdown(
-                            '<div class="metric-card">'
-                            '<div class="metric-label">🟢 Within Range</div>'
-                            '<div class="metric-number green-number">'
-                            + str(within) +
-                            '</div>'
-                            '</div>',
+                            f"""
+                            <div class="metric-card">
+
+                                <div class="metric-icon">
+                                    🟢
+                                </div>
+
+                                <div class="metric-label">
+                                    Within Range
+                                </div>
+
+                                <div class="metric-value green">
+                                    {within}
+                                </div>
+
+                            </div>
+                            """,
                             unsafe_allow_html=True
                         )
 
 
-                    with col3:
+                    with m3:
 
                         st.markdown(
-                            '<div class="metric-card">'
-                            '<div class="metric-label">🟠 Below Range</div>'
-                            '<div class="metric-number orange-number">'
-                            + str(below) +
-                            '</div>'
-                            '</div>',
+                            f"""
+                            <div class="metric-card">
+
+                                <div class="metric-icon">
+                                    🟠
+                                </div>
+
+                                <div class="metric-label">
+                                    Below Range
+                                </div>
+
+                                <div class="metric-value orange">
+                                    {below}
+                                </div>
+
+                            </div>
+                            """,
                             unsafe_allow_html=True
                         )
 
 
-                    with col4:
+                    with m4:
 
                         st.markdown(
-                            '<div class="metric-card">'
-                            '<div class="metric-label">🔴 Above Range</div>'
-                            '<div class="metric-number red-number">'
-                            + str(above) +
-                            '</div>'
-                            '</div>',
+                            f"""
+                            <div class="metric-card">
+
+                                <div class="metric-icon">
+                                    🔴
+                                </div>
+
+                                <div class="metric-label">
+                                    Above Range
+                                </div>
+
+                                <div class="metric-value red">
+                                    {above}
+                                </div>
+
+                            </div>
+                            """,
                             unsafe_allow_html=True
                         )
 
 
-                    # -------------------------------------------------
-                    # RESULT TABLE
-                    # -------------------------------------------------
+                    # =================================================
+                    # TABLE
+                    # =================================================
 
                     st.markdown(
-                        '<div class="section-title">📊 Detailed Results</div>',
+                        '<div class="section-heading">'
+                        '🧪 Detailed Laboratory Results'
+                        '</div>',
                         unsafe_allow_html=True
                     )
 
 
-                    def highlight_status(value):
+                    def status_style(value):
 
                         if value == "Within Range":
 
                             return (
-                                "background-color: #e8f7ee;"
-                                "color: #138a42;"
-                                "font-weight: 600;"
+                                "background-color:#e8f7ee;"
+                                "color:#138a42;"
+                                "font-weight:700;"
                             )
 
                         if value == "Below Range":
 
                             return (
-                                "background-color: #fff2df;"
-                                "color: #d47700;"
-                                "font-weight: 600;"
+                                "background-color:#fff2df;"
+                                "color:#d47700;"
+                                "font-weight:700;"
                             )
 
                         if value == "Above Range":
 
                             return (
-                                "background-color: #fde8e8;"
-                                "color: #c62828;"
-                                "font-weight: 600;"
-                            )
-
-                        return ""
-
-
-                    styled_results = results.style.map(
-                        highlight_status,
-                        subset=["Status"]
-                    )
-
-
-                    st.dataframe(
-                        styled_results,
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-
-                    # -------------------------------------------------
-                    # SUMMARY
-                    # -------------------------------------------------
-
-                    st.markdown(
-                        '<div class="section-title">📌 Result Summary</div>',
-                        unsafe_allow_html=True
-                    )
-
-
-                    summary_text = (
-                        "The report contains "
-                        + str(total_tests)
-                        + " laboratory test(s). "
-                    )
-
-
-                    if within > 0:
-
-                        summary_text += (
-                            str(within)
-                            + " result(s) are within the reference "
-                            "range shown on the report. "
-                        )
-
-
-                    if below > 0:
-
-                        summary_text += (
-                            str(below)
-                            + " result(s) are below the reference "
-                            "range shown on the report. "
-                        )
-
-
-                    if above > 0:
-
-                        summary_text += (
-                            str(above)
-                            + " result(s) are above the reference "
-                            "range shown on the report."
-                        )
-
-
-                    st.markdown(
-                        '<div class="info-card">'
-                        '<p>'
-                        + summary_text +
-                        '</p>'
-                        '</div>',
-                        unsafe_allow_html=True
-                    )
-
-
-                    # -------------------------------------------------
-                    # AI EXPLANATION
-                    # -------------------------------------------------
-
-                    st.markdown(
-                        '<div class="section-title">🤖 AI Educational Explanation</div>',
-                        unsafe_allow_html=True
-                    )
-
-
-                    with st.spinner(
-                        "🤖 AI is preparing the explanation..."
-                    ):
-
-                        ai_summary = ai_explain_report(
-                            extracted_text
-                        )
-
-
-                    st.markdown(
-                        '<div class="ai-box">'
-                        + ai_summary.replace("\n", "<br>")
-                        + '</div>',
-                        unsafe_allow_html=True
-                    )
-
-
-                    # -------------------------------------------------
-                    # DOWNLOAD
-                    # -------------------------------------------------
-
-                    st.markdown(
-                        '<div class="section-title">📥 Download Report</div>',
-                        unsafe_allow_html=True
-                    )
-
-
-                    try:
-
-                        pdf_report = generate_report(
-                            results,
-                            ai_summary
-                        )
-
-
-                        st.download_button(
-                            label="📥 Download Medical Report",
-                            data=pdf_report,
-                            file_name="medical_report_explanation.pdf",
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
-
-
-                    except Exception as error:
-
-                        st.error(
-                            "❌ Could not create the PDF report: "
-                            + str(error)
-                        )
-
-
-                    # -------------------------------------------------
-                    # DISCLAIMER
-                    # -------------------------------------------------
-
-                    st.markdown(
-                        '<div class="medical-disclaimer">'
-                        '<b>⚠️ Important Medical Disclaimer</b>'
-                        '<br><br>'
-                        'This application provides informational and '
-                        'educational explanations only.'
-                        '<br><br>'
-                        'It does not provide a medical diagnosis or treatment.'
-                        '<br><br>'
-                        'Laboratory results should be interpreted by a '
-                        'qualified healthcare professional together with '
-                        'symptoms, medical history, medications and other '
-                        'clinical information.'
-                        '</div>',
-                        unsafe_allow_html=True
-                    )
-
-
-                else:
-
-                    st.warning(
-                        "⚠️ No laboratory test results were detected."
-                    )
-
-                    st.info(
-                        "The report text was extracted successfully, "
-                        "but laboratory values could not be identified. "
-                        "This may happen when the report layout or OCR "
-                        "text is different from the supported format."
-                    )
-
-
-    except Exception as error:
-
-        st.error(
-            "❌ Could not process the file: "
-            + str(error)
-        )
-
-
-# =========================================================
-# FOOTER
-# =========================================================
-
-st.markdown(
-    '<div class="footer">'
-    '🩺 AI Medical Report Explainer | '
-    'Educational Use Only | '
-    'Not a Substitute for Professional Medical Evaluation'
-    '</div>',
-    unsafe_allow_html=True
-            )
+                                "background-color:#fde8e8;"
+                                "color:#c62828;"
+                                "font-weight:700;"
+ 
