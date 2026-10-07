@@ -19,15 +19,73 @@ st.set_page_config(
 
 
 # =========================================================
-# TITLE
+# CUSTOM UI STYLE
 # =========================================================
 
-st.title("🩺 AI Medical Report Explainer")
+st.markdown(
+    """
+    <style>
 
-st.write(
-    "Upload a medical report in PDF or image format "
-    "to extract and explain laboratory results."
+    .main-title {
+        font-size: 38px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 5px;
+    }
+
+    .subtitle {
+        text-align: center;
+        font-size: 18px;
+        color: #666666;
+        margin-bottom: 25px;
+    }
+
+    .section-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin-top: 25px;
+        margin-bottom: 10px;
+    }
+
+    .info-card {
+        padding: 18px;
+        border-radius: 12px;
+        border: 1px solid #dddddd;
+        margin-bottom: 15px;
+    }
+
+    .disclaimer {
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 20px;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
 )
+
+
+# =========================================================
+# HEADER
+# =========================================================
+
+st.markdown(
+    '<div class="main-title">🩺 AI Medical Report Explainer</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">'
+    'Upload a medical report and understand laboratory results in simple language.'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+
+# =========================================================
+# INFORMATION
+# =========================================================
 
 st.info(
     "ℹ️ This application provides informational explanations "
@@ -36,19 +94,23 @@ st.info(
 
 
 # =========================================================
-# FILE UPLOAD
+# UPLOAD SECTION
 # =========================================================
 
-st.subheader("📄 Upload Medical Report")
+st.markdown(
+    '<div class="section-title">📄 Upload Medical Report</div>',
+    unsafe_allow_html=True
+)
 
 uploaded_file = st.file_uploader(
     "Choose a PDF or image file",
-    type=["pdf", "jpg", "jpeg", "png"]
+    type=["pdf", "jpg", "jpeg", "png"],
+    help="Supported formats: PDF, JPG, JPEG and PNG"
 )
 
 
 # =========================================================
-# PROCESS UPLOADED FILE
+# PROCESS FILE
 # =========================================================
 
 if uploaded_file is not None:
@@ -62,7 +124,7 @@ if uploaded_file is not None:
         file_name = uploaded_file.name.lower()
 
         # =================================================
-        # PDF EXTRACTION
+        # PDF
         # =================================================
 
         if file_name.endswith(".pdf"):
@@ -76,7 +138,7 @@ if uploaded_file is not None:
                 )
 
         # =================================================
-        # IMAGE OCR
+        # IMAGE
         # =================================================
 
         else:
@@ -89,8 +151,9 @@ if uploaded_file is not None:
                     uploaded_file
                 )
 
+
         # =================================================
-        # CHECK EXTRACTED TEXT
+        # CHECK TEXT
         # =================================================
 
         if not extracted_text.strip():
@@ -119,13 +182,17 @@ if uploaded_file is not None:
             # EXTRACTED TEXT
             # =================================================
 
-            st.subheader("📋 Extracted Report Text")
+            st.markdown(
+                '<div class="section-title">📋 Extracted Report Text</div>',
+                unsafe_allow_html=True
+            )
 
             st.text_area(
                 "Report content",
                 extracted_text,
                 height=350
             )
+
 
             # =================================================
             # ANALYZE BUTTON
@@ -137,27 +204,38 @@ if uploaded_file is not None:
             ):
 
                 # =================================================
-                # ANALYZE LABORATORY RESULTS
+                # ANALYZE
                 # =================================================
 
                 results = analyze_report(
                     extracted_text
                 )
 
+
                 # =================================================
                 # LABORATORY RESULTS
                 # =================================================
 
-                st.subheader(
-                    "🧪 Laboratory Results"
+                st.markdown(
+                    '<div class="section-title">'
+                    '🧪 Laboratory Results'
+                    '</div>',
+                    unsafe_allow_html=True
                 )
+
 
                 if not results.empty:
 
+                    # ---------------------------------------------
+                    # RESULT TABLE
+                    # ---------------------------------------------
+
                     st.dataframe(
                         results,
-                        use_container_width=True
+                        use_container_width=True,
+                        hide_index=True
                     )
+
 
                     # =================================================
                     # RESULT COUNTS
@@ -184,30 +262,53 @@ if uploaded_file is not None:
                         ]
                     )
 
+
+                    st.markdown(
+                        '<div class="section-title">'
+                        '📊 Result Summary'
+                        '</div>',
+                        unsafe_allow_html=True
+                    )
+
+
                     col1, col2, col3 = st.columns(3)
 
-                    col1.metric(
-                        "🟢 Within Range",
-                        within
-                    )
 
-                    col2.metric(
-                        "🟠 Below Range",
-                        below
-                    )
+                    with col1:
 
-                    col3.metric(
-                        "🔴 Above Range",
-                        above
-                    )
+                        st.metric(
+                            "🟢 Within Range",
+                            within
+                        )
+
+
+                    with col2:
+
+                        st.metric(
+                            "🟠 Below Range",
+                            below
+                        )
+
+
+                    with col3:
+
+                        st.metric(
+                            "🔴 Above Range",
+                            above
+                        )
+
 
                     # =================================================
                     # SHORT SUMMARY
                     # =================================================
 
-                    st.subheader(
-                        "📌 Short Summary"
+                    st.markdown(
+                        '<div class="section-title">'
+                        '📌 Short Summary'
+                        '</div>',
+                        unsafe_allow_html=True
                     )
+
 
                     total_tests = len(results)
 
@@ -218,6 +319,7 @@ if uploaded_file is not None:
                         f"{total_tests} laboratory test(s)."
                     )
 
+
                     if within > 0:
 
                         summary_parts.append(
@@ -225,6 +327,7 @@ if uploaded_file is not None:
                             f"the reference range shown "
                             f"on the report."
                         )
+
 
                     if below > 0:
 
@@ -234,6 +337,7 @@ if uploaded_file is not None:
                             f"on the report."
                         )
 
+
                     if above > 0:
 
                         summary_parts.append(
@@ -241,6 +345,7 @@ if uploaded_file is not None:
                             f"the reference range shown "
                             f"on the report."
                         )
+
 
                     summary_text = " ".join(
                         summary_parts
@@ -250,13 +355,18 @@ if uploaded_file is not None:
                         summary_text
                     )
 
+
                     # =================================================
-                    # AI EDUCATIONAL EXPLANATION
+                    # AI EXPLANATION
                     # =================================================
 
-                    st.subheader(
-                        "🤖 AI Educational Explanation"
+                    st.markdown(
+                        '<div class="section-title">'
+                        '🤖 AI Educational Explanation'
+                        '</div>',
+                        unsafe_allow_html=True
                     )
+
 
                     with st.spinner(
                         "AI is analyzing the report..."
@@ -266,17 +376,23 @@ if uploaded_file is not None:
                             extracted_text
                         )
 
+
                     st.markdown(
                         ai_summary
                     )
+
 
                     # =================================================
                     # DOWNLOAD REPORT
                     # =================================================
 
-                    st.subheader(
-                        "📥 Download Report"
+                    st.markdown(
+                        '<div class="section-title">'
+                        '📥 Download Report'
+                        '</div>',
+                        unsafe_allow_html=True
                     )
+
 
                     try:
 
@@ -284,6 +400,7 @@ if uploaded_file is not None:
                             results,
                             ai_summary
                         )
+
 
                         st.download_button(
                             label="📥 Download Medical Report",
@@ -295,25 +412,35 @@ if uploaded_file is not None:
                             use_container_width=True
                         )
 
+
                     except Exception as e:
 
                         st.error(
                             f"❌ Could not create the PDF report: {e}"
                         )
 
+
                     # =================================================
-                    # FINAL DISCLAIMER
+                    # DISCLAIMER
                     # =================================================
 
-                    st.warning(
-                        "⚠️ This explanation is for "
-                        "informational and educational "
-                        "purposes only. It does not provide "
-                        "a medical diagnosis or treatment. "
-                        "Actual medical results should be "
-                        "discussed with a qualified "
-                        "healthcare professional."
+                    st.markdown(
+                        '<div class="section-title">'
+                        '⚠️ Important Medical Information'
+                        '</div>',
+                        unsafe_allow_html=True
                     )
+
+
+                    st.warning(
+                        "This explanation is for informational "
+                        "and educational purposes only. It does "
+                        "not provide a medical diagnosis or "
+                        "treatment. Actual medical results should "
+                        "be discussed with a qualified healthcare "
+                        "professional."
+                    )
+
 
                 else:
 
@@ -322,20 +449,21 @@ if uploaded_file is not None:
                     # =================================================
 
                     st.warning(
-                        "No laboratory test results "
-                        "were detected."
+                        "No laboratory test results were detected."
                     )
 
                     st.info(
                         "The text was extracted successfully, "
-                        "but the laboratory values could not "
-                        "be identified. This can happen when "
-                        "the report layout or OCR text is "
-                        "different from the supported format."
+                        "but the laboratory values could not be "
+                        "identified. This can happen when the "
+                        "report layout or OCR text is different "
+                        "from the supported format."
                     )
+
 
     except Exception as e:
 
         st.error(
             f"❌ Could not process the file: {e}"
         )
+        
