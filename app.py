@@ -250,27 +250,19 @@ st.markdown(
     """
     <div class="hero-section">
 
-        <div class="hero-icon">
-            🩺
+        <div class="hero-title">
+            🩺 AI Medical Report Explainer
         </div>
 
-        <div class="hero-content">
+        <div class="hero-subtitle">
+            Understand your laboratory reports with clear,
+            simple and educational AI explanations.
+        </div>
 
-            <div class="hero-title">
-                AI Medical Report Explainer
-            </div>
-
-            <div class="hero-subtitle">
-                Understand your laboratory reports with
-                clear, simple and educational AI explanations.
-            </div>
-
-            <div class="hero-badges">
-                <span>🔒 Privacy Focused</span>
-                <span>🤖 AI Assisted</span>
-                <span>📊 Easy to Understand</span>
-            </div>
-
+        <div class="hero-badges">
+            <span>🔒 Privacy Focused</span>
+            <span>🤖 AI Assisted</span>
+            <span>📊 Easy to Understand</span>
         </div>
 
     </div>
