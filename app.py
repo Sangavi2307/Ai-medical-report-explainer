@@ -1,22 +1,26 @@
-
 import streamlit as st
-from report_generator import generate_report
 
 from extractor import extract_text_from_pdf
 from analyzer import analyze_report
 from ai_explainer import ai_explain_report
 from ocr_service import extract_text_from_image
+from report_generator import generate_report
 
+
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
 
 st.set_page_config(
     page_title="AI Medical Report Explainer",
-    page_icon="🩺"
+    page_icon="🩺",
+    layout="wide"
 )
 
 
-# --------------------------------------------------
-# PAGE TITLE
-# --------------------------------------------------
+# =========================================================
+# TITLE
+# =========================================================
 
 st.title("🩺 AI Medical Report Explainer")
 
@@ -31,9 +35,9 @@ st.info(
 )
 
 
-# --------------------------------------------------
+# =========================================================
 # FILE UPLOAD
-# --------------------------------------------------
+# =========================================================
 
 st.subheader("📄 Upload Medical Report")
 
@@ -43,9 +47,9 @@ uploaded_file = st.file_uploader(
 )
 
 
-# --------------------------------------------------
-# PROCESS FILE
-# --------------------------------------------------
+# =========================================================
+# PROCESS UPLOADED FILE
+# =========================================================
 
 if uploaded_file is not None:
 
@@ -57,36 +61,37 @@ if uploaded_file is not None:
 
         file_name = uploaded_file.name.lower()
 
-
-        # ------------------------------------------
-        # PDF
-        # ------------------------------------------
+        # =================================================
+        # PDF EXTRACTION
+        # =================================================
 
         if file_name.endswith(".pdf"):
 
-            with st.spinner("📄 Extracting text from PDF..."):
+            with st.spinner(
+                "📄 Extracting text from PDF..."
+            ):
 
                 extracted_text = extract_text_from_pdf(
                     uploaded_file
                 )
 
-
-        # ------------------------------------------
-        # IMAGE
-        # ------------------------------------------
+        # =================================================
+        # IMAGE OCR
+        # =================================================
 
         else:
 
-            with st.spinner("🔎 Reading text from image..."):
+            with st.spinner(
+                "🔎 Reading text from image..."
+            ):
 
                 extracted_text = extract_text_from_image(
                     uploaded_file
                 )
 
-
-        # ------------------------------------------
+        # =================================================
         # CHECK EXTRACTED TEXT
-        # ------------------------------------------
+        # =================================================
 
         if not extracted_text.strip():
 
@@ -110,9 +115,9 @@ if uploaded_file is not None:
 
         else:
 
-            # --------------------------------------
+            # =================================================
             # EXTRACTED TEXT
-            # --------------------------------------
+            # =================================================
 
             st.subheader("📋 Extracted Report Text")
 
@@ -122,28 +127,26 @@ if uploaded_file is not None:
                 height=350
             )
 
-
-            # --------------------------------------
+            # =================================================
             # ANALYZE BUTTON
-            # --------------------------------------
+            # =================================================
 
             if st.button(
                 "🔍 Analyze Report",
                 use_container_width=True
             ):
 
-                # ----------------------------------
-                # LABORATORY ANALYSIS
-                # ----------------------------------
+                # =================================================
+                # ANALYZE LABORATORY RESULTS
+                # =================================================
 
                 results = analyze_report(
                     extracted_text
                 )
 
-
-                # ----------------------------------
+                # =================================================
                 # LABORATORY RESULTS
-                # ----------------------------------
+                # =================================================
 
                 st.subheader(
                     "🧪 Laboratory Results"
@@ -156,10 +159,9 @@ if uploaded_file is not None:
                         use_container_width=True
                     )
 
-
-                    # ------------------------------
+                    # =================================================
                     # RESULT COUNTS
-                    # ------------------------------
+                    # =================================================
 
                     within = len(
                         results[
@@ -182,9 +184,7 @@ if uploaded_file is not None:
                         ]
                     )
 
-
                     col1, col2, col3 = st.columns(3)
-
 
                     col1.metric(
                         "🟢 Within Range",
@@ -201,10 +201,9 @@ if uploaded_file is not None:
                         above
                     )
 
-
-                    # ----------------------------------
+                    # =================================================
                     # SHORT SUMMARY
-                    # ----------------------------------
+                    # =================================================
 
                     st.subheader(
                         "📌 Short Summary"
@@ -247,12 +246,13 @@ if uploaded_file is not None:
                         summary_parts
                     )
 
-                    st.write(summary_text)
+                    st.write(
+                        summary_text
+                    )
 
-
-                    # ----------------------------------
-                    # AI EXPLANATION
-                    # ----------------------------------
+                    # =================================================
+                    # AI EDUCATIONAL EXPLANATION
+                    # =================================================
 
                     st.subheader(
                         "🤖 AI Educational Explanation"
@@ -266,28 +266,44 @@ if uploaded_file is not None:
                             extracted_text
                         )
 
-                   st.markdown(ai_summary)
+                    st.markdown(
+                        ai_summary
+                    )
 
-# ----------------------------------
-# DOWNLOAD REPORT
-# ----------------------------------
+                    # =================================================
+                    # DOWNLOAD REPORT
+                    # =================================================
 
-pdf_report = generate_report(
-    results,
-    ai_summary
-)
+                    st.subheader(
+                        "📥 Download Report"
+                    )
 
-st.download_button(
-    label="📥 Download Report",
-    data=pdf_report,
-    file_name="medical_report_explanation.pdf",
-    mime="application/pdf",
-    use_container_width=True
-)
+                    try:
 
-                    # ----------------------------------
+                        pdf_report = generate_report(
+                            results,
+                            ai_summary
+                        )
+
+                        st.download_button(
+                            label="📥 Download Medical Report",
+                            data=pdf_report,
+                            file_name=(
+                                "medical_report_explanation.pdf"
+                            ),
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+
+                    except Exception as e:
+
+                        st.error(
+                            f"❌ Could not create the PDF report: {e}"
+                        )
+
+                    # =================================================
                     # FINAL DISCLAIMER
-                    # ----------------------------------
+                    # =================================================
 
                     st.warning(
                         "⚠️ This explanation is for "
@@ -299,8 +315,11 @@ st.download_button(
                         "healthcare professional."
                     )
 
-
                 else:
+
+                    # =================================================
+                    # NO RESULTS
+                    # =================================================
 
                     st.warning(
                         "No laboratory test results "
@@ -314,7 +333,6 @@ st.download_button(
                         "the report layout or OCR text is "
                         "different from the supported format."
                     )
-
 
     except Exception as e:
 
