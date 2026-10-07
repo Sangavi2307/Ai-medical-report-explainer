@@ -890,6 +890,5 @@ if uploaded_file is not None:
 </div>
 """, unsafe_allow_html=True)
 
-                    with st.spinner(
-                        "🤖 Preparing educational explanation..."
-                    ):
+                    with st.spinner("🤖 Preparing educational explanation..."):
+                        ai_summary = ai_expla
