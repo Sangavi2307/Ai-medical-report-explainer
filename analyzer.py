@@ -2,13 +2,178 @@ import re
 import pandas as pd
 
 
+# =========================================================
+# MEDICAL REPORT ANALYZER
+# Works with PDF extracted text + OCR text
+# =========================================================
+
+
+# ---------------------------------------------------------
+# MAIN FUNCTION
+# ---------------------------------------------------------
+
 def analyze_report(text):
+
+    if not text or not text.strip():
+
+        return empty_dataframe()
+
+
+    # -----------------------------------------------------
+    # Clean the extracted PDF/OCR text
+    # -----------------------------------------------------
+
+    lines = clean_lines(text)
+
+    if not lines:
+
+        return empty_dataframe()
+
 
     results = []
 
-    # ---------------------------------------------
-    # CLEAN TEXT
-    # ---------------------------------------------
+
+    # -----------------------------------------------------
+    # 1. Normalize common OCR mistakes
+    # -----------------------------------------------------
+
+    normalized_lines = []
+
+    for line in lines:
+
+        normalized_lines.append(
+            normalize_ocr_text(line)
+        )
+
+
+    # -----------------------------------------------------
+    # 2. Detect results from separate lines
+    #
+    # Example:
+    #
+    # Hemoglobin
+    # 13.2 g/dL
+    # 12-16 g/dL
+    # -----------------------------------------------------
+
+    results.extend(
+        parse_separate_line_results(
+            normalized_lines
+        )
+    )
+
+
+    # -----------------------------------------------------
+    # 3. Detect results where everything is on one line
+    #
+    # Example:
+    #
+    # Hemoglobin 13.2 g/dL 12-16 g/dL
+    # -----------------------------------------------------
+
+    results.extend(
+        parse_same_line_results(
+            normalized_lines
+        )
+    )
+
+
+    # -----------------------------------------------------
+    # 4. Detect "Reference Range" format
+    #
+    # Example:
+    #
+    # Hemoglobin 13.2 g/dL
+    # Reference Range: 12-16 g/dL
+    # -----------------------------------------------------
+
+    results.extend(
+        parse_reference_range_format(
+            normalized_lines
+        )
+    )
+
+
+    # -----------------------------------------------------
+    # 5. Special handling for platelet/lakh values
+    #
+    # Example:
+    #
+    # Platelets
+    # 2.45 lakh/uL
+    # 1.5-4.5 lakh/uL
+    # -----------------------------------------------------
+
+    results.extend(
+        parse_platelet_results(
+            normalized_lines
+        )
+    )
+
+
+    # -----------------------------------------------------
+    # 6. Remove invalid results
+    # -----------------------------------------------------
+
+    results = [
+        result
+        for result in results
+        if valid_result(result)
+    ]
+
+
+    # -----------------------------------------------------
+    # 7. Remove duplicates
+    # -----------------------------------------------------
+
+    if not results:
+
+        return empty_dataframe()
+
+
+    dataframe = pd.DataFrame(results)
+
+
+    # Normalize test names
+
+    dataframe["Test"] = (
+        dataframe["Test"]
+        .astype(str)
+        .str.strip()
+    )
+
+
+    # Remove duplicate tests
+
+    dataframe = dataframe.drop_duplicates(
+        subset=["Test"],
+        keep="first"
+    )
+
+
+    # -----------------------------------------------------
+    # 8. Final column order
+    # -----------------------------------------------------
+
+    dataframe = dataframe[
+        [
+            "Test",
+            "Result",
+            "Unit",
+            "Reference Range",
+            "Status"
+        ]
+    ]
+
+
+    return dataframe.reset_index(drop=True)
+
+
+# =========================================================
+# CLEAN LINES
+# =========================================================
+
+def clean_lines(text):
 
     lines = []
 
@@ -19,7 +184,15 @@ def analyze_report(text):
         if not line:
             continue
 
-        line = re.sub(r"\s+", " ", line)
+        # Replace repeated spaces
+
+        line = re.sub(
+            r"\s+",
+            " ",
+            line
+        )
+
+        # Normalize different dash characters
 
         line = line.replace("–", "-")
         line = line.replace("—", "-")
@@ -28,195 +201,756 @@ def analyze_report(text):
         lines.append(line)
 
 
-    # ---------------------------------------------
-    # SKIP HEADINGS
-    # ---------------------------------------------
+    return lines
 
-    skip_words = {
+
+# =========================================================
+# OCR NORMALIZATION
+# =========================================================
+
+def normalize_ocr_text(line):
+
+    # Common OCR unit mistakes
+
+    replacements = {
+
+        "gid": "g/dL",
+        "gld": "g/dL",
+        "g/dl": "g/dL",
+
+        "mg/dl": "mg/dL",
+        "mgldl": "mg/dL",
+
+        "ug/ml": "µg/mL",
+        "ug/mL": "µg/mL",
+
+        "/ul": "/µL",
+        "/uL": "/µL",
+        "/UL": "/µL",
+
+        "ul": "µL",
+        "uL": "µL",
+        "UL": "µL",
+
+        "lakh/ul": "lakh/µL",
+        "lakh/uL": "lakh/µL",
+        "lakh/UL": "lakh/µL",
+
+        "lakhiL": "lakh/µL",
+        "lakhuL": "lakh/µL",
+
+        "mmol/l": "mmol/L",
+        "umol/l": "µmol/L",
+
+        "ng/ml": "ng/mL",
+        "pg/ml": "pg/mL",
+
+    }
+
+
+    for old, new in replacements.items():
+
+        line = line.replace(
+            old,
+            new
+        )
+
+
+    # OCR sometimes adds brackets around numbers
+
+    line = re.sub(
+        r"[\[\]]",
+        "",
+        line
+    )
+
+
+    return line
+
+
+# =========================================================
+# EMPTY DATAFRAME
+# =========================================================
+
+def empty_dataframe():
+
+    return pd.DataFrame(
+        columns=[
+            "Test",
+            "Result",
+            "Unit",
+            "Reference Range",
+            "Status"
+        ]
+    )
+
+
+# =========================================================
+# TEST NAME FILTER
+# =========================================================
+
+def is_valid_test_name(name):
+
+    if not name:
+        return False
+
+
+    name = name.strip()
+
+
+    if len(name) < 2:
+        return False
+
+
+    lower = name.lower()
+
+
+    ignored = {
+
         "test",
         "result",
+        "results",
         "reference",
         "reference range",
         "normal range",
         "ref range",
+
+        "laboratory",
         "laboratory results",
         "laboratory test results",
+
+        "patient",
         "patient information",
         "patient name",
+        "patient id",
+
+        "age",
         "age / gender",
         "age/gender",
-        "patient id",
+
+        "date",
         "date of visit",
+
+        "doctor",
         "consulting doctor",
+
         "clinical details",
         "chief complaint",
         "duration",
+
         "temperature",
         "blood pressure",
+        "pulse",
         "pulse rate",
+
         "assessment",
         "advice",
+
+        "sample medical report",
+
     }
 
 
-    # ---------------------------------------------
-    # NUMBER
-    # ---------------------------------------------
-
-    number = r"[\d,.]+"
+    if lower in ignored:
+        return False
 
 
-    # ---------------------------------------------
-    # NORMAL UNITS
-    # ---------------------------------------------
+    # Do not accept lines containing only numbers
 
-    unit = (
-        r"(?:"
-        r"g/dL|mg/dL|mg/L|g/L|"
-        r"/µL|/uL|/UL|"
-        r"µL|uL|UL|"
-        r"mmol/L|µmol/L|"
-        r"ng/mL|pg/mL|"
-        r"%|bpm"
-        r")"
+    if re.fullmatch(
+        r"[\d\s.,/%:-]+",
+        name
+    ):
+        return False
+
+
+    return True
+
+
+# =========================================================
+# NUMBER
+# =========================================================
+
+NUMBER = r"\d+(?:,\d{3})*(?:\.\d+)?"
+
+
+# =========================================================
+# UNIT
+# =========================================================
+
+UNIT = (
+    r"(?:"
+    r"g/dL|"
+    r"mg/dL|"
+    r"mg/L|"
+    r"g/L|"
+    r"mmol/L|"
+    r"µmol/L|"
+    r"ng/mL|"
+    r"pg/mL|"
+    r"µg/mL|"
+    r"lakh/µL|"
+    r"/µL|"
+    r"µL|"
+    r"%|"
+    r"bpm"
+    r")"
+)
+
+
+# =========================================================
+# CONVERT NUMBER
+# =========================================================
+
+def number_to_float(value):
+
+    value = value.replace(
+        ",",
+        ""
     )
 
+    try:
 
-    # ---------------------------------------------
-    # PATTERN 1
-    #
-    # Hemoglobin 13.2 g/dL 12-16 g/dL
-    # ---------------------------------------------
+        return float(value)
 
-    full_text = " ".join(lines)
+    except ValueError:
 
-    pattern = re.compile(
-
-        rf"([A-Za-z][A-Za-z0-9 ()/%-]{{2,40}})"
-        rf"\s+"
-        rf"({number})\s*"
-        rf"({unit})"
-        rf"\s+"
-        rf"({number})\s*-\s*"
-        rf"({number})"
-        rf"\s*({unit})?",
-
-        re.IGNORECASE
-    )
+        return None
 
 
-    for match in pattern.finditer(full_text):
+# =========================================================
+# STATUS
+# =========================================================
+
+def calculate_status(
+    value,
+    low=None,
+    high=None,
+    operator=None
+):
+
+    if operator == "<":
+
+        if value < high:
+            return "Within Range"
+
+        return "Above Range"
+
+
+    if operator == ">":
+
+        if value > low:
+            return "Within Range"
+
+        return "Below Range"
+
+
+    if low is not None and high is not None:
+
+        if value < low:
+            return "Below Range"
+
+        if value > high:
+            return "Above Range"
+
+        return "Within Range"
+
+
+    return "Unknown"
+
+
+# =========================================================
+# SEPARATE-LINE RESULTS
+# =========================================================
+
+def parse_separate_line_results(lines):
+
+    results = []
+
+
+    for i in range(len(lines) - 2):
+
+        test_name = lines[i].strip()
+
+        if not is_valid_test_name(test_name):
+            continue
+
+
+        result_line = lines[i + 1].strip()
+
+        reference_line = lines[i + 2].strip()
+
+
+        # -------------------------------------------------
+        # Normal result
+        #
+        # 13.2 g/dL
+        # -------------------------------------------------
+
+        result_match = re.fullmatch(
+
+            rf"({NUMBER})\s*({UNIT})",
+
+            result_line,
+
+            re.IGNORECASE
+        )
+
+
+        if not result_match:
+            continue
+
+
+        value = number_to_float(
+            result_match.group(1)
+        )
+
+        unit = result_match.group(2)
+
+
+        if value is None:
+            continue
+
+
+        # -------------------------------------------------
+        # Normal range
+        #
+        # 12-16 g/dL
+        # -------------------------------------------------
+
+        range_match = re.fullmatch(
+
+            rf"({NUMBER})\s*-\s*({NUMBER})"
+            rf"(?:\s*({UNIT}))?",
+
+            reference_line,
+
+            re.IGNORECASE
+        )
+
+
+        if range_match:
+
+            low = number_to_float(
+                range_match.group(1)
+            )
+
+            high = number_to_float(
+                range_match.group(2)
+            )
+
+
+            if low is None or high is None:
+                continue
+
+
+            status = calculate_status(
+                value,
+                low,
+                high
+            )
+
+
+            results.append({
+
+                "Test": clean_test_name(
+                    test_name
+                ),
+
+                "Result": value,
+
+                "Unit": unit,
+
+                "Reference Range":
+                    f"{low:g} - {high:g}",
+
+                "Status": status
+
+            })
+
+
+            continue
+
+
+        # -------------------------------------------------
+        # Less-than reference
+        #
+        # < 5 mg/dL
+        # -------------------------------------------------
+
+        less_match = re.fullmatch(
+
+            rf"<\s*({NUMBER})"
+            rf"(?:\s*({UNIT}))?",
+
+            reference_line,
+
+            re.IGNORECASE
+        )
+
+
+        if less_match:
+
+            high = number_to_float(
+                less_match.group(1)
+            )
+
+
+            if high is None:
+                continue
+
+
+            status = calculate_status(
+                value,
+                high=high,
+                operator="<"
+            )
+
+
+            results.append({
+
+                "Test": clean_test_name(
+                    test_name
+                ),
+
+                "Result": value,
+
+                "Unit": unit,
+
+                "Reference Range":
+                    f"< {high:g}",
+
+                "Status": status
+
+            })
+
+
+    return results
+
+
+# =========================================================
+# SAME-LINE RESULTS
+# =========================================================
+
+def parse_same_line_results(lines):
+
+    results = []
+
+
+    for line in lines:
+
+        # ---------------------------------------------
+        # Example:
+        #
+        # Hemoglobin 13.2 g/dL 12-16 g/dL
+        # ---------------------------------------------
+
+        pattern = re.compile(
+
+            rf"^(.+?)\s+"
+            rf"({NUMBER})\s*"
+            rf"({UNIT})\s+"
+            rf"({NUMBER})\s*-\s*"
+            rf"({NUMBER})"
+            rf"(?:\s*({UNIT}))?$",
+
+            re.IGNORECASE
+        )
+
+
+        match = pattern.match(line)
+
+
+        if not match:
+            continue
+
 
         test_name = match.group(1).strip()
 
-        if test_name.lower() in skip_words:
+
+        if not is_valid_test_name(test_name):
             continue
 
-        value = float(
-            match.group(2).replace(",", "")
+
+        value = number_to_float(
+            match.group(2)
         )
 
-        result_unit = match.group(3)
+        unit = match.group(3)
 
-        low = float(
-            match.group(4).replace(",", "")
+        low = number_to_float(
+            match.group(4)
         )
 
-        high = float(
-            match.group(5).replace(",", "")
+        high = number_to_float(
+            match.group(5)
         )
 
-        if value < low:
-            status = "Below Range"
 
-        elif value > high:
-            status = "Above Range"
+        if (
+            value is None
+            or low is None
+            or high is None
+        ):
+            continue
 
-        else:
-            status = "Within Range"
+
+        status = calculate_status(
+            value,
+            low,
+            high
+        )
+
 
         results.append({
-            "Test": test_name,
+
+            "Test": clean_test_name(
+                test_name
+            ),
+
             "Result": value,
-            "Unit": result_unit,
-            "Reference Range": f"{low:g} - {high:g}",
+
+            "Unit": unit,
+
+            "Reference Range":
+                f"{low:g} - {high:g}",
+
             "Status": status
+
         })
 
 
-    # ---------------------------------------------
-    # PATTERN 2
-    #
-    # Platelets 2.45 lakh/uL 1.5-4.5 lakh/uL
-    #
-    # Also handles OCR:
-    # 2.45 lakhiL 15-45 lakh/ul
-    # ---------------------------------------------
-
-    platelet_pattern = re.compile(
-
-        rf"(Platelets?)"
-        rf"\s*"
-        rf"[\[\(]?"
-        rf"({number})"
-        rf"\s*"
-        rf"(?:lakh|lakhiL|lakhuL|lakh)"
-        rf"\s*(?:/|)"
-        rf"(?:µL|uL|ul|iL|IL)?"
-        rf"\s*"
-        rf""
-        rf"({number})"
-        rf"\s*-\s*"
-        rf"({number})"
-        rf"\s*"
-        rf"(?:lakh|lakhiL|lakhuL|lakh)"
-        rf"\s*(?:/|)"
-        rf"(?:µL|uL|ul|iL|IL)?",
-
-        re.IGNORECASE
-    )
+    return results
 
 
-    for match in platelet_pattern.finditer(full_text):
+# =========================================================
+# REFERENCE RANGE FORMAT
+# =========================================================
 
-        test_name = "Platelets"
+def parse_reference_range_format(lines):
 
-        value = float(
-            match.group(2).replace(",", "")
+    results = []
+
+
+    for i in range(len(lines) - 1):
+
+        line = lines[i]
+
+
+        # ---------------------------------------------
+        # Example:
+        #
+        # Hemoglobin 13.2 g/dL
+        # Reference Range: 12-16 g/dL
+        # ---------------------------------------------
+
+        result_pattern = re.compile(
+
+            rf"^(.+?)\s+"
+            rf"({NUMBER})\s*"
+            rf"({UNIT})$",
+
+            re.IGNORECASE
         )
 
-        low = float(
-            match.group(3).replace(",", "")
+
+        result_match = result_pattern.match(
+            line
         )
 
-        high = float(
-            match.group(4).replace(",", "")
+
+        if not result_match:
+            continue
+
+
+        test_name = result_match.group(1).strip()
+
+
+        if not is_valid_test_name(test_name):
+            continue
+
+
+        value = number_to_float(
+            result_match.group(2)
         )
 
-        # OCR may read 1.5 as 15.
-        # If reference values are 15-45,
-        # convert them to 1.5-4.5.
-        if low >= 10 and high >= 10:
+        unit = result_match.group(3)
 
-            low = low / 10
-            high = high / 10
 
-        if value < low:
+        next_line = lines[i + 1]
 
-            status = "Below Range"
 
-        elif value > high:
+        reference_pattern = re.compile(
 
-            status = "Above Range"
+            rf"(?:reference range|normal range|ref range)"
+            rf"\s*:?\s*"
+            rf"({NUMBER})\s*-\s*"
+            rf"({NUMBER})",
 
-        else:
+            re.IGNORECASE
+        )
 
-            status = "Within Range"
+
+        reference_match = reference_pattern.search(
+            next_line
+        )
+
+
+        if not reference_match:
+            continue
+
+
+        low = number_to_float(
+            reference_match.group(1)
+        )
+
+        high = number_to_float(
+            reference_match.group(2)
+        )
+
+
+        if (
+            value is None
+            or low is None
+            or high is None
+        ):
+            continue
+
+
+        status = calculate_status(
+            value,
+            low,
+            high
+        )
 
 
         results.append({
 
-            "Test": test_name,
+            "Test": clean_test_name(
+                test_name
+            ),
+
+            "Result": value,
+
+            "Unit": unit,
+
+            "Reference Range":
+                f"{low:g} - {high:g}",
+
+            "Status": status
+
+        })
+
+
+    return results
+
+
+# =========================================================
+# PLATELET / LAKH FORMAT
+# =========================================================
+
+def parse_platelet_results(lines):
+
+    results = []
+
+
+    platelet_names = (
+        "platelet",
+        "platelets",
+        "platelet count",
+        "plt"
+    )
+
+
+    for i in range(len(lines) - 2):
+
+        test_name = lines[i].strip().lower()
+
+
+        if test_name not in platelet_names:
+            continue
+
+
+        result_line = lines[i + 1]
+
+        reference_line = lines[i + 2]
+
+
+        # -------------------------------------------------
+        # Result:
+        #
+        # 2.45 lakh/µL
+        # -------------------------------------------------
+
+        result_match = re.search(
+
+            rf"({NUMBER})\s*"
+            rf"lakh\s*/?\s*µ?l",
+
+            result_line,
+
+            re.IGNORECASE
+        )
+
+
+        if not result_match:
+            continue
+
+
+        value = number_to_float(
+            result_match.group(1)
+        )
+
+
+        # -------------------------------------------------
+        # Reference:
+        #
+        # 1.5-4.5 lakh/µL
+        # -------------------------------------------------
+
+        range_match = re.search(
+
+            rf"({NUMBER})\s*-\s*"
+            rf"({NUMBER})\s*"
+            rf"lakh\s*/?\s*µ?l",
+
+            reference_line,
+
+            re.IGNORECASE
+        )
+
+
+        if not range_match:
+            continue
+
+
+        low = number_to_float(
+            range_match.group(1)
+        )
+
+        high = number_to_float(
+            range_match.group(2)
+        )
+
+
+        if (
+            value is None
+            or low is None
+            or high is None
+        ):
+            continue
+
+
+        status = calculate_status(
+            value,
+            low,
+            high
+        )
+
+
+        results.append({
+
+            "Test": "Platelets",
 
             "Result": value,
 
@@ -230,131 +964,69 @@ def analyze_report(text):
         })
 
 
-    # ---------------------------------------------
-    # PATTERN 3
-    #
-    # Separate lines:
-    #
-    # Hemoglobin
-    # 13.2 g/dL
-    # 12-16 g/dL
-    # ---------------------------------------------
-
-    i = 0
-
-    while i < len(lines):
-
-        test_name = lines[i].strip()
-
-        if test_name.lower() in skip_words:
-
-            i += 1
-            continue
+    return results
 
 
-        if i + 2 < len(lines):
+# =========================================================
+# CLEAN TEST NAME
+# =========================================================
 
-            result_line = lines[i + 1]
+def clean_test_name(name):
 
-            reference_line = lines[i + 2]
-
-
-            result_match = re.match(
-
-                rf"^({number})\s*({unit})$",
-
-                result_line,
-
-                re.IGNORECASE
-            )
+    name = name.strip()
 
 
-            range_match = re.match(
+    # Remove trailing colon
 
-                rf"^({number})\s*-\s*({number})"
-                rf"\s*({unit})?$",
-
-                reference_line,
-
-                re.IGNORECASE
-            )
+    name = name.rstrip(":")
 
 
-            if result_match and range_match:
+    # Remove accidental OCR punctuation
 
-                value = float(
-                    result_match.group(1).replace(",", "")
-                )
-
-                result_unit = result_match.group(2)
-
-                low = float(
-                    range_match.group(1).replace(",", "")
-                )
-
-                high = float(
-                    range_match.group(2).replace(",", "")
-                )
-
-
-                if value < low:
-
-                    status = "Below Range"
-
-                elif value > high:
-
-                    status = "Above Range"
-
-                else:
-
-                    status = "Within Range"
-
-
-                results.append({
-
-                    "Test": test_name,
-
-                    "Result": value,
-
-                    "Unit": result_unit,
-
-                    "Reference Range":
-                        f"{low:g} - {high:g}",
-
-                    "Status": status
-
-                })
-
-
-        i += 1
-
-
-    # ---------------------------------------------
-    # REMOVE DUPLICATES
-    # ---------------------------------------------
-
-    if results:
-
-        dataframe = pd.DataFrame(results)
-
-        dataframe = dataframe.drop_duplicates(
-            subset=["Test"],
-            keep="first"
-        )
-
-        return dataframe
-
-
-    # ---------------------------------------------
-    # EMPTY RESULT
-    # ---------------------------------------------
-
-    return pd.DataFrame(
-        columns=[
-            "Test",
-            "Result",
-            "Unit",
-            "Reference Range",
-            "Status"
-        ]
+    name = re.sub(
+        r"^[^A-Za-z]+",
+        "",
+        name
     )
+
+
+    return name.strip()
+
+
+# =========================================================
+# VALIDATE RESULT
+# =========================================================
+
+def valid_result(result):
+
+    required_columns = {
+
+        "Test",
+        "Result",
+        "Unit",
+        "Reference Range",
+        "Status"
+
+    }
+
+
+    if not required_columns.issubset(
+        result.keys()
+    ):
+
+        return False
+
+
+    if not result["Test"]:
+        return False
+
+
+    if result["Result"] is None:
+        return False
+
+
+    if result["Status"] == "Unknown":
+        return False
+
+
+    return True
