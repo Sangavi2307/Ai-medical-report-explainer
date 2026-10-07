@@ -95,6 +95,7 @@ st.markdown(
     .info-card p {
         color: #60758a;
         margin: 0;
+        line-height: 1.6;
     }
 
 
@@ -138,7 +139,7 @@ st.markdown(
     }
 
 
-    /* ================= UPLOAD BOX ================= */
+    /* ================= UPLOAD AREA ================= */
 
     [data-testid="stFileUploader"] {
         background-color: white;
@@ -167,7 +168,7 @@ st.markdown(
     }
 
 
-    /* ================= AI BOX ================= */
+    /* ================= AI EXPLANATION ================= */
 
     .ai-box {
         background-color: white;
@@ -261,7 +262,7 @@ st.markdown(
 
 
 # =========================================================
-# UPLOAD MEDICAL REPORT
+# UPLOAD SECTION
 # =========================================================
 
 st.markdown(
@@ -272,12 +273,7 @@ st.markdown(
 
 uploaded_file = st.file_uploader(
     "Choose a PDF or image file",
-    type=[
-        "pdf",
-        "jpg",
-        "jpeg",
-        "png"
-    ],
+    type=["pdf", "jpg", "jpeg", "png"],
     help="Supported formats: PDF, JPG, JPEG and PNG"
 )
 
@@ -354,7 +350,7 @@ if uploaded_file is not None:
         else:
 
             # =================================================
-            # EXTRACTED REPORT TEXT
+            # EXTRACTED TEXT
             # =================================================
 
             st.markdown(
@@ -392,7 +388,7 @@ if uploaded_file is not None:
             if analyze_clicked:
 
                 # =================================================
-                # ANALYZE REPORT
+                # ANALYZE
                 # =================================================
 
                 with st.spinner(
@@ -532,13 +528,11 @@ if uploaded_file is not None:
 
 
                     # =================================================
-                    # LABORATORY RESULT TABLE
+                    # RESULT TABLE
                     # =================================================
 
                     st.markdown(
-                        """
-                        <div class="info-card">
-                        """,
+                        '<div class="section-title">📊 Detailed Results</div>',
                         unsafe_allow_html=True
                     )
 
@@ -553,7 +547,7 @@ if uploaded_file is not None:
                                 "font-weight: 600;"
                             )
 
-                        elif value == "Below Range":
+                        if value == "Below Range":
 
                             return (
                                 "background-color: #fff2df;"
@@ -561,7 +555,7 @@ if uploaded_file is not None:
                                 "font-weight: 600;"
                             )
 
-                        elif value == "Above Range":
+                        if value == "Above Range":
 
                             return (
                                 "background-color: #fde8e8;"
@@ -582,12 +576,6 @@ if uploaded_file is not None:
                         styled_results,
                         use_container_width=True,
                         hide_index=True
-                    )
-
-
-                    st.markdown(
-                        "</div>",
-                        unsafe_allow_html=True
                     )
 
 
@@ -614,8 +602,8 @@ if uploaded_file is not None:
 
                         summary_parts.append(
                             f"{within} result(s) are within "
-                            f"the reference range shown on "
-                            f"the report."
+                            f"the reference range shown "
+                            f"on the report."
                         )
 
 
@@ -623,8 +611,8 @@ if uploaded_file is not None:
 
                         summary_parts.append(
                             f"{below} result(s) are below "
-                            f"the reference range shown on "
-                            f"the report."
+                            f"the reference range shown "
+                            f"on the report."
                         )
 
 
@@ -632,8 +620,8 @@ if uploaded_file is not None:
 
                         summary_parts.append(
                             f"{above} result(s) are above "
-                            f"the reference range shown on "
-                            f"the report."
+                            f"the reference range shown "
+                            f"on the report."
                         )
 
 
@@ -657,7 +645,7 @@ if uploaded_file is not None:
 
 
                     # =================================================
-                    # AI EDUCATIONAL EXPLANATION
+                    # AI EXPLANATION
                     # =================================================
 
                     st.markdown(
@@ -676,8 +664,10 @@ if uploaded_file is not None:
 
 
                     formatted_ai_summary = (
-                        ai_summary
-                        .replace("\n", "<br>")
+                        ai_summary.replace(
+                            "\n",
+                            "<br>"
+                        )
                     )
 
 
@@ -757,7 +747,7 @@ if uploaded_file is not None:
 
 
                 # =================================================
-                # NO LAB RESULTS
+                # NO RESULTS
                 # =================================================
 
                 else:
@@ -775,9 +765,9 @@ if uploaded_file is not None:
                     )
 
 
-    # =========================================================
+    # =================================================
     # ERROR HANDLING
-    # =========================================================
+    # =================================================
 
     except Exception as e:
 
