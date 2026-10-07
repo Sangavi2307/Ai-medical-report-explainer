@@ -582,16 +582,155 @@ if uploaded_file is not None:
 <div class="section">
     <div class="section-title">🧪 Detailed Results</div>
     <div class="section-subtitle">
-        These values are extracted from the uploaded report.
+        Each laboratory result is displayed clearly below.
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-                    st.dataframe(
-                        results,
-                        use_container_width=True,
-                        hide_index=True,
-                    )
+# Professional result cards
+for _, row in results.iterrows():
+
+    test_name = str(row["Test"])
+    result_value = str(row["Result"])
+    unit = str(row["Unit"])
+    reference_range = str(row["Reference Range"])
+    status = str(row["Status"])
+
+    if status == "Within Range":
+        status_icon = "🟢"
+        status_class = "green"
+    elif status == "Below Range":
+        status_icon = "🟠"
+        status_class = "orange"
+    elif status == "Above Range":
+        status_icon = "🔴"
+        status_class = "red"
+    else:
+        status_icon = "⚪"
+        status_class = "blue"
+
+    st.markdown(
+        f"""
+<div class="info-card" style="margin-bottom:14px;">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+        flex-wrap:wrap;
+    ">
+
+        <div>
+            <div style="
+                color:#123e63;
+                font-size:17px;
+                font-weight:800;
+            ">
+                🧪 {test_name}
+            </div>
+
+            <div style="
+                color:#7a8c9d;
+                font-size:12px;
+                margin-top:4px;
+            ">
+                Laboratory Test
+            </div>
+        </div>
+
+        <div style="
+            padding:7px 12px;
+            border-radius:20px;
+            background:#f4f8fc;
+            font-size:12px;
+            font-weight:700;
+        ">
+            {status_icon} <span class="{status_class}">{status}</span>
+        </div>
+
+    </div>
+
+    <hr style="
+        border:0;
+        border-top:1px solid #e8eef3;
+        margin:15px 0;
+    ">
+
+    <div style="
+        display:grid;
+        grid-template-columns:repeat(3, 1fr);
+        gap:12px;
+    ">
+
+        <div>
+            <div style="
+                color:#8191a0;
+                font-size:11px;
+            ">
+                RESULT
+            </div>
+
+            <div style="
+                color:#123e63;
+                font-size:20px;
+                font-weight:800;
+                margin-top:4px;
+            ">
+                {result_value}
+            </div>
+
+            <div style="
+                color:#7a8c9d;
+                font-size:11px;
+            ">
+                {unit}
+            </div>
+        </div>
+
+        <div>
+            <div style="
+                color:#8191a0;
+                font-size:11px;
+            ">
+                REFERENCE RANGE
+            </div>
+
+            <div style="
+                color:#123e63;
+                font-size:15px;
+                font-weight:700;
+                margin-top:8px;
+            ">
+                {reference_range}
+            </div>
+        </div>
+
+        <div>
+            <div style="
+                color:#8191a0;
+                font-size:11px;
+            ">
+                STATUS
+            </div>
+
+            <div style="
+                font-size:15px;
+                font-weight:800;
+                margin-top:8px;
+            ">
+                <span class="{status_class}">
+                    {status_icon} {status}
+                </span>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
                     # =========================
                     # SUMMARY
