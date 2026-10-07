@@ -922,27 +922,28 @@ if uploaded_file is not None:
 
                     def status_style(value):
 
-                        if value == "Within Range":
+    if value == "Within Range":
 
-                            return (
-                                "background-color:#e8f7ee;"
-                                "color:#138a42;"
-                                "font-weight:700;"
-                            )
+        return (
+            "background-color:#e8f7ee;"
+            "color:#138a42;"
+            "font-weight:700;"
+        )
 
-                        if value == "Below Range":
+    if value == "Below Range":
 
-                            return (
-                                "background-color:#fff2df;"
-                                "color:#d47700;"
-                                "font-weight:700;"
-                            )
+        return (
+            "background-color:#fff2df;"
+            "color:#d47700;"
+            "font-weight:700;"
+        )
 
-                        if value == "Above Range":
+    if value == "Above Range":
 
-                            return (
-                                "background-color:#fde8e8;"
-                                "color:#c62828;"
-                                "font-weight:700;"
-)
- 
+        return (
+            "background-color:#fde8e8;"
+            "color:#c62828;"
+            "font-weight:700;"
+        )
+
+    return ""
