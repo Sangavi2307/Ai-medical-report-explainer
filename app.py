@@ -165,15 +165,83 @@ st.markdown(
 # =========================================================
 
 st.markdown(
-    '<div class="main-title">🩺 AI Medical Report Explainer</div>',
+    """
+    <style>
+
+    /* your existing CSS */
+
+    .main-title {
+        ...
+    }
+
+    .subtitle {
+        ...
+    }
+
+
+    /* ADD THE NEW HERO CSS HERE */
+
+    .hero-section {
+        background: linear-gradient(
+            135deg,
+            #123b63,
+            #1769aa
+        );
+        padding: 35px;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        margin-bottom: 28px;
+        box-shadow: 0 8px 25px rgba(20, 55, 90, 0.18);
+    }
+
+    .hero-icon {
+        background: rgba(255, 255, 255, 0.15);
+        width: 85px;
+        height: 85px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 45px;
+    }
+
+    .hero-title {
+        color: white;
+        font-size: 36px;
+        font-weight: 700;
+    }
+
+    .hero-subtitle {
+        color: #e5f1fb;
+        font-size: 17px;
+        margin-top: 8px;
+    }
+
+    .hero-badges {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+        flex-wrap: wrap;
+    }
+
+    .hero-badges span {
+        background: rgba(255, 255, 255, 0.14);
+        color: white;
+        padding: 7px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+    }
+
+
+    /* your other existing CSS */
+
+
+    </style>
+    """,
     unsafe_allow_html=True
 )
-
-st.markdown(
-    '<div class="subtitle">Upload a medical report and understand laboratory results in a simple and easy-to-read format.</div>',
-    unsafe_allow_html=True
-)
-
 
 # =========================================================
 # HOW IT WORKS
