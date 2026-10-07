@@ -15,8 +15,7 @@ from report_generator import generate_report
 st.set_page_config(
     page_title="AI Medical Report Explainer",
     page_icon="🩺",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 
@@ -28,23 +27,30 @@ st.markdown(
     """
     <style>
 
-    /* ---------- MAIN BACKGROUND ---------- */
+    /* ================= MAIN BACKGROUND ================= */
 
     .stApp {
         background-color: #f5f8fc;
     }
 
-    /* ---------- SIDEBAR ---------- */
+
+    /* ================= HIDE SIDEBAR ================= */
 
     [data-testid="stSidebar"] {
-        background-color: #0f2747;
+        display: none;
     }
 
-    [data-testid="stSidebar"] * {
-        color: white;
+
+    /* ================= MAIN CONTAINER ================= */
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1200px;
     }
 
-    /* ---------- MAIN TITLE ---------- */
+
+    /* ================= HEADER ================= */
 
     .main-title {
         font-size: 38px;
@@ -59,7 +65,8 @@ st.markdown(
         margin-bottom: 25px;
     }
 
-    /* ---------- SECTION TITLE ---------- */
+
+    /* ================= SECTION TITLE ================= */
 
     .section-title {
         font-size: 24px;
@@ -69,7 +76,8 @@ st.markdown(
         margin-bottom: 12px;
     }
 
-    /* ---------- INFORMATION CARD ---------- */
+
+    /* ================= INFORMATION CARD ================= */
 
     .info-card {
         background: white;
@@ -90,7 +98,8 @@ st.markdown(
         margin: 0;
     }
 
-    /* ---------- METRIC CARDS ---------- */
+
+    /* ================= METRIC CARDS ================= */
 
     .metric-card {
         background: white;
@@ -129,7 +138,8 @@ st.markdown(
         color: #1769aa;
     }
 
-    /* ---------- UPLOAD AREA ---------- */
+
+    /* ================= UPLOAD AREA ================= */
 
     [data-testid="stFileUploader"] {
         background-color: white;
@@ -138,7 +148,8 @@ st.markdown(
         padding: 15px;
     }
 
-    /* ---------- BUTTON ---------- */
+
+    /* ================= BUTTON ================= */
 
     .stButton > button {
         width: 100%;
@@ -156,36 +167,8 @@ st.markdown(
         color: white;
     }
 
-    /* ---------- RESULT STATUS ---------- */
 
-    .status-within {
-        background-color: #e8f7ee;
-        color: #138a42;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-weight: 600;
-        display: inline-block;
-    }
-
-    .status-below {
-        background-color: #fff2df;
-        color: #d47700;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-weight: 600;
-        display: inline-block;
-    }
-
-    .status-above {
-        background-color: #fde8e8;
-        color: #c62828;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-weight: 600;
-        display: inline-block;
-    }
-
-    /* ---------- AI BOX ---------- */
+    /* ================= AI BOX ================= */
 
     .ai-box {
         background: white;
@@ -196,9 +179,11 @@ st.markdown(
         border-right: 1px solid #dce6f0;
         border-bottom: 1px solid #dce6f0;
         box-shadow: 0 3px 12px rgba(20, 55, 90, 0.08);
+        line-height: 1.6;
     }
 
-    /* ---------- DISCLAIMER ---------- */
+
+    /* ================= DISCLAIMER ================= */
 
     .medical-disclaimer {
         background-color: #fff7e6;
@@ -209,7 +194,8 @@ st.markdown(
         margin-top: 20px;
     }
 
-    /* ---------- FOOTER ---------- */
+
+    /* ================= FOOTER ================= */
 
     .footer {
         text-align: center;
@@ -218,66 +204,18 @@ st.markdown(
         padding: 30px 0 10px 0;
     }
 
+
+    /* ================= EXPANDER ================= */
+
+    .streamlit-expanderHeader {
+        font-weight: 600;
+        color: #123b63;
+    }
+
     </style>
     """,
     unsafe_allow_html=True
 )
-
-
-# =========================================================
-# SIDEBAR
-# =========================================================
-
-with st.sidebar:
-
-    st.markdown(
-        """
-        <div style="text-align:center; padding:15px 0;">
-            <div style="font-size:55px;">🩺</div>
-            <h2>Medical Report</h2>
-            <h2>Explainer</h2>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown("---")
-
-    st.markdown("### 📌 About")
-
-    st.write(
-        "This application extracts laboratory information "
-        "from medical reports and provides educational "
-        "explanations."
-    )
-
-    st.markdown("---")
-
-    st.markdown("### 📄 Supported Files")
-
-    st.write("✅ PDF")
-    st.write("✅ JPG")
-    st.write("✅ JPEG")
-    st.write("✅ PNG")
-
-    st.markdown("---")
-
-    st.markdown("### 🔐 Privacy")
-
-    st.write(
-        "Upload reports only for testing or demonstration. "
-        "Avoid uploading sensitive personal medical documents "
-        "unless appropriate safeguards are in place."
-    )
-
-    st.markdown("---")
-
-    st.markdown("### ⚠️ Important")
-
-    st.write(
-        "This application is for educational and informational "
-        "purposes only."
-    )
 
 
 # =========================================================
@@ -292,8 +230,8 @@ st.markdown(
 st.markdown(
     """
     <div class="subtitle">
-    Upload a medical report and understand the laboratory
-    results in a simple and easy-to-read format.
+        Upload a medical report and understand laboratory
+        results in a simple and easy-to-read format.
     </div>
     """,
     unsafe_allow_html=True
@@ -301,17 +239,20 @@ st.markdown(
 
 
 # =========================================================
-# INTRO CARD
+# INTRODUCTION CARD
 # =========================================================
 
 st.markdown(
     """
     <div class="info-card">
+
         <h3>📋 How it works</h3>
+
         <p>
         Upload your medical report → Extract the report text →
         Identify laboratory results → Get an educational AI explanation.
         </p>
+
     </div>
     """,
     unsafe_allow_html=True
@@ -327,15 +268,21 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 uploaded_file = st.file_uploader(
     "Choose a PDF or image file",
-    type=["pdf", "jpg", "jpeg", "png"],
+    type=[
+        "pdf",
+        "jpg",
+        "jpeg",
+        "png"
+    ],
     help="Supported formats: PDF, JPG, JPEG and PNG"
 )
 
 
 # =========================================================
-# FILE PROCESSING
+# PROCESS UPLOADED FILE
 # =========================================================
 
 if uploaded_file is not None:
@@ -346,11 +293,16 @@ if uploaded_file is not None:
 
     file_name = uploaded_file.name.lower()
 
-    # -----------------------------------------------------
-    # PDF EXTRACTION
-    # -----------------------------------------------------
+
+    # =====================================================
+    # EXTRACT TEXT
+    # =====================================================
 
     try:
+
+        # -------------------------------------------------
+        # PDF
+        # -------------------------------------------------
 
         if file_name.endswith(".pdf"):
 
@@ -362,8 +314,9 @@ if uploaded_file is not None:
                     uploaded_file
                 )
 
+
         # -------------------------------------------------
-        # IMAGE OCR
+        # IMAGE
         # -------------------------------------------------
 
         else:
@@ -397,21 +350,22 @@ if uploaded_file is not None:
             else:
 
                 st.info(
-                    "Try uploading a clearer image with good "
-                    "lighting and readable text."
+                    "Try uploading a clearer image with "
+                    "good lighting and readable text."
                 )
 
 
         else:
 
             # =============================================
-            # EXTRACTED TEXT
+            # EXTRACTED TEXT SECTION
             # =============================================
 
             st.markdown(
                 '<div class="section-title">📋 Extracted Report Text</div>',
                 unsafe_allow_html=True
             )
+
 
             with st.expander(
                 "View extracted report text",
@@ -432,6 +386,7 @@ if uploaded_file is not None:
 
             st.markdown("")
 
+
             analyze_clicked = st.button(
                 "🔍 Analyze Report",
                 use_container_width=True
@@ -441,7 +396,7 @@ if uploaded_file is not None:
             if analyze_clicked:
 
                 # =========================================
-                # ANALYZE REPORT
+                # ANALYZING
                 # =========================================
 
                 with st.spinner(
@@ -466,7 +421,7 @@ if uploaded_file is not None:
                 if not results.empty:
 
                     # =====================================
-                    # RESULT COUNTS
+                    # COUNT RESULTS
                     # =====================================
 
                     within = len(
@@ -499,65 +454,81 @@ if uploaded_file is not None:
 
                     col1, col2, col3, col4 = st.columns(4)
 
+
                     with col1:
 
                         st.markdown(
                             f"""
                             <div class="metric-card">
+
                                 <div class="metric-label">
                                     🧪 Total Tests
                                 </div>
+
                                 <div class="metric-number blue-number">
                                     {total_tests}
                                 </div>
+
                             </div>
                             """,
                             unsafe_allow_html=True
                         )
+
 
                     with col2:
 
                         st.markdown(
                             f"""
                             <div class="metric-card">
+
                                 <div class="metric-label">
                                     🟢 Within Range
                                 </div>
+
                                 <div class="metric-number green-number">
                                     {within}
                                 </div>
+
                             </div>
                             """,
                             unsafe_allow_html=True
                         )
+
 
                     with col3:
 
                         st.markdown(
                             f"""
                             <div class="metric-card">
+
                                 <div class="metric-label">
                                     🟠 Below Range
                                 </div>
+
                                 <div class="metric-number orange-number">
                                     {below}
                                 </div>
+
                             </div>
                             """,
                             unsafe_allow_html=True
                         )
+
 
                     with col4:
 
                         st.markdown(
                             f"""
                             <div class="metric-card">
+
                                 <div class="metric-label">
                                     🔴 Above Range
                                 </div>
+
                                 <div class="metric-number red-number">
                                     {above}
                                 </div>
+
                             </div>
                             """,
                             unsafe_allow_html=True
@@ -568,55 +539,32 @@ if uploaded_file is not None:
 
 
                     # =====================================
-                    # RESULT TABLE
+                    # LAB RESULT TABLE
                     # =====================================
 
-                    display_results = results.copy()
-
-                    def color_status(value):
-
-                        if value == "Within Range":
-                            return (
-                                "background-color: #e8f7ee; "
-                                "color: #138a42; "
-                                "font-weight: 600;"
-                            )
-
-                        if value == "Below Range":
-                            return (
-                                "background-color: #fff2df; "
-                                "color: #d47700; "
-                                "font-weight: 600;"
-                            )
-
-                        if value == "Above Range":
-                            return (
-                                "background-color: #fde8e8; "
-                                "color: #c62828; "
-                                "font-weight: 600;"
-                            )
-
-                        return ""
-
-
-                    styled_results = (
-                        display_results.style
-                        .map(
-                            color_status,
-                            subset=["Status"]
-                        )
+                    st.markdown(
+                        """
+                        <div class="info-card">
+                        """,
+                        unsafe_allow_html=True
                     )
 
 
                     st.dataframe(
-                        styled_results,
+                        results,
                         use_container_width=True,
                         hide_index=True
                     )
 
 
+                    st.markdown(
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+
+
                     # =====================================
-                    # SHORT SUMMARY
+                    # RESULT SUMMARY
                     # =====================================
 
                     st.markdown(
@@ -627,10 +575,12 @@ if uploaded_file is not None:
 
                     summary_parts = []
 
+
                     summary_parts.append(
-                        f"The report contains {total_tests} "
-                        f"laboratory test(s)."
+                        f"The report contains "
+                        f"{total_tests} laboratory test(s)."
                     )
+
 
                     if within > 0:
 
@@ -640,6 +590,7 @@ if uploaded_file is not None:
                             f"the report."
                         )
 
+
                     if below > 0:
 
                         summary_parts.append(
@@ -647,6 +598,7 @@ if uploaded_file is not None:
                             f"the reference range shown on "
                             f"the report."
                         )
+
 
                     if above > 0:
 
@@ -665,7 +617,11 @@ if uploaded_file is not None:
                     st.markdown(
                         f"""
                         <div class="info-card">
-                            <p>{summary_text}</p>
+
+                            <p>
+                                {summary_text}
+                            </p>
+
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -691,10 +647,20 @@ if uploaded_file is not None:
                         )
 
 
+                    # Convert new lines for display
+
+                    formatted_ai_summary = (
+                        ai_summary
+                        .replace("\n", "<br>")
+                    )
+
+
                     st.markdown(
                         f"""
                         <div class="ai-box">
-                            {ai_summary.replace(chr(10), "<br>")}
+
+                            {formatted_ai_summary}
+
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -736,27 +702,27 @@ if uploaded_file is not None:
 
 
                     # =====================================
-                    # MEDICAL DISCLAIMER
+                    # DISCLAIMER
                     # =====================================
 
                     st.markdown(
                         """
                         <div class="medical-disclaimer">
 
-                        <b>⚠️ Important Medical Disclaimer</b>
+                            <b>⚠️ Important Medical Disclaimer</b>
 
-                        <br><br>
+                            <br><br>
 
-                        This application provides informational
-                        and educational explanations only.
+                            This application provides informational
+                            and educational explanations only.
 
-                        It does not provide a medical diagnosis
-                        or treatment.
+                            It does not provide a medical diagnosis
+                            or treatment.
 
-                        Laboratory results should be interpreted
-                        by a qualified healthcare professional
-                        together with symptoms, medical history,
-                        medications and other clinical information.
+                            Laboratory results should be interpreted
+                            by a qualified healthcare professional
+                            together with symptoms, medical history,
+                            medications and other clinical information.
 
                         </div>
                         """,
@@ -774,6 +740,7 @@ if uploaded_file is not None:
                         "⚠️ No laboratory test results were detected."
                     )
 
+
                     st.info(
                         "The report text was extracted successfully, "
                         "but laboratory values could not be identified. "
@@ -781,6 +748,10 @@ if uploaded_file is not None:
                         "OCR text is different from the supported format."
                     )
 
+
+    # =====================================================
+    # ERROR HANDLING
+    # =====================================================
 
     except Exception as e:
 
@@ -796,9 +767,13 @@ if uploaded_file is not None:
 st.markdown(
     """
     <div class="footer">
-        🩺 AI Medical Report Explainer |
-        Educational Use Only |
+
+        🩺 AI Medical Report Explainer
+        |
+        Educational Use Only
+        |
         Not a Substitute for Professional Medical Evaluation
+
     </div>
     """,
     unsafe_allow_html=True
