@@ -1,4 +1,7 @@
-from reportlab.lib.pagesizes import A4
+
+from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -6,204 +9,79 @@ from reportlab.platypus import (
     Table,
     TableStyle
 )
-from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.units import inch
-from io import BytesIO
+import pandas as pd
 
 
-def generate_report(results, ai_summary):
-
+def create_pdf_report(results_df, ai_summary):
     buffer = BytesIO()
 
     document = SimpleDocTemplate(
         buffer,
-        pagesize=A4,
-        rightMargin=40,
-        leftMargin=40,
-        topMargin=40,
-        bottomMargin=40
+        pagesize=letter
     )
 
     styles = getSampleStyleSheet()
+    content = []
 
-    title_style = styles["Title"]
-    title_style.alignment = TA_CENTER
-
-    story = []
-
-    # -----------------------------------------
-    # TITLE
-    # -----------------------------------------
-
-    story.append(
-        Paragraph(
-            "AI Medical Report Explainer",
-            title_style
-        )
+    content.append(
+        Paragraph("AI Medical Report Explainer", styles["Title"])
     )
+    content.append(Spacer(1, 12))
 
-    story.append(Spacer(1, 20))
-
-    story.append(
-        Paragraph(
-            "Laboratory Results Report",
-            styles["Heading2"]
-        )
+    content.append(
+        Paragraph("Laboratory Results", styles["Heading2"])
     )
+    content.append(Spacer(1, 8))
 
-    story.append(Spacer(1, 10))
-
-    # -----------------------------------------
-    # RESULTS TABLE
-    # -----------------------------------------
-
-    table_data = [
-        [
-            "Test",
-            "Result",
-            "Unit",
-            "Reference Range",
-            "Status"
+    if isinstance(results_df, pd.DataFrame) and not results_df.empty:
+        table_data = [
+            [str(column) for column in results_df.columns]
         ]
-    ]
 
-    for _, row in results.iterrows():
+        for _, row in results_df.iterrows():
+            table_data.append([
+                str(value) for value in row.tolist()
+            ])
 
-        table_data.append([
-            str(row["Test"]),
-            str(row["Result"]),
-            str(row["Unit"]),
-            str(row["Reference Range"]),
-            str(row["Status"])
-        ])
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        content.append(table)
+    else:
+        content.append(
+            Paragraph("No laboratory results available.", styles["BodyText"])
+        )
 
-    table = Table(
-        table_data,
-        repeatRows=1
+    content.append(Spacer(1, 16))
+    content.append(
+        Paragraph("AI Explanation", styles["Heading2"])
     )
+    content.append(Spacer(1, 8))
 
-    table.setStyle(
-        TableStyle([
-            (
-                "BACKGROUND",
-                (0, 0),
-                (-1, 0),
-                colors.lightgrey
-            ),
-            (
-                "TEXTCOLOR",
-                (0, 0),
-                (-1, 0),
-                colors.black
-            ),
-            (
-                "GRID",
-                (0, 0),
-                (-1, -1),
-                0.5,
-                colors.grey
-            ),
-            (
-                "FONTNAME",
-                (0, 0),
-                (-1, 0),
-                "Helvetica-Bold"
-            ),
-            (
-                "VALIGN",
-                (0, 0),
-                (-1, -1),
-                "MIDDLE"
-            ),
-            (
-                "FONTSIZE",
-                (0, 0),
-                (-1, -1),
-                8
-            )
-        ])
-    )
+    summary = str(ai_summary or "No AI explanation available.")
+    for line in summary.splitlines():
+        content.append(
+            Paragraph(line or " ", styles["BodyText"])
+        )
+        content.append(Spacer(1, 4))
 
-    story.append(table)
-
-    story.append(Spacer(1, 20))
-
-    # -----------------------------------------
-    # AI EXPLANATION
-    # -----------------------------------------
-
-    story.append(
+    content.append(Spacer(1, 12))
+    content.append(
         Paragraph(
-            "AI Educational Explanation",
-            styles["Heading2"]
+            "Educational information only. Not a medical diagnosis "
+            "or a substitute for advice from a qualified healthcare professional.",
+            styles["Italic"]
         )
     )
 
-    story.append(Spacer(1, 10))
-
-    # Convert AI markdown-style headings
-    # into readable PDF paragraphs
-
-    for line in ai_summary.split("\n"):
-
-        line = line.strip()
-
-        if not line:
-            story.append(Spacer(1, 6))
-            continue
-
-        line = line.replace(
-            "### ",
-            ""
-        )
-
-        line = line.replace(
-            "**",
-            ""
-        )
-
-        story.append(
-            Paragraph(
-                line,
-                styles["BodyText"]
-            )
-        )
-
-        story.append(
-            Spacer(1, 4)
-        )
-
-    # -----------------------------------------
-    # DISCLAIMER
-    # -----------------------------------------
-
-    story.append(Spacer(1, 15))
-
-    story.append(
-        Paragraph(
-            "<b>Important Medical Disclaimer</b>",
-            styles["Heading3"]
-        )
-    )
-
-    story.append(Spacer(1, 5))
-
-    story.append(
-        Paragraph(
-            "This report provides informational and "
-            "educational explanations only. It does not "
-            "provide a medical diagnosis or treatment. "
-            "Laboratory results should be interpreted by "
-            "a qualified healthcare professional in the "
-            "appropriate clinical context.",
-            styles["BodyText"]
-        )
-    )
-
-    document.build(story)
-
+    document.build(content)
     buffer.seek(0)
 
-    return buffer
+    return buffer.getvalue()
