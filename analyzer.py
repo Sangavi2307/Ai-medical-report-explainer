@@ -548,22 +548,49 @@ def parse_platelet_results(lines):
 
     results = []
 
+  
     platelet_names = (
         "platelet",
         "platelets",
         "platelet count",
-        "plt"
+        "plt",
     )
 
     for i in range(len(lines) - 2):
-
         test_name = lines[i].lower().strip()
 
         if test_name not in platelet_names:
             continue
 
         result_match = re.search(
-            rf"({NUMBER})\s*"
-            rf"lakh\s*/?\s*µ?l",
+            rf"({NUMBER})\s*lakh\s*/?\s*µ?l",
             lines[i + 1],
-            re.
+            re.IGNORECASE,
+        )
+
+        range_match = re.search(
+            rf"({NUMBER})\s*[-–]\s*({NUMBER})\s*lakh\s*/?\s*µ?l",
+            lines[i + 2],
+            re.IGNORECASE,
+        )
+
+        if result_match and range_match:
+            result = float(result_match.group(1))
+            low = float(range_match.group(1))
+            high = float(range_match.group(2))
+
+            if result < low:
+                status = "Below Range"
+            elif result > high:
+                status = "Above Range"
+            else:
+                status = "Within Range"
+
+            results.append({
+                "Test": "Platelets",
+                "Result": result_match.group(0).strip(),
+                "Unit": "lakh/µL",
+                "Reference Range": range_match.group(0).strip(),
+                "Status": status,
+            })
+
