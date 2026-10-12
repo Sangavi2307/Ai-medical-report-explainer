@@ -271,6 +271,7 @@ if uploaded_file is not None:
             st.session_state["quality_message"] = quality_message
 
             # Reset previous AI explanation after a new analysis.
+          
             st.session_state.pop("ai_summary", None)
 
             if quality_ok:
@@ -281,12 +282,12 @@ if uploaded_file is not None:
 
             st.success("Report processing completed.")
 
-       except Exception:
-    st.error(
-        "Unable to process this report. "
-        "Please check the file and try again. "
-        "If the problem continues, contact support."
-    )
+        except Exception:
+            st.error(
+                "Unable to process this report. "
+                "Please check the file and try again. "
+                "If the problem continues, contact support."
+            )
 
 
 # --------------------------------------------------
