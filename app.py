@@ -281,12 +281,12 @@ if uploaded_file is not None:
 
             st.success("Report processing completed.")
 
-        except Exception as error:
-            st.error(
-                "Unable to process this report. "
-                "Please check the file and try again."
-            )
-            st.exception(error)
+       except Exception:
+    st.error(
+        "Unable to process this report. "
+        "Please check the file and try again. "
+        "If the problem continues, contact support."
+    )
 
 
 # --------------------------------------------------
@@ -351,9 +351,12 @@ if "report_text" in st.session_state:
                 mime="application/pdf",
             )
 
-        except Exception as error:
-            st.error("Unable to generate the PDF report.")
-            st.exception(error)
+      except Exception:
+    st.error(
+        "Unable to generate the PDF report. "
+        "Please try again later."
+    )
+
 
     else:
         st.caption(
