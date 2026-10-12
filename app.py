@@ -1,6 +1,6 @@
 
+
 import io
-import re
 
 import pandas as pd
 import pymupdf
@@ -13,148 +13,257 @@ from ai_explainer import ai_explain_report
 from report_generator import create_pdf_report
 
 
-# ==================================================
-# 1. PAGE CONFIGURATION
-# ==================================================
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
 
 st.set_page_config(
-    page_title="AI Medical Report Explainer",
+    page_title="MediExplain | Medical Report Assistant",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+
+# =========================================================
+# PROFESSIONAL UI STYLING
+# =========================================================
+
 st.markdown(
     """
     <style>
+    :root {
+        --navy: #142D4E;
+        --teal: #087F8C;
+        --light-teal: #E7F6F5;
+        --muted: #64748B;
+        --surface: #FFFFFF;
+        --border: #E2E8F0;
+    }
+
+    .stApp {
+        background-color: #F5F8FC;
+    }
+
     .block-container {
+        max-width: 1250px;
         padding-top: 1.8rem;
-        padding-bottom: 2rem;
-        max-width: 1200px;
+        padding-bottom: 3rem;
+    }
+
+    [data-testid="stSidebar"] {
+        background: #FFFFFF;
+        border-right: 1px solid #E5EAF1;
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #142D4E;
+    }
+
+    h1, h2, h3 {
+        color: #142D4E;
+        letter-spacing: -0.4px;
+    }
+
+    p, li, label {
+        color: #334155;
+    }
+
+    .brand {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #087F8C;
+        letter-spacing: 0.3px;
     }
 
     .hero {
-        padding: 1.5rem;
-        border-radius: 16px;
-        background: linear-gradient(120deg, #e8f4ff, #f4f0ff);
-        margin-bottom: 1.2rem;
+        background: linear-gradient(120deg, #142D4E 0%, #087F8C 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        margin-bottom: 1.3rem;
+        color: white;
     }
 
     .hero h1 {
-        color: #173b65;
-        margin-bottom: 0.4rem;
+        color: white !important;
+        font-size: 2.05rem;
+        margin: 0.45rem 0;
     }
 
     .hero p {
-        color: #334155;
+        color: #E3F5F7 !important;
+        font-size: 1rem;
         margin-bottom: 0;
     }
 
-    .safety-note {
+    .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #BDEBEA;
+    }
+
+    .panel {
+        background: white;
+        border: 1px solid #E2E8F0;
+        border-radius: 16px;
+        padding: 1.15rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .panel-title {
+        color: #142D4E;
+        font-size: 1.03rem;
+        font-weight: 750;
+        margin-bottom: 0.35rem;
+    }
+
+    .muted {
+        color: #64748B;
+        font-size: 0.88rem;
+    }
+
+    .notice {
+        background: #FFF8E8;
+        border: 1px solid #F3DFB0;
+        border-left: 4px solid #D99B26;
+        border-radius: 10px;
         padding: 0.9rem 1rem;
-        border-left: 4px solid #e6a23c;
-        background: #fff8e8;
-        border-radius: 6px;
-        color: #59421a;
+        margin: 0.8rem 0 1.2rem 0;
+        color: #654B16;
+        font-size: 0.88rem;
+    }
+
+    .success-note {
+        background: #E9F8F1;
+        border: 1px solid #C8EBDD;
+        border-radius: 12px;
+        padding: 1rem;
+        color: #176448;
         margin-bottom: 1rem;
     }
 
+    .metric-label {
+        color: #64748B;
+        font-size: 0.83rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .metric-value {
+        color: #142D4E;
+        font-size: 1.65rem;
+        font-weight: 800;
+    }
+
+    .stButton > button,
+    .stDownloadButton > button {
+        border-radius: 10px;
+        font-weight: 650;
+        min-height: 2.8rem;
+        transition: all 0.2s ease;
+    }
+
+    .stButton > button[kind="primary"] {
+        background: #087F8C;
+        border: 1px solid #087F8C;
+        color: white;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background: #066873;
+        border-color: #066873;
+    }
+
+    [data-testid="stFileUploader"] {
+        background: #FFFFFF;
+        border: 1px dashed #A8C8D2;
+        border-radius: 14px;
+        padding: 0.6rem;
+    }
+
+    [data-testid="stDataFrame"] {
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    hr {
+        border-color: #E2E8F0;
+    }
+
+    .footer {
+        text-align: center;
+        color: #64748B;
+        font-size: 0.82rem;
+        padding: 1.5rem 0 0.5rem 0;
+    }
+
+    @media (max-width: 768px) {
+        .block-container {
+            padding: 1rem 0.8rem 2rem 0.8rem;
+        }
+
+        .hero {
+            padding: 1.3rem;
+            border-radius: 14px;
+        }
+
+        .hero h1 {
+            font-size: 1.55rem;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-# ==================================================
-# 2. SIDEBAR
-# ==================================================
+# =========================================================
+# SIDEBAR NAVIGATION
+# =========================================================
 
 with st.sidebar:
-    st.title("🩺 Report Assistant")
-    st.caption("AI-powered educational report summaries")
-
-    st.divider()
-
-    st.markdown("### How to use")
     st.markdown(
-        """
-        1. Upload a report.
-        2. Select **Analyze Report**.
-        3. Review detected results.
-        4. Read the educational explanation.
-        5. Download a PDF summary.
-        """
+        '<div class="brand">🩺 MediExplain</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.caption("Medical Report Assistant")
+    st.divider()
+
+    page = st.radio(
+        "NAVIGATION",
+        [
+            "Dashboard",
+            "How It Works",
+            "About & Safety",
+        ],
+        label_visibility="visible",
     )
 
     st.divider()
 
-    st.markdown("### Supported files")
-    st.write("PDF, PNG, JPG and JPEG")
+    st.markdown("#### Supported files")
+    st.write("📄 PDF documents")
+    st.write("🖼️ PNG and JPG images")
 
-    st.markdown("### Upload limit")
-    st.write("10 MB per file")
+    st.markdown("#### File size")
+    st.write("Maximum 10 MB per upload")
 
     st.divider()
 
-    st.caption(
-        "Use fictional or de-identified reports while testing. "
-        "Do not upload private patient information."
-    )
+    st.caption("Educational tool — not a diagnostic service.")
 
 
-# ==================================================
-# 3. APPLICATION HEADER
-# ==================================================
-
-st.markdown(
-    """
-    <div class="hero">
-        <h1>🩺 AI Medical Report Explainer</h1>
-        <p>
-            Understand detected laboratory results through
-            readable summaries and educational explanations.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    """
-    <div class="safety-note">
-        <strong>Important medical notice:</strong>
-        This application is for educational purposes only.
-        It cannot diagnose diseases, recommend treatment,
-        or replace a qualified healthcare professional.
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ==================================================
-# 4. SESSION RESET
-# ==================================================
-
-if st.button("🗑️ Clear current analysis"):
-    for key in [
-        "report_text",
-        "results_df",
-        "quality_ok",
-        "quality_message",
-        "ai_summary",
-    ]:
-        st.session_state.pop(key, None)
-
-    st.rerun()
-
-
-# ==================================================
-# 5. PDF TEXT EXTRACTION WITH OCR FALLBACK
-# ==================================================
+# =========================================================
+# COMMON FUNCTIONS
+# =========================================================
 
 def extract_text_from_uploaded_pdf(uploaded_file):
-    """Extract PDF text and use OCR if selectable text is absent."""
+    """Extract selectable PDF text and fall back to OCR."""
 
     uploaded_file.seek(0)
     text = extract_text_from_pdf(uploaded_file)
@@ -192,12 +301,8 @@ def extract_text_from_uploaded_pdf(uploaded_file):
     return "\n".join(extracted_pages).strip()
 
 
-# ==================================================
-# 6. STANDARDIZE LABORATORY RESULTS
-# ==================================================
-
 def prepare_results(results):
-    """Convert analyzer output into a consistent table."""
+    """Standardize analyzer output for the results table."""
 
     expected_columns = [
         "Test",
@@ -245,40 +350,26 @@ def prepare_results(results):
     return results_df[expected_columns]
 
 
-# ==================================================
-# 7. REPORT QUALITY CHECK
-# ==================================================
-
 def check_report_quality(report_text, results_df):
-    """Check whether readable text and results were detected."""
+    """Check whether text and structured results were detected."""
 
     if not report_text or not report_text.strip():
-        return False, (
-            "No readable text was extracted. "
-            "Try a clearer image or PDF."
-        )
+        return False, "No readable text was extracted."
 
     if results_df.empty:
-        return False, (
+        return (
+            False,
             "Text was extracted, but no supported laboratory "
-            "results were detected. Review the extracted text."
+            "results were detected.",
         )
 
-    return True, "Text and laboratory results were detected."
+    return True, "Report text and laboratory results detected."
 
-
-# ==================================================
-# 8. RESULTS DASHBOARD
-# ==================================================
 
 def show_summary_dashboard(results_df):
-    """Display detected status counts and a chart."""
+    """Display result counts and a summary chart."""
 
-    if results_df.empty:
-        st.warning("No structured laboratory results are available.")
-        return
-
-    status_values = (
+    statuses = (
         results_df["Status"]
         .fillna("")
         .astype(str)
@@ -286,21 +377,21 @@ def show_summary_dashboard(results_df):
     )
 
     normal_count = int(
-        status_values.str.contains(
+        statuses.str.contains(
             r"within range|normal",
             regex=True,
         ).sum()
     )
 
     low_count = int(
-        status_values.str.contains(
+        statuses.str.contains(
             r"below|low",
             regex=True,
         ).sum()
     )
 
     high_count = int(
-        status_values.str.contains(
+        statuses.str.contains(
             r"above|high",
             regex=True,
         ).sum()
@@ -308,10 +399,24 @@ def show_summary_dashboard(results_df):
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("Tests detected", len(results_df))
-    col2.metric("Within range", normal_count)
-    col3.metric("Below range", low_count)
-    col4.metric("Above range", high_count)
+    metrics = [
+        (col1, "Tests detected", len(results_df)),
+        (col2, "Within range", normal_count),
+        (col3, "Below range", low_count),
+        (col4, "Above range", high_count),
+    ]
+
+    for column, label, value in metrics:
+        with column:
+            st.markdown(
+                f"""
+                <div class="panel">
+                    <div class="metric-label">{label}</div>
+                    <div class="metric-value">{value}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     chart_data = pd.DataFrame(
         {
@@ -328,253 +433,413 @@ def show_summary_dashboard(results_df):
         }
     )
 
-    st.markdown("#### Detected result status")
-    st.bar_chart(chart_data.set_index("Category"))
+    st.markdown("#### Result overview")
+    st.bar_chart(
+        chart_data.set_index("Category"),
+        use_container_width=True,
+    )
 
 
-# ==================================================
-# 9. FILE UPLOAD
-# ==================================================
+def clear_analysis():
+    """Clear the current analysis from Streamlit session state."""
 
-st.subheader("📤 Upload your report")
+    for key in [
+        "report_text",
+        "results_df",
+        "quality_ok",
+        "quality_message",
+        "ai_summary",
+    ]:
+        st.session_state.pop(key, None)
 
-uploaded_file = st.file_uploader(
-    "Choose a medical report",
-    type=["pdf", "png", "jpg", "jpeg"],
-    max_upload_size=10,
-    help="PDF, PNG, JPG or JPEG. Maximum size: 10 MB.",
-    key="medical_report_uploader",
-)
 
-if uploaded_file is not None:
+# =========================================================
+# PAGE: DASHBOARD
+# =========================================================
 
-    file_size_mb = uploaded_file.size / (1024 * 1024)
+if page == "Dashboard":
 
-    if file_size_mb > 10:
-        st.error("The file exceeds the 10 MB limit.")
+    st.markdown(
+        """
+        <div class="hero">
+            <div class="eyebrow">YOUR HEALTH INFORMATION, EXPLAINED</div>
+            <h1>Understand your medical report.</h1>
+            <p>
+                Extract laboratory results, review detected values,
+                and explore an educational explanation in one place.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    else:
-        st.success(
-            f"File selected: {uploaded_file.name} "
-            f"({file_size_mb:.2f} MB)"
-        )
+    st.markdown(
+        """
+        <div class="notice">
+            <strong>Medical safety notice</strong><br>
+            This tool may misread reports or produce inaccurate
+            explanations. It cannot diagnose or recommend treatment.
+            Verify results with the original report and consult a
+            qualified healthcare professional.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        st.caption(
-            "Only upload reports you are authorized to process."
-        )
+    # -----------------------------------------------------
+    # UPLOAD PANEL
+    # -----------------------------------------------------
 
-        analyze_button = st.button(
-            "🔍 Analyze Report",
-            type="primary",
-            use_container_width=True,
-        )
+    st.markdown("### 📤 Upload a report")
+    st.markdown(
+        '<p class="muted">Select a PDF or image to begin your analysis.</p>',
+        unsafe_allow_html=True,
+    )
 
-        if analyze_button:
+    uploaded_file = st.file_uploader(
+        "Choose your report",
+        type=["pdf", "png", "jpg", "jpeg"],
+        max_upload_size=10,
+        help="Supported formats: PDF, PNG, JPG and JPEG. Maximum 10 MB.",
+        key="medical_report_uploader",
+    )
 
-            # ------------------------------------------
-            # Extract text
-            # ------------------------------------------
+    if uploaded_file is not None:
 
-            try:
-                with st.spinner("Extracting report text..."):
+        file_size_mb = uploaded_file.size / (1024 * 1024)
 
-                    file_name = uploaded_file.name.lower()
-                    uploaded_file.seek(0)
+        if file_size_mb > 10:
+            st.error("This file exceeds the 10 MB upload limit.")
 
-                    if file_name.endswith(".pdf"):
-                        report_text = extract_text_from_uploaded_pdf(
-                            uploaded_file
-                        )
-                    else:
-                        report_text = extract_text_from_image(
-                            uploaded_file
-                        )
+        else:
+            st.success(
+                f"File selected: {uploaded_file.name} "
+                f"({file_size_mb:.2f} MB)"
+            )
 
-                if not report_text or not report_text.strip():
-                    st.error(
-                        "No readable text was found. "
-                        "Please try a clearer report."
-                    )
+            if st.button(
+                "Analyze Medical Report",
+                type="primary",
+                use_container_width=True,
+            ):
 
-                else:
+                # Reset old data before a new analysis.
+                clear_analysis()
 
-                    # ----------------------------------
-                    # Analyze detected results
-                    # ----------------------------------
+                try:
+                    with st.spinner("Extracting report text..."):
 
-                    with st.spinner(
-                        "Analyzing laboratory results..."
-                    ):
-                        raw_results = analyze_report(report_text)
-                        results_df = prepare_results(raw_results)
+                        filename = uploaded_file.name.lower()
+                        uploaded_file.seek(0)
 
-                    quality_ok, quality_message = (
-                        check_report_quality(
-                            report_text,
-                            results_df,
-                        )
-                    )
-
-                    st.session_state["report_text"] = report_text
-                    st.session_state["results_df"] = results_df
-                    st.session_state["quality_ok"] = quality_ok
-                    st.session_state["quality_message"] = (
-                        quality_message
-                    )
-
-                    # Remove the previous AI explanation.
-                    st.session_state.pop("ai_summary", None)
-
-                    # ----------------------------------
-                    # Generate educational explanation
-                    # ----------------------------------
-
-                    if quality_ok:
-                        try:
-                            with st.spinner(
-                                "Generating educational explanation..."
-                            ):
-                                ai_summary = ai_explain_report(
-                                    report_text
+                        if filename.endswith(".pdf"):
+                            report_text = (
+                                extract_text_from_uploaded_pdf(
+                                    uploaded_file
                                 )
-
-                            if ai_summary:
-                                st.session_state["ai_summary"] = (
-                                    ai_summary
-                                )
-                            else:
-                                st.warning(
-                                    "No AI explanation was returned."
-                                )
-
-                        except Exception:
-                            st.warning(
-                                "The report was analyzed, but the "
-                                "AI explanation could not be generated. "
-                                "Please try again later."
+                            )
+                        else:
+                            report_text = extract_text_from_image(
+                                uploaded_file
                             )
 
-                    st.success("Report analysis completed.")
+                    if not report_text or not report_text.strip():
+                        st.error(
+                            "No readable text was found. "
+                            "Try a clearer report."
+                        )
+
+                    else:
+                        with st.spinner(
+                            "Analyzing detected laboratory results..."
+                        ):
+                            raw_results = analyze_report(report_text)
+                            results_df = prepare_results(raw_results)
+
+                        quality_ok, quality_message = (
+                            check_report_quality(
+                                report_text,
+                                results_df,
+                            )
+                        )
+
+                        st.session_state["report_text"] = report_text
+                        st.session_state["results_df"] = results_df
+                        st.session_state["quality_ok"] = quality_ok
+                        st.session_state["quality_message"] = (
+                            quality_message
+                        )
+
+                        if quality_ok:
+                            try:
+                                with st.spinner(
+                                    "Generating AI explanation..."
+                                ):
+                                    summary = ai_explain_report(
+                                        report_text
+                                    )
+
+                                if summary:
+                                    st.session_state["ai_summary"] = (
+                                        summary
+                                    )
+
+                            except Exception:
+                                st.warning(
+                                    "The laboratory results were "
+                                    "processed, but the AI explanation "
+                                    "is currently unavailable."
+                                )
+
+                        st.success("Analysis completed.")
+
+                except Exception:
+                    st.error(
+                        "We could not process this report. "
+                        "Please try a valid, clearer file."
+                    )
+
+    # -----------------------------------------------------
+    # RESULTS AREA
+    # -----------------------------------------------------
+
+    if "report_text" in st.session_state:
+
+        st.divider()
+
+        st.markdown("### 📊 Your report overview")
+
+        st.info(
+            st.session_state.get(
+                "quality_message",
+                "Review the detected report information.",
+            )
+        )
+
+        results_df = st.session_state["results_df"]
+
+        if not results_df.empty:
+            show_summary_dashboard(results_df)
+
+            st.markdown("### 🧪 Detected laboratory results")
+
+            st.dataframe(
+                results_df,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.caption(
+                "Detected results may be inaccurate due to OCR "
+                "or parsing errors. Verify each value and reference "
+                "range against the original report."
+            )
+
+        else:
+            st.warning(
+                "No structured laboratory results were detected."
+            )
+
+        # -------------------------------------------------
+        # AI EXPLANATION
+        # -------------------------------------------------
+
+        st.divider()
+        st.markdown("### 🤖 Educational explanation")
+
+        if "ai_summary" in st.session_state:
+            st.markdown(st.session_state["ai_summary"])
+
+            st.caption(
+                "AI-generated content can be incorrect. "
+                "Do not use it as a substitute for professional advice."
+            )
+        else:
+            st.info(
+                "An AI explanation is not available for this report."
+            )
+
+        # -------------------------------------------------
+        # DOWNLOAD SUMMARY
+        # -------------------------------------------------
+
+        st.divider()
+        st.markdown("### 📥 Download your summary")
+
+        if not results_df.empty:
+            try:
+                pdf_bytes = create_pdf_report(
+                    results_df,
+                    st.session_state.get("ai_summary", ""),
+                )
+
+                if pdf_bytes:
+                    st.download_button(
+                        label="Download PDF Summary",
+                        data=pdf_bytes,
+                        file_name="medical_report_summary.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+                else:
+                    st.warning("The PDF summary is empty.")
 
             except Exception:
                 st.error(
-                    "Unable to process this file. Check the file "
-                    "and try again with a valid report."
+                    "The PDF summary could not be generated. "
+                    "Please try again later."
                 )
 
+        st.button(
+            "Clear current analysis",
+            on_click=clear_analysis,
+        )
 
-# ==================================================
-# 10. DISPLAY ANALYSIS
-# ==================================================
 
-if "report_text" in st.session_state:
+# =========================================================
+# PAGE: HOW IT WORKS
+# =========================================================
 
-    st.divider()
+elif page == "How It Works":
 
-    st.subheader("📋 Analysis Results")
-
-    quality_message = st.session_state.get(
-        "quality_message",
-        "",
+    st.markdown(
+        """
+        <div class="hero">
+            <div class="eyebrow">SIMPLE WORKFLOW</div>
+            <h1>How it works</h1>
+            <p>
+                From report upload to an educational summary.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.info(quality_message)
+    steps = [
+        (
+            "01",
+            "Upload",
+            "Choose a supported PDF or image up to 10 MB.",
+        ),
+        (
+            "02",
+            "Extract",
+            "The application attempts to read report text "
+            "using PDF extraction or OCR.",
+        ),
+        (
+            "03",
+            "Analyze",
+            "The existing analyzer identifies supported "
+            "laboratory results.",
+        ),
+        (
+            "04",
+            "Understand",
+            "An AI-generated educational explanation may "
+            "be provided when analysis succeeds.",
+        ),
+        (
+            "05",
+            "Download",
+            "Download a PDF summary of the detected results "
+            "and available explanation.",
+        ),
+    ]
 
-    with st.expander("📄 View extracted report text"):
-        st.text(st.session_state["report_text"])
-
-    results_df = st.session_state["results_df"]
-
-    st.markdown("### 🧪 Detected Laboratory Results")
-
-    if not results_df.empty:
-
-        st.dataframe(
-            results_df,
-            use_container_width=True,
-            hide_index=True,
+    for number, title, description in steps:
+        st.markdown(
+            f"""
+            <div class="panel">
+                <div class="panel-title">
+                    {number} &nbsp; {title}
+                </div>
+                <div class="muted">{description}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
-        show_summary_dashboard(results_df)
-
-        st.caption(
-            "Detected values and statuses may be incorrect if "
-            "the report was scanned poorly or parsed incorrectly. "
-            "Verify all results against the original report."
-        )
-
-    else:
-        st.warning(
-            "No structured laboratory results were detected."
-        )
-
-    # ----------------------------------------------
-    # AI explanation
-    # ----------------------------------------------
-
-    st.divider()
-    st.subheader("🤖 Educational AI Explanation")
-
-    if "ai_summary" in st.session_state:
-        st.markdown(st.session_state["ai_summary"])
-
-        st.caption(
-            "AI-generated explanations can contain errors. "
-            "Do not use them to make medical decisions."
-        )
-
-    else:
-        st.info(
-            "An AI explanation is not available for this report."
-        )
-
-    # ----------------------------------------------
-    # PDF summary download
-    # ----------------------------------------------
-
-    st.divider()
-    st.subheader("📥 Download Summary")
-
-    if not results_df.empty:
-
-        try:
-            pdf_bytes = create_pdf_report(
-                results_df,
-                st.session_state.get("ai_summary", ""),
-            )
-
-            if pdf_bytes:
-                st.download_button(
-                    label="⬇️ Download PDF Summary",
-                    data=pdf_bytes,
-                    file_name="medical_report_summary.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                )
-            else:
-                st.warning(
-                    "The PDF generator returned an empty result."
-                )
-
-        except Exception:
-            st.error(
-                "Unable to generate the PDF summary. "
-                "Please try again later."
-            )
-
-    else:
-        st.caption(
-            "A PDF summary requires detected structured results."
-        )
+    st.info(
+        "The accuracy of extraction and analysis depends on "
+        "the report quality and the capabilities of the existing "
+        "backend modules."
+    )
 
 
-# ==================================================
-# 11. FOOTER
-# ==================================================
+# =========================================================
+# PAGE: ABOUT & SAFETY
+# =========================================================
 
-st.divider()
+elif page == "About & Safety":
 
-st.caption(
-    "AI Medical Report Explainer | Educational use only | "
-    "Not a substitute for professional medical advice."
+    st.markdown(
+        """
+        <div class="hero">
+            <div class="eyebrow">TRANSPARENCY FIRST</div>
+            <h1>About this application</h1>
+            <p>
+                A software project designed to make medical
+                report information easier to review.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("### What this application does")
+
+    st.write(
+        "It attempts to extract text from uploaded reports, "
+        "organize detected laboratory values, and provide "
+        "an educational AI explanation."
+    )
+
+    st.markdown("### Important limitations")
+
+    st.markdown(
+        """
+        - It is not a medical diagnostic system.
+        - OCR can misread numbers, decimal points, units,
+          and reference ranges.
+        - The analyzer may miss results or classify them incorrectly.
+        - AI explanations can contain factual errors.
+        - A result marked within range does not guarantee that
+          a person is healthy.
+        - The application does not replace a doctor or laboratory.
+        """
+    )
+
+    st.markdown("### Privacy and security")
+
+    st.warning(
+        "Do not upload reports containing real patient information "
+        "unless you have verified the application's privacy, "
+        "security, data-handling practices, and applicable legal "
+        "requirements. Uploaded text may be sent to external AI "
+        "services by the existing backend."
+    )
+
+    st.markdown("### When to seek medical care")
+
+    st.write(
+        "Contact a qualified healthcare professional to interpret "
+        "your results in context. For urgent symptoms or a medical "
+        "emergency, seek appropriate medical care instead of relying "
+        "on this application."
+    )
+
+
+# =========================================================
+# FOOTER
+# =========================================================
+
+st.markdown(
+    """
+    <div class="footer">
+        MediExplain · Educational medical report assistant<br>
+        Not for diagnosis, treatment, or emergency use.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
