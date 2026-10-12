@@ -1,8 +1,10 @@
 
-import streamlit as st
+
+import io
+
 import pandas as pd
 import pymupdf
-import io
+import streamlit as st
 
 from extractor import extract_text_from_pdf
 from ocr_service import extract_text_from_image
@@ -24,14 +26,15 @@ st.set_page_config(
 st.title("🩺 AI Medical Report Explainer")
 
 st.write(
-    "Upload a medical report to extract its text, "
-    "review detected laboratory results, and generate "
-    "an educational explanation."
+    "Upload a medical report to extract text, review "
+    "detected laboratory results, and receive an "
+    "educational explanation."
 )
 
 st.info(
     "Educational use only. This application does not "
-    "provide a medical diagnosis or treatment."
+    "provide a medical diagnosis or treatment. "
+    "Always consult a qualified healthcare professional."
 )
 
 
@@ -40,7 +43,7 @@ st.info(
 # --------------------------------------------------
 
 def extract_text_from_uploaded_pdf(uploaded_file):
-    """Extract selectable PDF text, then try OCR if necessary."""
+    """Extract PDF text, using OCR if selectable text is absent."""
 
     text = extract_text_from_pdf(uploaded_file)
 
@@ -70,7 +73,7 @@ def extract_text_from_uploaded_pdf(uploaded_file):
             image_file.name = "page.png"
 
             page_text = extract_text_from_image(image_file)
-            extracted_pages.append(page_text)
+            extracted_pages.append(page_text or "")
 
     finally:
         document.close()
@@ -83,7 +86,7 @@ def extract_text_from_uploaded_pdf(uploaded_file):
 # --------------------------------------------------
 
 def prepare_results(results):
-    """Convert supported analyzer output into a DataFrame."""
+    """Convert analyzer output into a consistent DataFrame."""
 
     if isinstance(results, pd.DataFrame):
         results_df = results.copy()
@@ -95,7 +98,15 @@ def prepare_results(results):
         results_df = pd.DataFrame()
 
     if results_df.empty:
-        return results_df
+        return pd.DataFrame(
+            columns=[
+                "Test",
+                "Result",
+                "Unit",
+                "Reference Range",
+                "Status",
+            ]
+        )
 
     column_mapping = {
         "test_name": "Test",
@@ -116,19 +127,19 @@ def prepare_results(results):
         for column in results_df.columns
     ]
 
-    for column in [
+    expected_columns = [
         "Test",
         "Result",
         "Unit",
         "Reference Range",
         "Status",
-    ]:
+    ]
+
+    for column in expected_columns:
         if column not in results_df.columns:
             results_df[column] = ""
 
-    return results_df[
-        ["Test", "Result", "Unit", "Reference Range", "Status"]
-    ]
+    return results_df[expected_columns]
 
 
 # --------------------------------------------------
@@ -136,7 +147,7 @@ def prepare_results(results):
 # --------------------------------------------------
 
 def check_report_quality(report_text, results_df):
-    """Check whether useful report content was extracted."""
+    """Check whether readable text and results were detected."""
 
     if not report_text or not report_text.strip():
         return False, (
@@ -147,8 +158,8 @@ def check_report_quality(report_text, results_df):
     if results_df.empty:
         return False, (
             "Text was extracted, but no supported laboratory "
-            "results were detected. Check the extracted text "
-            "below or try a clearer report."
+            "results were detected. Review the extracted text "
+            "or try a clearer report."
         )
 
     return True, "Report text and laboratory results detected."
@@ -159,7 +170,7 @@ def check_report_quality(report_text, results_df):
 # --------------------------------------------------
 
 def show_summary_dashboard(results_df):
-    """Display a summary of detected result statuses."""
+    """Display counts of detected result statuses."""
 
     st.subheader("📊 Results Summary")
 
@@ -215,16 +226,26 @@ def show_summary_dashboard(results_df):
 
 
 # --------------------------------------------------
-# FILE UPLOAD
+# FILE UPLOAD — MAXIMUM 10 MB
 # --------------------------------------------------
 
 uploaded_file = st.file_uploader(
     "Upload a medical report",
     type=["pdf", "png", "jpg", "jpeg"],
-    help="Supported formats: PDF, PNG, JPG, and JPEG.",
+    help=(
+        "Supported formats: PDF, PNG, JPG, JPEG. "
+        "Maximum size: 10 MB."
+    ),
+    max_upload_size=10,
 )
 
+
+# --------------------------------------------------
+# PROCESS UPLOADED REPORT
+# --------------------------------------------------
+
 if uploaded_file is not None:
+
     st.success(f"Uploaded: {uploaded_file.name}")
 
     if st.button("Analyze Medical Report", type="primary"):
@@ -264,7 +285,7 @@ if uploaded_file is not None:
             st.session_state["quality_ok"] = quality_ok
             st.session_state["quality_message"] = quality_message
 
-            # Clear the previous AI explanation.
+            # Clear the previous explanation.
             st.session_state.pop("ai_summary", None)
 
             if quality_ok:
@@ -279,7 +300,7 @@ if uploaded_file is not None:
             st.error(
                 "Unable to process this report. "
                 "Please check the file and try again. "
-                "If the problem continues, contact support."
+                "If the problem continues, try another file."
             )
 
 
@@ -299,6 +320,7 @@ if "report_text" in st.session_state:
     st.subheader("🧪 Detected Laboratory Results")
 
     if not results_df.empty:
+
         st.dataframe(
             results_df,
             use_container_width=True,
@@ -327,7 +349,8 @@ if "report_text" in st.session_state:
     else:
         st.info(
             "An AI explanation was not generated because "
-            "the report did not pass the quality check."
+            "the report did not pass the quality check, "
+            "or the explanation could not be generated."
         )
 
     # --------------------------------------------------
@@ -362,3 +385,4 @@ if "report_text" in st.session_state:
         st.caption(
             "The PDF summary requires detected structured results."
         )
+
