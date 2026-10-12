@@ -1,197 +1,361 @@
 
-import io
-import html
+import streamlit as st
+import pandas as pd
+import pymupdf
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import inch
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
+from extractor import extract_text_from_pdf
+from ocr_service import extract_text_from_image
+from analyzer import analyze_report
+from ai_explainer import ai_explain_report
+from report_generator import create_pdf_report
+
+
+# --------------------------------------------------
+# PAGE CONFIGURATION
+# --------------------------------------------------
+
+st.set_page_config(
+    page_title="AI Medical Report Explainer",
+    page_icon="🩺",
+    layout="wide",
+)
+
+st.title("🩺 AI Medical Report Explainer")
+st.write(
+    "Upload a medical report to extract its text, "
+    "review detected laboratory results, and generate "
+    "an educational explanation."
+)
+
+st.info(
+    "Educational use only. This application does not "
+    "provide a medical diagnosis or treatment."
 )
 
 
-def create_pdf_report(results_df, ai_summary):
-    """
-    Generate a PDF containing extracted laboratory results
-    and the AI-generated educational explanation.
+# --------------------------------------------------
+# PDF TEXT EXTRACTION WITH OCR FALLBACK
+# --------------------------------------------------
 
-    Returns PDF data as bytes.
-    """
+def extract_text_from_uploaded_pdf(uploaded_file):
+    """Extract selectable PDF text, then try OCR if necessary."""
 
-    buffer = io.BytesIO()
+    text = extract_text_from_pdf(uploaded_file)
 
-    document = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=0.5 * inch,
-        leftMargin=0.5 * inch,
-        topMargin=0.6 * inch,
-        bottomMargin=0.6 * inch,
+    if text and text.strip():
+        return text.strip()
+
+    uploaded_file.seek(0)
+    pdf_bytes = uploaded_file.read()
+
+    document = pymupdf.open(
+        stream=pdf_bytes,
+        filetype="pdf",
     )
 
-    styles = getSampleStyleSheet()
+    extracted_pages = []
 
-    story = []
+    try:
+        for page in document:
+            pixmap = page.get_pixmap(
+                matrix=pymupdf.Matrix(2, 2),
+                alpha=False,
+            )
 
-    story.append(
-        Paragraph(
-            "AI Medical Report Explainer",
-            styles["Title"],
+            image_bytes = pixmap.tobytes("png")
+
+            import io
+
+            image_file = io.BytesIO(image_bytes)
+            image_file.name = "page.png"
+
+            page_text = extract_text_from_image(image_file)
+            extracted_pages.append(page_text)
+
+    finally:
+        document.close()
+
+    return "\n".join(extracted_pages).strip()
+
+
+# --------------------------------------------------
+# STANDARDIZE ANALYSIS RESULTS
+# --------------------------------------------------
+
+def prepare_results(results):
+    """Convert supported analyzer output into a DataFrame."""
+
+    if isinstance(results, pd.DataFrame):
+        results_df = results.copy()
+
+    elif isinstance(results, list):
+        results_df = pd.DataFrame(results)
+
+    else:
+        results_df = pd.DataFrame()
+
+    if results_df.empty:
+        return results_df
+
+    # Standardize column names.
+    column_mapping = {
+        "test_name": "Test",
+        "test": "Test",
+        "result": "Result",
+        "value": "Result",
+        "unit": "Unit",
+        "reference_range": "Reference Range",
+        "normal_range": "Reference Range",
+        "status": "Status",
+    }
+
+    results_df.columns = [
+        column_mapping.get(
+            str(column).strip().lower(),
+            str(column).strip(),
         )
-    )
+        for column in results_df.columns
+    ]
 
-    story.append(Spacer(1, 12))
-
-    story.append(
-        Paragraph(
-            "Educational Explanation of Laboratory Results",
-            styles["Heading2"],
-        )
-    )
-
-    story.append(Spacer(1, 10))
-
-    story.append(
-        Paragraph(
-            "This report is for educational purposes only. "
-            "It does not provide a medical diagnosis or treatment.",
-            styles["BodyText"],
-        )
-    )
-
-    story.append(Spacer(1, 18))
-
-    # Laboratory results table
-    story.append(
-        Paragraph(
-            "Laboratory Test Results",
-            styles["Heading2"],
-        )
-    )
-
-    story.append(Spacer(1, 8))
-
-    columns = [
+    # Ensure expected columns exist.
+    for column in [
         "Test",
         "Result",
         "Unit",
         "Reference Range",
         "Status",
+    ]:
+        if column not in results_df.columns:
+            results_df[column] = ""
+
+    return results_df[
+        ["Test", "Result", "Unit", "Reference Range", "Status"]
     ]
 
-    table_data = [columns]
 
-    if results_df is not None and not results_df.empty:
-        for _, row in results_df.iterrows():
-            table_data.append([
-                str(row.get("Test", "")),
-                str(row.get("Result", "")),
-                str(row.get("Unit", "")),
-                str(row.get("Reference Range", "")),
-                str(row.get("Status", "")),
-            ])
+# --------------------------------------------------
+# REPORT QUALITY CHECK
+# --------------------------------------------------
 
-    # Escape text so special characters cannot break PDF markup.
-    safe_table_data = []
+def check_report_quality(report_text, results_df):
+    """Check whether useful report content was extracted."""
 
-    for row in table_data:
-        safe_table_data.append([
-            Paragraph(
-                html.escape(value),
-                styles["BodyText"],
+    if not report_text or not report_text.strip():
+        return False, (
+            "No readable text was extracted. "
+            "Try a clearer PDF or image."
+        )
+
+    if results_df.empty:
+        return False, (
+            "Text was extracted, but no supported laboratory "
+            "results were detected. Check the extracted text "
+            "below or try a clearer report."
+        )
+
+    return True, "Report text and laboratory results detected."
+
+
+# --------------------------------------------------
+# SUMMARY DASHBOARD
+# --------------------------------------------------
+
+def show_summary_dashboard(results_df):
+    """Display a simple summary of detected result statuses."""
+
+    st.subheader("📊 Results Summary")
+
+    if results_df.empty:
+        st.warning("No structured results are available.")
+        return
+
+    status_values = (
+        results_df["Status"]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+    )
+
+    normal_count = status_values.str.contains(
+        r"within range|normal",
+        regex=True,
+    ).sum()
+
+    low_count = status_values.str.contains(
+        r"below|low",
+        regex=True,
+    ).sum()
+
+    high_count = status_values.str.contains(
+        r"above|high",
+        regex=True,
+    ).sum()
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Tests detected", len(results_df))
+    col2.metric("Within range", int(normal_count))
+    col3.metric("Below range", int(low_count))
+    col4.metric("Above range", int(high_count))
+
+    chart_data = pd.DataFrame(
+        {
+            "Category": [
+                "Within range",
+                "Below range",
+                "Above range",
+            ],
+            "Count": [
+                int(normal_count),
+                int(low_count),
+                int(high_count),
+            ],
+        }
+    )
+
+    st.bar_chart(
+        chart_data.set_index("Category")
+    )
+
+
+# --------------------------------------------------
+# FILE UPLOAD
+# --------------------------------------------------
+
+uploaded_file = st.file_uploader(
+    "Upload a medical report",
+    type=["pdf", "png", "jpg", "jpeg"],
+    help="Supported formats: PDF, PNG, JPG, and JPEG.",
+)
+
+if uploaded_file is not None:
+    st.success(f"Uploaded: {uploaded_file.name}")
+
+    if st.button(
+        "Analyze Medical Report",
+        type="primary",
+    ):
+        try:
+            with st.spinner("Extracting report text..."):
+
+                file_name = uploaded_file.name.lower()
+
+                if file_name.endswith(".pdf"):
+                    report_text = extract_text_from_uploaded_pdf(
+                        uploaded_file
+                    )
+                else:
+                    report_text = extract_text_from_image(
+                        uploaded_file
+                    )
+
+            if not report_text.strip():
+                st.error(
+                    "No readable text was found. "
+                    "Please upload a clearer report."
+                )
+                st.stop()
+
+            with st.spinner("Analyzing laboratory results..."):
+                raw_results = analyze_report(report_text)
+                results_df = prepare_results(raw_results)
+
+            quality_ok, quality_message = check_report_quality(
+                report_text,
+                results_df,
             )
-            for value in row
-        ])
 
-    results_table = Table(
-        safe_table_data,
-        colWidths=[
-            1.1 * inch,
-            0.75 * inch,
-            0.65 * inch,
-            1.25 * inch,
-            1.0 * inch,
-        ],
-        repeatRows=1,
-    )
+            st.session_state["report_text"] = report_text
+            st.session_state["results_df"] = results_df
+            st.session_state["quality_ok"] = quality_ok
+            st.session_state["quality_message"] = quality_message
 
-    results_table.setStyle(
-        TableStyle([
-            (
-                "BACKGROUND",
-                (0, 0),
-                (-1, 0),
-                colors.HexColor("#DCEAF7"),
-            ),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ])
-    )
+            # Reset previous AI explanation after a new analysis.
+            st.session_state.pop("ai_summary", None)
 
-    story.append(results_table)
+            if quality_ok:
+                with st.spinner("Generating AI explanation..."):
+                    ai_summary = ai_explain_report(report_text)
 
-    story.append(Spacer(1, 20))
+                st.session_state["ai_summary"] = ai_summary
+
+            st.success("Report processing completed.")
+
+        except Exception as error:
+            st.error(
+                "Unable to process this report. "
+                "Please check the file and try again."
+            )
+            st.exception(error)
+
+
+# --------------------------------------------------
+# DISPLAY ANALYSIS
+# --------------------------------------------------
+
+if "report_text" in st.session_state:
+
+    st.divider()
+
+    with st.expander("📄 View Extracted Report Text"):
+        st.text(st.session_state["report_text"])
+
+    results_df = st.session_state["results_df"]
+
+    st.subheader("🧪 Detected Laboratory Results")
+
+    if not results_df.empty:
+        st.dataframe(
+            results_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        show_summary_dashboard(results_df)
+
+    else:
+        st.warning(
+            st.session_state.get(
+                "quality_message",
+                "No structured laboratory results were detected.",
+            )
+        )
 
     # AI explanation
-    story.append(
-        Paragraph(
-            "AI Explanation",
-            styles["Heading2"],
+    st.divider()
+    st.subheader("🤖 AI Explanation")
+
+    if "ai_summary" in st.session_state:
+        st.markdown(st.session_state["ai_summary"])
+    else:
+        st.info(
+            "An AI explanation was not generated because "
+            "the report did not pass the quality check."
         )
-    )
 
-    story.append(Spacer(1, 8))
+    # PDF download
+    st.divider()
+    st.subheader("📥 Download Report")
 
-    summary_text = html.escape(
-        str(ai_summary or "No AI explanation available.")
-    )
+    if not results_df.empty:
+        try:
+            pdf_bytes = create_pdf_report(
+                results_df,
+                st.session_state.get("ai_summary", ""),
+            )
 
-    # Preserve line breaks in the explanation.
-    summary_text = summary_text.replace("\n", "<br/>")
+            st.download_button(
+                label="Download PDF Report",
+                data=pdf_bytes,
+                file_name="medical_report_summary.pdf",
+                mime="application/pdf",
+            )
 
-    story.append(
-        Paragraph(
-            summary_text,
-            styles["BodyText"],
+        except Exception as error:
+            st.error("Unable to generate the PDF report.")
+            st.exception(error)
+
+    else:
+        st.caption(
+            "The PDF summary requires detected structured results."
         )
-    )
-
-    story.append(Spacer(1, 20))
-
-    # Medical safety disclaimer
-    story.append(
-        Paragraph(
-            "<b>Important Medical Disclaimer</b>",
-            styles["Heading3"],
-        )
-    )
-
-    story.append(
-        Paragraph(
-            "Laboratory reference ranges vary between laboratories. "
-            "An abnormal result does not automatically indicate a "
-            "disease. Extracted text may contain OCR errors. Review "
-            "the original report and discuss results with a qualified "
-            "healthcare professional. Do not change medicines based "
-            "on this educational report.",
-            styles["BodyText"],
-        )
-    )
-
-    document.build(story)
-
-    pdf_bytes = buffer.getvalue()
-    buffer.close()
-
-    return pdf_bytes
