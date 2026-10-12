@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import pymupdf
+import io
 
 from extractor import extract_text_from_pdf
 from ocr_service import extract_text_from_image
@@ -21,6 +22,7 @@ st.set_page_config(
 )
 
 st.title("🩺 AI Medical Report Explainer")
+
 st.write(
     "Upload a medical report to extract its text, "
     "review detected laboratory results, and generate "
@@ -64,8 +66,6 @@ def extract_text_from_uploaded_pdf(uploaded_file):
 
             image_bytes = pixmap.tobytes("png")
 
-            import io
-
             image_file = io.BytesIO(image_bytes)
             image_file.name = "page.png"
 
@@ -97,7 +97,6 @@ def prepare_results(results):
     if results_df.empty:
         return results_df
 
-    # Standardize column names.
     column_mapping = {
         "test_name": "Test",
         "test": "Test",
@@ -117,7 +116,6 @@ def prepare_results(results):
         for column in results_df.columns
     ]
 
-    # Ensure expected columns exist.
     for column in [
         "Test",
         "Result",
@@ -161,7 +159,7 @@ def check_report_quality(report_text, results_df):
 # --------------------------------------------------
 
 def show_summary_dashboard(results_df):
-    """Display a simple summary of detected result statuses."""
+    """Display a summary of detected result statuses."""
 
     st.subheader("📊 Results Summary")
 
@@ -213,9 +211,7 @@ def show_summary_dashboard(results_df):
         }
     )
 
-    st.bar_chart(
-        chart_data.set_index("Category")
-    )
+    st.bar_chart(chart_data.set_index("Category"))
 
 
 # --------------------------------------------------
@@ -231,10 +227,8 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     st.success(f"Uploaded: {uploaded_file.name}")
 
-    if st.button(
-        "Analyze Medical Report",
-        type="primary",
-    ):
+    if st.button("Analyze Medical Report", type="primary"):
+
         try:
             with st.spinner("Extracting report text..."):
 
@@ -249,7 +243,7 @@ if uploaded_file is not None:
                         uploaded_file
                     )
 
-            if not report_text.strip():
+            if not report_text or not report_text.strip():
                 st.error(
                     "No readable text was found. "
                     "Please upload a clearer report."
@@ -270,8 +264,7 @@ if uploaded_file is not None:
             st.session_state["quality_ok"] = quality_ok
             st.session_state["quality_message"] = quality_message
 
-            # Reset previous AI explanation after a new analysis.
-          
+            # Clear the previous AI explanation.
             st.session_state.pop("ai_summary", None)
 
             if quality_ok:
@@ -322,7 +315,10 @@ if "report_text" in st.session_state:
             )
         )
 
-    # AI explanation
+    # --------------------------------------------------
+    # AI EXPLANATION
+    # --------------------------------------------------
+
     st.divider()
     st.subheader("🤖 AI Explanation")
 
@@ -334,11 +330,15 @@ if "report_text" in st.session_state:
             "the report did not pass the quality check."
         )
 
-    # PDF download
+    # --------------------------------------------------
+    # PDF DOWNLOAD
+    # --------------------------------------------------
+
     st.divider()
     st.subheader("📥 Download Report")
 
     if not results_df.empty:
+
         try:
             pdf_bytes = create_pdf_report(
                 results_df,
@@ -352,12 +352,11 @@ if "report_text" in st.session_state:
                 mime="application/pdf",
             )
 
-      except Exception:
-    st.error(
-        "Unable to generate the PDF report. "
-        "Please try again later."
-    )
-
+        except Exception:
+            st.error(
+                "Unable to generate the PDF report. "
+                "Please try again later."
+            )
 
     else:
         st.caption(
