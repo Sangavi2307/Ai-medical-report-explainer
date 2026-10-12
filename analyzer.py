@@ -20,15 +20,11 @@ RESULT_NUMBER_PATTERN = re.compile(
 
 
 # ==================================================
-# TEST NAME ALIASES
+# SUPPORTED LABORATORY TESTS
 # ==================================================
 
 TEST_ALIASES = {
-    "Hemoglobin": [
-        "hemoglobin",
-        "haemoglobin",
-        "hb",
-    ],
+    "Hemoglobin": ["hemoglobin", "haemoglobin", "hb"],
     "WBC Count": [
         "white blood cell count",
         "total leukocyte count",
@@ -37,53 +33,25 @@ TEST_ALIASES = {
         "tlc",
         "wbc",
     ],
-    "Platelets": [
-        "platelet count",
-        "platelets",
-        "platelet",
-        "plt",
-    ],
+    "Platelets": ["platelet count", "platelets", "platelet", "plt"],
     "Fasting Blood Sugar": [
         "fasting blood sugar",
         "fasting blood glucose",
         "fasting glucose",
         "fbs",
     ],
-    "Random Blood Sugar": [
-        "random blood sugar",
-        "random glucose",
-        "rbs",
-    ],
+    "Random Blood Sugar": ["random blood sugar", "random glucose", "rbs"],
     "Postprandial Blood Sugar": [
         "postprandial blood sugar",
         "pp blood sugar",
         "ppbs",
     ],
-    "Total Cholesterol": [
-        "total cholesterol",
-        "cholesterol",
-    ],
-    "Triglycerides": [
-        "triglycerides",
-        "triglyceride",
-    ],
-    "HDL Cholesterol": [
-        "hdl cholesterol",
-        "hdl",
-    ],
-    "LDL Cholesterol": [
-        "ldl cholesterol",
-        "ldl",
-    ],
-    "Creatinine": [
-        "serum creatinine",
-        "creatinine",
-    ],
-    "Urea": [
-        "blood urea",
-        "serum urea",
-        "urea",
-    ],
+    "Total Cholesterol": ["total cholesterol", "cholesterol"],
+    "Triglycerides": ["triglycerides", "triglyceride"],
+    "HDL Cholesterol": ["hdl cholesterol", "hdl"],
+    "LDL Cholesterol": ["ldl cholesterol", "ldl"],
+    "Creatinine": ["serum creatinine", "creatinine"],
+    "Urea": ["blood urea", "serum urea", "urea"],
     "Hemoglobin A1c": [
         "hemoglobin a1c",
         "haemoglobin a1c",
@@ -98,7 +66,6 @@ TEST_ALIASES = {
 
 def normalize_text(text):
     """Normalize common OCR characters and spacing."""
-
     text = str(text or "")
 
     replacements = {
@@ -107,19 +74,17 @@ def normalize_text(text):
         "–": "-",
         "—": "-",
         "µ": "u",
+        "μ": "u",
     }
 
     for old, new in replacements.items():
         text = text.replace(old, new)
 
-    # Normalize common OCR confusion in words only where
-    # possible; do not globally replace letters in numbers.
     return text
 
 
 def clean_lines(report_text):
     """Return normalized, non-empty report lines."""
-
     text = normalize_text(report_text)
 
     return [
@@ -130,36 +95,35 @@ def clean_lines(report_text):
 
 
 # ==================================================
-# IDENTIFY LABORATORY TESTS
+# IDENTIFY TEST NAME
 # ==================================================
 
 def identify_test(line):
-    """Identify a supported laboratory test."""
-
+    """Identify a supported test at the start of a line."""
     normalized = normalize_text(line).lower().strip()
     normalized = re.sub(r"^[\W_]+", "", normalized)
 
-    aliases = []
-
-    for standard_name, names in TEST_ALIASES.items():
-        for alias in names:
-            aliases.append((alias, standard_name))
-
-    # Match the longest aliases first.
-    aliases.sort(key=lambda item: len(item[0]), reverse=True)
+    aliases = sorted(
+        [
+            (alias.lower(), standard_name)
+            for standard_name, names in TEST_ALIASES.items()
+            for alias in names
+        ],
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
 
     for alias, standard_name in aliases:
-        pattern = rf"^{re.escape(alias)}(?:\b|(?=\s|:))"
+        pattern = rf"^{re.escape(alias)}(?![a-z])"
 
-        if re.match(pattern, normalized):
+        if re.search(pattern, normalized):
             return standard_name
 
     return None
 
 
 def remove_test_name(line, test_name):
-    """Remove the test name from the beginning of a line."""
-
+    """Remove the recognized test name from a line."""
     normalized = normalize_text(line).strip()
 
     aliases = sorted(
@@ -170,7 +134,8 @@ def remove_test_name(line, test_name):
 
     for alias in aliases:
         pattern = (
-            rf"^\s*{re.escape(alias)}\b\s*[:=]?\s*"
+            rf"^\s*{re.escape(alias)}"
+            rf"(?![a-z])\s*[:=]?\s*"
         )
 
         updated = re.sub(
@@ -188,27 +153,21 @@ def remove_test_name(line, test_name):
 
 
 # ==================================================
-# PARSE NUMERIC RESULT AND UNIT
+# PARSE NUMERIC RESULT
 # ==================================================
 
 def parse_result_line(line):
     """
-    Extract the first result number and its trailing unit.
+    Extract the first number from a result-only text segment.
 
-    Example:
-        13.2 g/dL 12-16
-    Result:
-        value = 13.2
-        unit = g/dL
+    Reference ranges are removed first to avoid confusing their
+    limits with the actual result.
     """
-
     line = normalize_text(line).strip()
 
     if not line:
         return None
 
-    # Remove reference ranges before extracting the result.
-    # This prevents the range limits being mistaken for results.
     cleaned = RANGE_PATTERN.sub(" ", line)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
@@ -224,12 +183,15 @@ def parse_result_line(line):
     except ValueError:
         return None
 
-    # Remove the extracted number and keep the trailing unit.
-    unit = cleaned[match.end():].strip(" :;()")
+    # Text after the value may contain a unit or other columns.
+    trailing = cleaned[match.end():].strip(" :;()|")
 
-    # Avoid treating another number as a unit.
-    if re.match(r"^\d", unit):
-        unit = ""
+    unit_match = re.match(
+        r"^([a-zA-Zµμ/%]+(?:\s*/\s*[a-zA-Zµμ]+)?)",
+        trailing,
+    )
+
+    unit = unit_match.group(1).strip() if unit_match else ""
 
     return {
         "value": value,
@@ -243,8 +205,7 @@ def parse_result_line(line):
 # ==================================================
 
 def parse_range_line(line):
-    """Extract a lower and upper reference limit."""
-
+    """Extract a possible lower and upper reference limit."""
     line = normalize_text(line)
 
     match = RANGE_PATTERN.search(line)
@@ -273,8 +234,7 @@ def parse_range_line(line):
 # ==================================================
 
 def classify_result(value, low, high):
-    """Compare a result with the detected reference range."""
-
+    """Compare a result with a detected reference range."""
     if value < low:
         return "Below Range"
 
@@ -292,15 +252,11 @@ def analyze_report(report_text):
     """
     Extract supported laboratory results from report text.
 
-    Returns a Pandas DataFrame with:
-        Test
-        Result
-        Unit
-        Reference Range
-        Status
+    Output columns:
+        Test, Result, Unit, Reference Range, Status
 
-    A result without a detected reference range is retained
-    as Not Classified. No missing reference range is invented.
+    Results without a detected reference range are retained as
+    Not Classified. This function does not diagnose conditions.
     """
 
     columns = [
@@ -315,84 +271,56 @@ def analyze_report(report_text):
         return pd.DataFrame(columns=columns)
 
     lines = clean_lines(report_text)
-
     results = []
     seen_tests = set()
 
     for i, line in enumerate(lines):
-
         test_name = identify_test(line)
 
-        if not test_name:
-            continue
-
-        if test_name in seen_tests:
+        if not test_name or test_name in seen_tests:
             continue
 
         result_info = None
         range_info = None
 
-        # Search the current line and the next four lines.
-        # Stop when a different laboratory test is encountered.
+        # Inspect this line and nearby lines. Stop at another
+        # recognized test so values are not assigned to the wrong test.
         for j in range(i, min(i + 5, len(lines))):
-
             candidate = lines[j]
 
             if j > i and identify_test(candidate):
                 break
 
             if j == i:
-                candidate_for_result = remove_test_name(
-                    candidate,
-                    test_name,
-                )
-            else:
-                candidate_for_result = candidate
+                candidate = remove_test_name(candidate, test_name)
 
-            # Look for the result.
             if result_info is None:
-                result_info = parse_result_line(
-                    candidate_for_result
-                )
+                result_info = parse_result_line(candidate)
 
-            # Look for the reference range in the original line.
             if range_info is None:
-                range_info = parse_range_line(candidate)
+                range_info = parse_range_line(lines[j])
 
             if result_info and range_info:
                 break
 
-        # No numerical result: skip this test.
         if result_info is None:
             continue
 
-        # Classify only when the report provides a detectable range.
-        if range_info is not None:
+        if range_info:
             status = classify_result(
                 result_info["value"],
                 range_info["low"],
                 range_info["high"],
             )
-
             reference_range = range_info["range_text"]
-
         else:
             status = "Not Classified"
             reference_range = "Not detected"
 
-        unit = result_info["unit"]
-
-        # Display the micro-litre symbol where applicable.
-        unit = re.sub(
-            r"(?i)/uL\b",
-            "/µL",
-            unit,
-        )
-
         results.append({
             "Test": test_name,
             "Result": result_info["result_text"],
-            "Unit": unit,
+            "Unit": result_info["unit"],
             "Reference Range": reference_range,
             "Status": status,
         })
