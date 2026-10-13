@@ -3,87 +3,77 @@ import re
 import pandas as pd
 
 
-TESTS = {
-    "Hemoglobin": [
-        r"\bhemoglobin\b", r"\bhaemoglobin\b", r"\bhb\b"
-    ],
-    "WBC Count": [
-        r"\bwbc(?:\s+count)?\b",
-        r"\bwhite blood cell count\b",
-        r"\bwhite blood cells?\b",
-        r"\btotal leukocyte count\b",
-        r"\btlc\b",
-    ],
-    "Platelets": [
-        r"\bplatelet count\b", r"\bplatelets?\b", r"\bplt\b"
-    ],
-    "Fasting Blood Sugar": [
-        r"\bfasting blood sugar\b",
-        r"\bfasting glucose\b",
-        r"\bfbs\b",
-    ],
-    "Random Blood Sugar": [
-        r"\brandom blood sugar\b", r"\brandom glucose\b", r"\brbs\b"
-    ],
-    "HbA1c": [
-        r"\bhba1c\b", r"\bglycated hemoglobin\b"
-    ],
-    "RBC Count": [
-        r"\brbc(?:\s+count)?\b", r"\bred blood cell count\b"
-    ],
-    "Creatinine": [
-        r"\bserum creatinine\b", r"\bcreatinine\b"
-    ],
-    "Total Cholesterol": [
-        r"\btotal cholesterol\b", r"\bcholesterol\b"
-    ],
-    "Urea": [
-        r"\bblood urea\b", r"\bserum urea\b", r"\burea\b"
-    ],
-    "TSH": [
-        r"\bthyroid stimulating hormone\b", r"\btsh\b"
-    ],
-    "Vitamin D": [
-        r"\b25[- ]?oh vitamin d\b", r"\bvitamin d\b"
-    ],
-    "Vitamin B12": [
-        r"\bvitamin b12\b", r"\bcobalamin\b"
-    ],
-}
+def extract_report_details(report_text):
+    """Extract general information from a medical report."""
 
-NUMBER = r"[-+]?\d[\d,]*(?:\.\d+)?"
+    text = report_text or ""
 
-RANGE_PATTERN = re.compile(
-    rf"({NUMBER})\s*(?:-|–|—|\bto\b)\s*({NUMBER})",
-    re.IGNORECASE,
-)
+    sections = {
+        "Patient Details": [],
+        "Medical History": [],
+        "Vital Signs": [],
+        "Doctor's Observations": [],
+        "Medications and Advice": [],
+        "Other Information": [],
+    }
 
-UNIT_PATTERN = re.compile(
-    r"(?:g/dL|g/L|mg/dL|mmol/L|mIU/L|IU/L|U/L|"
-    r"cells?/µL|cells?/uL|/µL|/uL|lakh/µL|lakh/uL|"
-    r"million/µL|ng/mL|pg/mL|%)",
-    re.IGNORECASE,
-)
+    section_patterns = {
+        "Patient Details": [
+            "patient details", "patient information",
+            "personal details"
+        ],
+        "Medical History": [
+            "medical history", "past medical history",
+            "allergies", "surgeries"
+        ],
+        "Vital Signs": [
+            "vitals", "vital signs"
+        ],
+        "Doctor's Observations": [
+            "doctor's observations", "clinical findings",
+            "examination", "assessment"
+        ],
+        "Medications and Advice": [
+            "medications", "medicines", "treatment",
+            "advice", "recommendations", "next steps",
+            "plan"
+        ],
+    }
 
+    current_section = "Other Information"
 
-def number_value(value):
-    try:
-        return float(value.replace(",", "").strip())
-    except (ValueError, AttributeError):
-        return None
+    for raw_line in text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line).strip()
 
+        if not line:
+            continue
 
-def normalize_lines(text):
-    text = text.replace("\u00a0", " ")
-    text = text.replace("−", "-")
-    return [
-        re.sub(r"\s+", " ", line).strip()
-        for line in text.splitlines()
-        if line.strip()
-    ]
+        normalized = line.lower().strip(" :.-")
+
+        matched_section = None
+
+        for section, headings in section_patterns.items():
+            if normalized in headings:
+                matched_section = section
+                break
+
+        if matched_section:
+            current_section = matched_section
+            continue
+
+        sections[current_section].append(line)
+
+    details = {}
+
+    for section, lines in sections.items():
+        details[section] = "\n".join(lines).strip()
+
+    return details
 
 
 def analyze_report(report_text):
+    """Extract laboratory results when recognizable test names exist."""
+
     columns = [
         "Test", "Result", "Unit", "Reference Range", "Status"
     ]
@@ -91,117 +81,111 @@ def analyze_report(report_text):
     if not isinstance(report_text, str) or not report_text.strip():
         return pd.DataFrame(columns=columns)
 
-    lines = normalize_lines(report_text)
+    tests = {
+        "Hemoglobin": r"\b(?:hemoglobin|haemoglobin|hb)\b",
+        "WBC Count": r"\b(?:wbc(?:\s+count)?|white blood cell count|total leukocyte count|tlc)\b",
+        "Platelets": r"\b(?:platelets?|platelet count|plt)\b",
+        "Fasting Blood Sugar": r"\b(?:fasting blood sugar|fasting glucose|fbs)\b",
+        "Random Blood Sugar": r"\b(?:random blood sugar|random glucose|rbs)\b",
+        "HbA1c": r"\b(?:hba1c|glycated hemoglobin)\b",
+        "RBC Count": r"\b(?:rbc(?:\s+count)?|red blood cell count)\b",
+        "Creatinine": r"\b(?:serum creatinine|creatinine)\b",
+        "Total Cholesterol": r"\b(?:total cholesterol|cholesterol)\b",
+        "Urea": r"\b(?:blood urea|serum urea|urea)\b",
+        "TSH": r"\b(?:thyroid stimulating hormone|tsh)\b",
+        "Vitamin D": r"\b(?:25[- ]?oh vitamin d|vitamin d)\b",
+        "Vitamin B12": r"\b(?:vitamin b12|cobalamin)\b",
+    }
+
+    number = r"[-+]?\d[\d,]*(?:\.\d+)?"
+    range_pattern = re.compile(
+        rf"({number})\s*(?:-|–|—|\bto\b)\s*({number})",
+        re.IGNORECASE,
+    )
+
+    lines = [
+        re.sub(r"\s+", " ", line).strip()
+        for line in report_text.replace("\u00a0", " ").splitlines()
+        if line.strip()
+    ]
+
     results = []
     seen = set()
 
     for i, line in enumerate(lines):
-        matched_test = None
+        for test_name, pattern in tests.items():
+            match = re.search(pattern, line, re.IGNORECASE)
 
-        for test_name, patterns in TESTS.items():
-            if any(
-                re.search(pattern, line, re.IGNORECASE)
-                for pattern in patterns
-            ):
-                matched_test = test_name
-                break
+            if not match:
+                continue
 
-        if not matched_test:
-            continue
+            # Look at nearby lines for the result and reference range.
+            block = [line] + lines[i + 1:i + 4]
+            block_text = " ".join(block)
 
-        # Collect this line and the next few lines.
-        # Stop if another recognized test name begins.
-        block = [line]
-        for next_line in lines[i + 1:i + 4]:
-            is_next_test = any(
-                re.search(pattern, next_line, re.IGNORECASE)
-                for patterns in TESTS.values()
-                for pattern in patterns
-            )
-            if is_next_test:
-                break
-            block.append(next_line)
+            range_match = range_pattern.search(block_text)
+            low = high = None
+            reference = "Not provided"
 
-        block_text = " ".join(block)
+            if range_match:
+                try:
+                    low = float(range_match.group(1).replace(",", ""))
+                    high = float(range_match.group(2).replace(",", ""))
+                    if low <= high:
+                        reference = f"{low:g} - {high:g}"
+                    else:
+                        low = high = None
+                except ValueError:
+                    low = high = None
 
-        # Find the reference range before extracting the result.
-        range_match = RANGE_PATTERN.search(block_text)
-        low = high = None
-        reference = "Not provided"
+            value = None
+            unit = ""
 
-        if range_match:
-            low = number_value(range_match.group(1))
-            high = number_value(range_match.group(2))
+            # Search after the test name first.
+            remainder = line[match.end():]
+            value_match = re.search(number, remainder)
 
-            if low is not None and high is not None and low <= high:
-                reference = f"{low:g} - {high:g}"
+            if value_match:
+                value = float(value_match.group().replace(",", ""))
+                unit = remainder[value_match.end():].strip()
 
-        # Prefer a number on the test-name line.
-        test_line = line
-        test_match = None
+            # Otherwise look on the following lines.
+            if value is None:
+                for candidate_line in block[1:]:
+                    if range_pattern.search(candidate_line):
+                        continue
 
-        for pattern in TESTS[matched_test]:
-            test_match = re.search(pattern, test_line, re.IGNORECASE)
-            if test_match:
-                break
+                    candidate = re.search(number, candidate_line)
 
-        value = None
-        unit = ""
+                    if candidate:
+                        value = float(candidate.group().replace(",", ""))
+                        unit = candidate_line[candidate.end():].strip()
+                        break
 
-        # Check the text after the test name first.
-        if test_match:
-            remainder = test_line[test_match.end():]
-            remainder = re.sub(r"^\s*[:=|]\s*", " ", remainder)
-            candidate = re.search(NUMBER, remainder)
+            if value is None:
+                continue
 
-            if candidate:
-                value = number_value(candidate.group())
-
-                unit_match = UNIT_PATTERN.search(remainder)
-                if unit_match:
-                    unit = unit_match.group()
-
-        # Otherwise search the following lines for the result.
-        # Do not accidentally use a reference-range endpoint.
-        if value is None:
-            for candidate_line in block[1:]:
-                if RANGE_PATTERN.search(candidate_line):
-                    continue
-
-                candidate = re.search(NUMBER, candidate_line)
-                if candidate:
-                    value = number_value(candidate.group())
-
-                    unit_match = UNIT_PATTERN.search(candidate_line)
-                    if unit_match:
-                        unit = unit_match.group()
-
-                    break
-
-        if value is None:
-            continue
-
-        if low is not None and high is not None:
-            if value < low:
+            if low is None or high is None:
+                status = "Needs review"
+            elif value < low:
                 status = "Below range"
             elif value > high:
                 status = "Above range"
             else:
                 status = "Within range"
-        else:
-            status = "Needs reference range"
 
-        key = (matched_test, value)
-        if key in seen:
-            continue
-        seen.add(key)
+            key = (test_name, value)
 
-        results.append({
-            "Test": matched_test,
-            "Result": value,
-            "Unit": unit,
-            "Reference Range": reference,
-            "Status": status,
-        })
+            if key not in seen:
+                seen.add(key)
+                results.append({
+                    "Test": test_name,
+                    "Result": value,
+                    "Unit": unit,
+                    "Reference Range": reference,
+                    "Status": status,
+                })
+
+            break
 
     return pd.DataFrame(results, columns=columns)
