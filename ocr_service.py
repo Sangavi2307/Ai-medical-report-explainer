@@ -1,3 +1,4 @@
+
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 import pytesseract
 import io
@@ -6,36 +7,45 @@ import io
 def extract_text_from_image(uploaded_file):
     try:
         uploaded_file.seek(0)
+        image_bytes = uploaded_file.read()
 
-        image = Image.open(uploaded_file)
-        image = ImageOps.exif_transpose(image)
-        image = image.convert("RGB")
+        if not image_bytes:
+            raise ValueError("The uploaded image is empty.")
 
-        # Enlarge the image to improve OCR accuracy
-        width, height = image.size
+        image = Image.open(io.BytesIO(image_bytes))
+        image.load()
+        image = ImageOps.exif_transpose(image).convert("RGB")
 
-        if width < 2000:
-            scale = min(3, 2000 / width)
+        # Improve image readability for OCR
+        if image.width < 1600:
+            scale = 1600 / image.width
             image = image.resize(
-                (int(width * scale), int(height * scale))
+                (1600, int(image.height * scale)),
+                Image.Resampling.LANCZOS
             )
 
-        # Improve text visibility
         image = ImageOps.grayscale(image)
-        image = ImageEnhance.Contrast(image).enhance(2.0)
-        image = ImageEnhance.Sharpness(image).enhance(2.0)
+        image = ImageOps.autocontrast(image)
+        image = ImageEnhance.Contrast(image).enhance(2)
         image = image.filter(ImageFilter.SHARPEN)
 
-        # Extract text using Tesseract OCR
         text = pytesseract.image_to_string(
             image,
             config="--oem 3 --psm 6"
         )
 
+        uploaded_file.seek(0)
+
+        if not text.strip():
+            raise ValueError(
+                "OCR returned no text. Try a clear, straight image "
+                "with readable printed text."
+            )
+
         return text.strip()
 
     except Exception as error:
+        uploaded_file.seek(0)
         raise RuntimeError(
             f"Image text extraction failed: {error}"
         ) from error
-    
