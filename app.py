@@ -1,7 +1,10 @@
 
-import streamlit as st
-import pandas as pd
 import re
+from io import BytesIO
+
+import pandas as pd
+import streamlit as st
+import matplotlib.pyplot as plt
 
 from extractor import extract_text_from_pdf
 from ocr_service import extract_text_from_image
@@ -16,12 +19,12 @@ st.set_page_config(
     page_title="AI Medical Report Explainer",
     page_icon="🩺",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 
 # =====================================================
-# CUSTOM DESIGN
+# DESIGN
 # =====================================================
 
 st.markdown("""
@@ -30,27 +33,19 @@ st.markdown("""
     background-color: #10141e;
     color: #f4f6fa;
 }
-
 h1, h2, h3 {
     color: #69b9ff;
 }
-
 div[data-testid="stMetric"] {
     background-color: #202a39;
     border: 1px solid #43536a;
-    padding: 15px;
+    padding: 14px;
     border-radius: 12px;
 }
-
 div[data-testid="stMetric"] label,
 div[data-testid="stMetric"] [data-testid="stMetricValue"] {
     color: #ffffff !important;
 }
-
-div[data-testid="stAlert"] {
-    border-radius: 10px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -59,21 +54,14 @@ div[data-testid="stAlert"] {
 # HELPER FUNCTIONS
 # =====================================================
 
-def find_column(dataframe, possible_names):
-    """Find a column using case-insensitive names."""
-
-    for column in dataframe.columns:
-        cleaned = str(column).strip().lower()
-
-        if cleaned in possible_names:
-            return column
-
+def find_column(df, names):
+    for col in df.columns:
+        if str(col).strip().lower() in names:
+            return col
     return None
 
 
-def convert_to_dataframe(data):
-    """Convert analyzer output into a DataFrame."""
-
+def to_dataframe(data):
     if isinstance(data, pd.DataFrame):
         return data.copy()
 
@@ -84,57 +72,80 @@ def convert_to_dataframe(data):
         for key in ("results", "data", "analysis"):
             if isinstance(data.get(key), list):
                 return pd.DataFrame(data[key])
-
         return pd.DataFrame([data])
 
     return pd.DataFrame()
 
 
-def convert_numeric(series):
-    """Convert values such as 7,800 and 13.2 into numbers."""
-
+def to_number(series):
     cleaned = (
         series.fillna("")
         .astype(str)
         .str.replace(",", "", regex=False)
         .str.extract(r"([-+]?\d*\.?\d+)")[0]
     )
-
     return pd.to_numeric(cleaned, errors="coerce")
 
 
-def count_statuses(dataframe, status_column):
-    """Count recognized status labels."""
-
+def get_status_counts(df, status_col):
     statuses = (
-        dataframe[status_column]
+        df[status_col]
         .fillna("")
         .astype(str)
-        .str.strip()
         .str.lower()
+        .str.strip()
     )
 
-    normal = statuses.isin({
+    normal = statuses.isin([
         "within range",
         "within the stated range",
-        "normal"
-    }).sum()
+        "normal",
+    ]).sum()
 
-    high = statuses.isin({
+    high = statuses.isin([
         "above range",
         "above",
         "high",
-        "above normal"
-    }).sum()
+        "above normal",
+    ]).sum()
 
-    low = statuses.isin({
+    low = statuses.isin([
         "below range",
         "below",
         "low",
-        "below normal"
-    }).sum()
+        "below normal",
+    ]).sum()
 
-    return int(normal), int(high), int(low)
+    unknown = len(df) - normal - high - low
+
+    return int(normal), int(high), int(low), int(unknown)
+
+
+def make_summary(df, test_col, result_col, unit_col,
+                 reference_col, status_col):
+    lines = [
+        "AI MEDICAL REPORT EXPLAINER",
+        "Laboratory Results Summary",
+        "=" * 35,
+        "",
+        "This is an educational summary, not a diagnosis.",
+        "",
+    ]
+
+    for _, row in df.iterrows():
+        test = row.get(test_col, "Unknown") if test_col else "Unknown"
+        result = row.get(result_col, "Not available") if result_col else "Not available"
+        unit = row.get(unit_col, "") if unit_col else ""
+        reference = row.get(reference_col, "") if reference_col else ""
+        status = row.get(status_col, "Not assessed") if status_col else "Not assessed"
+
+        lines.append(f"Test: {test}")
+        lines.append(f"Result: {result} {unit}".strip())
+        lines.append(f"Reference range: {reference or 'Not provided'}")
+        lines.append(f"Status: {status}")
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 # =====================================================
@@ -144,79 +155,68 @@ def count_statuses(dataframe, status_column):
 st.title("🩺 AI Medical Report Explainer")
 
 st.write(
-    "Upload a medical report to extract its text, "
-    "review detected laboratory results, and view a graph."
+    "Upload a medical report in PDF or image format. "
+    "View the extracted text, laboratory analysis, summary, graph, "
+    "and downloadable results."
 )
 
 st.info(
-    "Educational use only. This application does not provide "
-    "a medical diagnosis or replace advice from a qualified doctor."
+    "Educational use only. This app cannot diagnose disease. "
+    "Verify extracted values and interpretations with a qualified clinician."
 )
 
 
 # =====================================================
-# FILE UPLOAD
+# UPLOAD PDF OR IMAGE
 # =====================================================
 
 uploaded_file = st.file_uploader(
-    "📄 Upload your medical report",
-    type=["pdf", "png", "jpg", "jpeg"]
+    "📄 Upload a medical report",
+    type=["pdf", "png", "jpg", "jpeg"],
 )
-
-
-# =====================================================
-# MAIN PROCESSING
-# =====================================================
 
 if uploaded_file is not None:
 
     st.markdown("---")
     st.subheader("📁 Uploaded Report")
-
-    st.write("**File name:**", uploaded_file.name)
+    st.write("File:", uploaded_file.name)
 
     # -------------------------------------------------
     # TEXT EXTRACTION
     # -------------------------------------------------
 
     try:
-        with st.spinner("Extracting report text..."):
+        with st.spinner("Extracting text..."):
 
             if uploaded_file.name.lower().endswith(".pdf"):
-                extracted_text = extract_text_from_pdf(
-                    uploaded_file
-                )
+                extracted_text = extract_text_from_pdf(uploaded_file)
             else:
-                extracted_text = extract_text_from_image(
-                    uploaded_file
-                )
+                extracted_text = extract_text_from_image(uploaded_file)
 
-        if extracted_text is None:
-            extracted_text = ""
-
-        extracted_text = str(extracted_text).strip()
+        extracted_text = str(extracted_text or "").strip()
 
     except Exception as error:
-        st.error("Unable to extract text from the report.")
+        st.error("Could not extract text from the file.")
         st.code(str(error))
         st.stop()
 
     st.subheader("📝 Extracted Report Text")
 
     if not extracted_text:
-        st.warning(
-            "No text was detected. Try a clearer image or another PDF."
+        st.error(
+            "No text was extracted. For images, check OCR settings. "
+            "For PDFs, try a clearer or text-based PDF."
         )
         st.stop()
 
     st.text_area(
-        "Text detected in the report",
+        "Review the extracted text",
         value=extracted_text,
-        height=220
+        height=220,
     )
 
     # -------------------------------------------------
-    # LABORATORY ANALYSIS
+    # ANALYSIS
     # -------------------------------------------------
 
     st.markdown("---")
@@ -224,9 +224,9 @@ if uploaded_file is not None:
 
     try:
         with st.spinner("Analyzing laboratory results..."):
-            analysis_output = analyze_report(extracted_text)
+            raw_results = analyze_report(extracted_text)
 
-        results_df = convert_to_dataframe(analysis_output)
+        results_df = to_dataframe(raw_results)
 
     except Exception as error:
         st.error("Laboratory analysis failed.")
@@ -236,211 +236,225 @@ if uploaded_file is not None:
     if results_df.empty:
         st.warning(
             "No laboratory results were recognized. "
-            "Check the extracted text and the test names supported "
-            "by analyzer.py."
+            "Check the extracted text and the test-name patterns in analyzer.py."
+        )
+        st.stop()
+
+    # Find the columns produced by analyzer.py.
+    test_col = find_column(
+        results_df,
+        {"test", "test name", "parameter", "lab test", "name"},
+    )
+    result_col = find_column(
+        results_df,
+        {"result", "value", "test result", "measured value"},
+    )
+    unit_col = find_column(
+        results_df,
+        {"unit", "units"},
+    )
+    reference_col = find_column(
+        results_df,
+        {"reference range", "reference", "normal range", "range"},
+    )
+    status_col = find_column(
+        results_df,
+        {"status", "interpretation", "flag"},
+    )
+
+    # -------------------------------------------------
+    # TABLE
+    # -------------------------------------------------
+
+    st.dataframe(
+        results_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    # -------------------------------------------------
+    # SUMMARY CARDS
+    # -------------------------------------------------
+
+    st.markdown("---")
+    st.subheader("📌 Summary Analysis")
+
+    if status_col is not None:
+        normal, high, low, unknown = get_status_counts(
+            results_df, status_col
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        c1.metric("Within Range", normal)
+        c2.metric("Above Range", high)
+        c3.metric("Below Range", low)
+        c4.metric("Unclassified", unknown)
+
+    else:
+        normal = high = low = 0
+        unknown = len(results_df)
+
+        st.warning(
+            "The analyzer did not return a Status column. "
+            "Status summary counts cannot be calculated."
+        )
+
+    st.write(f"**Laboratory tests detected:** {len(results_df)}")
+
+    if status_col is not None:
+        st.write(
+            f"**Summary:** {normal} within-range, {high} above-range, "
+            f"{low} below-range, and {unknown} unclassified result(s)."
+        )
+
+    st.caption(
+        "These counts reflect analyzer labels, not a medical diagnosis. "
+        "Incorrect OCR, units, or reference ranges can produce incorrect labels."
+    )
+
+    # -------------------------------------------------
+    # DOWNLOAD SUMMARY
+    # -------------------------------------------------
+
+    summary_text = make_summary(
+        results_df,
+        test_col,
+        result_col,
+        unit_col,
+        reference_col,
+        status_col,
+    )
+
+    st.download_button(
+        label="⬇️ Download Summary (TXT)",
+        data=summary_text,
+        file_name="medical_report_summary.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
+
+    # -------------------------------------------------
+    # DOWNLOAD RESULTS CSV
+    # -------------------------------------------------
+
+    csv_bytes = results_df.to_csv(index=False).encode("utf-8-sig")
+
+    st.download_button(
+        label="⬇️ Download Laboratory Results (CSV)",
+        data=csv_bytes,
+        file_name="laboratory_results.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+    # -------------------------------------------------
+    # GRAPH AND PNG DOWNLOAD
+    # -------------------------------------------------
+
+    st.markdown("---")
+    st.subheader("📊 Laboratory Results Graph")
+
+    if test_col is None or result_col is None:
+        st.warning(
+            "Graph needs columns named Test and Result. "
+            "Check the output column names in analyzer.py."
         )
 
     else:
+        chart_df = results_df[[test_col, result_col]].copy()
+        chart_df.columns = ["Test", "Original Result"]
 
-        # Identify columns returned by analyzer.py.
-        test_col = find_column(
-            results_df,
-            {
-                "test",
-                "test name",
-                "parameter",
-                "lab test",
-                "name"
-            }
+        chart_df["Test"] = (
+            chart_df["Test"].fillna("").astype(str).str.strip()
+        )
+        chart_df["Numeric Result"] = to_number(
+            chart_df["Original Result"]
         )
 
-        result_col = find_column(
-            results_df,
-            {
-                "result",
-                "value",
-                "test result",
-                "measured value"
-            }
+        chart_df = chart_df[
+            (chart_df["Test"] != "")
+        ].dropna(subset=["Numeric Result"])
+
+        chart_df = chart_df.drop_duplicates(
+            subset=["Test"], keep="first"
         )
 
-        status_col = find_column(
-            results_df,
-            {
-                "status",
-                "interpretation",
-                "flag"
-            }
-        )
-
-        # ---------------------------------------------
-        # RESULTS TABLE
-        # ---------------------------------------------
-
-        st.dataframe(
-            results_df,
-            use_container_width=True,
-            hide_index=True
-        )
-
-        # ---------------------------------------------
-        # RESULTS SUMMARY
-        # ---------------------------------------------
-
-        st.markdown("---")
-        st.subheader("📌 Results Summary")
-
-        if status_col is not None:
-
-            normal_count, high_count, low_count = (
-                count_statuses(results_df, status_col)
+        if chart_df.empty:
+            st.warning(
+                "No numeric results could be plotted. "
+                "Check the Result column returned by analyzer.py."
             )
 
-            col1, col2, col3 = st.columns(3)
+        else:
+            fig, ax = plt.subplots(figsize=(10, 5))
 
-            col1.metric(
-                "Within Range",
-                normal_count
+            ax.bar(
+                chart_df["Test"],
+                chart_df["Numeric Result"],
             )
 
-            col2.metric(
-                "Above Range",
-                high_count
+            ax.set_title("Reported Laboratory Values")
+            ax.set_xlabel("Laboratory Test")
+            ax.set_ylabel("Reported Numeric Value")
+            ax.tick_params(axis="x", labelrotation=30)
+            ax.grid(axis="y", linestyle="--", alpha=0.3)
+
+            fig.tight_layout()
+
+            st.pyplot(fig, use_container_width=True)
+
+            # Convert graph to PNG in memory.
+            image_buffer = BytesIO()
+            fig.savefig(
+                image_buffer,
+                format="png",
+                dpi=200,
+                bbox_inches="tight",
+            )
+            image_buffer.seek(0)
+
+            st.download_button(
+                label="⬇️ Download Graph (PNG)",
+                data=image_buffer.getvalue(),
+                file_name="laboratory_results_graph.png",
+                mime="image/png",
+                use_container_width=True,
             )
 
-            col3.metric(
-                "Below Range",
-                low_count
-            )
+            plt.close(fig)
 
             st.caption(
-                "Counts are based on the status labels returned "
-                "by the analyzer. They do not establish a diagnosis."
+                "Tests may use different units and scales. "
+                "The graph displays reported numbers only and does not "
+                "compare medical severity."
             )
 
-        else:
-            st.warning(
-                "The analyzer did not return a recognized Status column. "
-                "Check the column names in analyzer.py."
-            )
-
-        # ---------------------------------------------
-        # LABORATORY RESULTS GRAPH
-        # ---------------------------------------------
-
-        st.markdown("---")
-        st.subheader("📊 Laboratory Results Graph")
-
-        if test_col is None or result_col is None:
-
-            st.warning(
-                "The graph needs Test and Result columns. "
-                "Check the column names returned by analyzer.py."
-            )
-
-        else:
-
-            chart_df = results_df[
-                [test_col, result_col]
-            ].copy()
-
-            chart_df.columns = [
-                "Test",
-                "Original Result"
-            ]
-
-            chart_df["Test"] = (
-                chart_df["Test"]
-                .fillna("")
-                .astype(str)
-                .str.strip()
-            )
-
-            chart_df["Numeric Result"] = convert_numeric(
-                chart_df["Original Result"]
-            )
-
-            chart_df = chart_df[
-                chart_df["Test"] != ""
-            ].dropna(subset=["Numeric Result"])
-
-            if not chart_df.empty:
-
-                # Use the first occurrence of each test name.
-                chart_df = chart_df.drop_duplicates(
-                    subset=["Test"],
-                    keep="first"
-                )
-
-                chart_data = chart_df[
-                    ["Test", "Numeric Result"]
-                ].set_index("Test")
-
-                st.bar_chart(
-                    chart_data,
-                    use_container_width=True,
-                    y_label="Reported numeric value"
-                )
-
-                with st.expander("View graph data"):
-                    st.dataframe(
-                        chart_df[
-                            ["Test", "Original Result", "Numeric Result"]
-                        ],
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                st.caption(
-                    "Different laboratory tests can use different units "
-                    "and scales. The bars show reported numbers only and "
-                    "should not be compared as measures of medical severity."
-                )
-
-            else:
-                st.warning(
-                    "No numeric results were available for the graph. "
-                    "Check the Result column returned by analyzer.py."
-                )
-
-
-    # =================================================
+    # -------------------------------------------------
     # AI EXPLANATION
-    # =================================================
+    # -------------------------------------------------
 
     st.markdown("---")
     st.subheader("🤖 AI Explanation")
 
-    st.write(
-        "Generate a plain-language explanation of the extracted report."
-    )
-
-    st.caption(
-        "AI explanations can be inaccurate. Verify actual medical results "
-        "with a qualified healthcare professional."
-    )
-
-    if st.button(
-        "✨ Explain My Report",
-        use_container_width=True
-    ):
+    if st.button("✨ Explain My Report", use_container_width=True):
 
         try:
             from ai_explainer import ai_explain_report
 
-            with st.spinner("Generating explanation..."):
+            with st.spinner("Generating an explanation..."):
                 explanation = ai_explain_report(extracted_text)
 
             if explanation:
                 st.markdown("### Explanation")
                 st.write(explanation)
             else:
-                st.warning("The AI returned an empty explanation.")
+                st.warning("The AI explanation was empty.")
 
         except Exception as error:
             st.error(
-                "Could not generate the AI explanation. "
-                "Check ai_explainer.py and your API-key configuration."
+                "AI explanation failed. Check ai_explainer.py "
+                "and the API-key configuration."
             )
             st.code(str(error))
 
@@ -450,8 +464,7 @@ if uploaded_file is not None:
 # =====================================================
 
 st.markdown("---")
-
 st.caption(
     "AI Medical Report Explainer | Educational project | "
     "Not a substitute for professional medical advice."
-            )
+)
