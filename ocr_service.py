@@ -16,7 +16,7 @@ def extract_text_from_image(uploaded_file):
         image.load()
         image = ImageOps.exif_transpose(image).convert("RGB")
 
-        # Improve image readability for OCR
+        # Enlarge small images to improve OCR
         if image.width < 1600:
             scale = 1600 / image.width
             image = image.resize(
@@ -29,23 +29,25 @@ def extract_text_from_image(uploaded_file):
         image = ImageEnhance.Contrast(image).enhance(2)
         image = image.filter(ImageFilter.SHARPEN)
 
-        text = pytesseract.image_to_string(
-            image,
-            config="--oem 3 --psm 6"
-        )
+        # Try two OCR layouts
+        results = []
+        for mode in (6, 11):
+            text = pytesseract.image_to_string(
+                image,
+                config=f"--oem 3 --psm {mode}"
+            )
+            if text.strip():
+                results.append(text.strip())
 
         uploaded_file.seek(0)
 
-        if not text.strip():
-            raise ValueError(
-                "OCR returned no text. Try a clear, straight image "
-                "with readable printed text."
-            )
+        if not results:
+            return ""
 
-        return text.strip()
+        return max(results, key=len)
 
     except Exception as error:
         uploaded_file.seek(0)
         raise RuntimeError(
-            f"Image text extraction failed: {error}"
+            f"Image OCR failed: {error}"
         ) from error
