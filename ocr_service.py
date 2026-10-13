@@ -1,40 +1,41 @@
-from PIL import Image, ImageEnhance, ImageFilter
+
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import pytesseract
 
 
 def extract_text_from_image(uploaded_file):
+    try:
+        uploaded_file.seek(0)
 
-    uploaded_file.seek(0)
+        image = Image.open(uploaded_file)
+        image = ImageOps.exif_transpose(image)
+        image = image.convert("RGB")
 
-    image = Image.open(uploaded_file)
+        # Enlarge the image to improve OCR accuracy
+        width, height = image.size
 
-    # Convert to RGB
-    image = image.convert("RGB")
+        if width < 2000:
+            scale = min(3, 2000 / width)
+            image = image.resize(
+                (int(width * scale), int(height * scale))
+            )
 
-    # Increase image size for better OCR
-    width, height = image.size
+        # Improve text visibility
+        image = ImageOps.grayscale(image)
+        image = ImageEnhance.Contrast(image).enhance(2.0)
+        image = ImageEnhance.Sharpness(image).enhance(2.0)
+        image = image.filter(ImageFilter.SHARPEN)
 
-    image = image.resize(
-        (width * 2, height * 2)
-    )
+        # Extract text using Tesseract OCR
+        text = pytesseract.image_to_string(
+            image,
+            config="--oem 3 --psm 6"
+        )
 
-    # Convert to grayscale
-    image = image.convert("L")
+        return text.strip()
 
-    # Improve contrast
-    image = ImageEnhance.Contrast(image).enhance(2.0)
-
-    # Sharpen text
-    image = image.filter(
-        ImageFilter.SHARPEN
-    )
-
-    # OCR configuration
-    custom_config = r"--oem 3 --psm 6"
-
-    text = pytesseract.image_to_string(
-        image,
-        config=custom_config
-    )
-
-    return text
+    except Exception as error:
+        raise RuntimeError(
+            f"Image text extraction failed: {error}"
+        ) from error
+    
