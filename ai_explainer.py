@@ -1,92 +1,164 @@
-
-import os
+import re
+import pandas as pd
 
 
 def ai_explain_report(report_text, results_df=None):
-    api_key = os.getenv("OPENAI_API_KEY", "")
+    """
+    Create a rule-based explanation of a medical report.
+    Does not use an external AI API.
+    """
 
     if not report_text or not report_text.strip():
-        return (
-            "No readable text was extracted from this report. "
-            "Please upload a clearer image or a text-based PDF."
-        )
+        return "No report text is available. Please upload or paste a report."
 
-    if not api_key:
-        return (
-            "AI explanation is unavailable because the API key is not configured. "
-            "The extracted report text is available for review, but an AI "
-            "explanation cannot be generated until a working model is configured."
-        )
+    text = report_text.strip()
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
-    try:
-        from openai import OpenAI
+    sections = {
+        "Patient details": [],
+        "Medical history and symptoms": [],
+        "Vital signs": [],
+        "Laboratory results": [],
+        "Imaging and scan findings": [],
+        "Doctor's observations": [],
+        "Medications and advice": [],
+        "Follow-up instructions": [],
+        "Other report information": [],
+    }
 
-        client = OpenAI(api_key=api_key)
+    # Identify section headings in the report.
+    current_section = "Other report information"
 
-        result_context = ""
-        if results_df is not None and not results_df.empty:
-            result_context = results_df.to_string(index=False)
+    heading_map = {
+        "patient details": "Patient details",
+        "personal details": "Patient details",
+        "medical history": "Medical history and symptoms",
+        "symptoms": "Medical history and symptoms",
+        "clinical history": "Medical history and symptoms",
+        "vitals": "Vital signs",
+        "vital signs": "Vital signs",
+        "laboratory results": "Laboratory results",
+        "lab results": "Laboratory results",
+        "investigations": "Laboratory results",
+        "blood test": "Laboratory results",
+        "test results": "Laboratory results",
+        "radiology": "Imaging and scan findings",
+        "imaging": "Imaging and scan findings",
+        "scan findings": "Imaging and scan findings",
+        "doctor's observations": "Doctor's observations",
+        "clinical observations": "Doctor's observations",
+        "observations": "Doctor's observations",
+        "assessment": "Doctor's observations",
+        "medications": "Medications and advice",
+        "medication": "Medications and advice",
+        "prescription": "Medications and advice",
+        "treatment": "Medications and advice",
+        "advice": "Medications and advice",
+        "recommendations": "Medications and advice",
+        "next steps": "Follow-up instructions",
+        "follow-up": "Follow-up instructions",
+        "follow up": "Follow-up instructions",
+        "plan": "Follow-up instructions",
+    }
 
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            instructions="""
-You are an educational medical report explainer.
+    for line in lines:
+        normalized = re.sub(r"[:\s]+$", "", line.lower()).strip()
 
-Analyze the COMPLETE supplied medical report, not only laboratory results.
+        if normalized in heading_map:
+            current_section = heading_map[normalized]
+            continue
 
-Identify and explain the sections that are actually present:
-1. Patient details and report date.
-2. Reason for visit and symptoms.
-3. Medical history, previous surgeries, and allergies.
-4. Vital signs, including blood pressure, pulse, temperature,
-   respiratory rate, and oxygen saturation when present.
-5. Laboratory tests, measured values, units, and reference ranges.
-6. Imaging, radiology, scans, and other diagnostic findings.
-7. Doctor's observations, clinical notes, and assessment.
-8. Medicines and instructions already written in the report.
-9. Follow-up instructions and recommendations.
-10. A simple-language summary of the report.
+        sections[current_section].append(line)
 
-For each section:
-- Explain medical terms in simple English.
-- Use only information supported by the supplied report.
-- Clearly state when information is missing or unreadable.
-- Never invent patient details, test results, units, or reference ranges.
-- Do not assume that an omitted result is normal.
-- Explain abnormal flags only when supported by the report and its
-  reference ranges.
-- Do not diagnose a disease or prescribe, stop, or change medication.
-- Do not treat OCR mistakes as confirmed medical facts.
-- If information is unclear or contradictory, point it out.
-- Recommend discussing important concerns with a qualified clinician.
+    # Recognize common patient details and vital signs.
+    detail_patterns = {
+        "Patient name": r"\bname\s*[:\-]\s*(.+)",
+        "Age": r"\bage\s*[:\-]\s*(\d+\s*(?:years?|yrs?)?)",
+        "Date of birth": r"\b(?:dob|date of birth)\s*[:\-]\s*(.+)",
+        "Gender": r"\b(?:gender|sex)\s*[:\-]\s*(.+)",
+        "Blood pressure": r"\b(?:blood pressure|bp)\s*[:\-]?\s*([^\n]+)",
+        "Pulse": r"\b(?:pulse|heart rate)\s*[:\-]?\s*([^\n]+)",
+        "Temperature": r"\btemperature\s*[:\-]?\s*([^\n]+)",
+        "Respiratory rate": r"\brespiratory rate\s*[:\-]?\s*([^\n]+)",
+        "Oxygen saturation": r"\b(?:spo2|oxygen saturation)\s*[:\-]?\s*([^\n]+)",
+    }
 
-Use clear headings and bullet points.
-Finish with a brief summary and a reminder that the explanation is
-educational and does not replace professional medical advice.
-""",
-            input=(
-                "Analyze this complete medical report.\n\n"
-                "EXTRACTED REPORT TEXT:\n"
-                f"{report_text[:18000]}\n\n"
-                "LABORATORY RESULTS RECOGNIZED BY THE APPLICATION:\n"
-                f"{result_context[:6000] if result_context else 'No structured laboratory results were recognized. Analyze the original extracted text as well.'}"
-            ),
-        )
+    found_details = {}
 
-        explanation = response.output_text
+    for label, pattern in detail_patterns.items():
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            value = match.group(1).strip()
+            if value:
+                found_details[label] = value
 
-        if not explanation or not explanation.strip():
-            return (
-                "The AI returned an empty explanation. "
-                "Please try again with a clearer report."
-            )
+    # Build a readable report summary.
+    output = [
+        "# Medical Report Summary",
+        "",
+        "This summary is generated using Python rules and extracted text. "
+        "It is not an AI-generated medical interpretation or a diagnosis.",
+        "",
+    ]
 
-        return explanation
+    if found_details:
+        output.extend(["## Recognized Patient Details and Vitals", ""])
+        for label, value in found_details.items():
+            output.append(f"- **{label}:** {value}")
+        output.append("")
 
-    except Exception as error:
-        return (
-            "The report text was extracted, but the AI explanation failed. "
-            "Check your API key, available API credits, model access, and "
-            "Streamlit deployment logs. "
-            f"Technical detail: {error}"
-        )
+    # Display report sections that contain text.
+    for section_name, section_lines in sections.items():
+        if section_lines:
+            output.append(f"## {section_name}")
+            output.append("")
+
+            for line in section_lines:
+                output.append(f"- {line}")
+
+            output.append("")
+
+    # Include recognized laboratory analysis when available.
+    if isinstance(results_df, pd.DataFrame) and not results_df.empty:
+        output.extend([
+            "## Recognized Laboratory Results",
+            "",
+            results_df.to_string(index=False),
+            "",
+            "Compare values only with the reference ranges supplied by "
+            "the reporting laboratory. This program does not independently "
+            "diagnose or determine the clinical significance of results.",
+            "",
+        ])
+    else:
+        output.extend([
+            "## Laboratory Results",
+            "",
+            "No laboratory values were identified by the current test-name "
+            "patterns. This does not mean the report is normal or abnormal. "
+            "Check the extracted text and the original report.",
+            "",
+        ])
+
+    # Highlight possible OCR issues without guessing missing information.
+    if re.search(r"\b(?:unclear|illegible|unreadable|ocr error)\b", text, re.I):
+        output.extend([
+            "## Text Quality Notice",
+            "",
+            "The extracted text may contain unclear or unreadable content. "
+            "Check the original report before relying on this summary.",
+            "",
+        ])
+
+    output.extend([
+        "## Important Limitations",
+        "",
+        "- This summary organizes text; it does not diagnose a condition.",
+        "- Missing information has not been inferred.",
+        "- OCR may misread names, numbers, units, and medical terms.",
+        "- Medication instructions must be verified with the prescribing clinician.",
+        "- Ask a qualified healthcare professional to interpret the report "
+        "in the context of symptoms and medical history.",
+    ])
+
+    return "\n".join(output)
