@@ -1,7 +1,5 @@
 import pandas as pd
 import streamlit as st
-import re
-from datetime import datetime
 
 from extractor import extract_text_from_pdf
 from ocr_service import extract_text_from_image
