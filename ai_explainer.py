@@ -1,141 +1,75 @@
-import re
+import os
 import pandas as pd
+import streamlit as st
 
 
 def ai_explain_report(report_text, results_df=None):
     if not report_text or not report_text.strip():
-        return "No report text is available."
+        return "No report text is available to explain."
 
-    lines = [line.strip() for line in report_text.splitlines() if line.strip()]
-    text = "\n".join(lines)
+    api_key = os.getenv("OPENAI_API_KEY")
 
-    output = [
-        "# Medical Report Summary",
-        "",
-        "This summary organizes extracted report text using Python rules. "
-        "It is not a medical diagnosis.",
-        "",
-    ]
+    if not api_key:
+        try:
+            api_key = st.secrets["OPENAI_API_KEY"]
+        except Exception:
+            api_key = None
 
-    # Read only labels that appear with their values on the same line.
-    # Avoid guessing when OCR has put a label and value on separate lines.
-    patterns = {
-        "Patient name": r"(?im)^\s*Name\s*:\s*(\S.*)$",
-        "Date of birth": r"(?im)^\s*(?:DOB|Date of birth)\s*:\s*(\S.*)$",
-        "Age": r"(?im)^\s*Age\s*:\s*(\S.*)$",
-        "Gender": r"(?im)^\s*(?:Gender|Sex)\s*:\s*(\S.*)$",
-        "Blood pressure": r"(?im)^\s*(?:Blood pressure|BP)\s*:\s*(\S.*)$",
-        "Pulse": r"(?im)^\s*(?:Pulse|Heart rate)\s*:\s*(\S.*)$",
-        "Temperature": r"(?im)^\s*Temperature\s*:\s*(\S.*)$",
-        "Respiratory rate": r"(?im)^\s*Respiratory rate\s*:\s*(\S.*)$",
-        "Oxygen saturation": r"(?im)^\s*(?:SpO2|Oxygen saturation)\s*:\s*(\S.*)$",
-    }
+    if not api_key:
+        return (
+            "OpenAI API key is not configured. Add OPENAI_API_KEY "
+            "to Streamlit Community Cloud Secrets."
+        )
 
-    details = {}
-    for label, pattern in patterns.items():
-        match = re.search(pattern, text)
-        if match:
-            details[label] = match.group(1).strip()
-
-    if details:
-        output.extend(["## Patient Details and Vital Signs", ""])
-        for label, value in details.items():
-            output.append(f"- **{label}:** {value}")
-        output.append("")
-
-    # Section headings and their common variations.
-    headings = {
-        "patient details": "Patient details",
-        "personal details": "Patient details",
-        "medical history": "Medical history and symptoms",
-        "clinical history": "Medical history and symptoms",
-        "symptoms": "Medical history and symptoms",
-        "vitals": "Vital signs",
-        "vital signs": "Vital signs",
-        "laboratory results": "Laboratory results",
-        "lab results": "Laboratory results",
-        "test results": "Laboratory results",
-        "investigations": "Laboratory results",
-        "imaging": "Imaging and scan findings",
-        "radiology": "Imaging and scan findings",
-        "scan findings": "Imaging and scan findings",
-        "doctor's observations": "Doctor's observations",
-        "clinical observations": "Doctor's observations",
-        "observations": "Doctor's observations",
-        "notes and next steps": "Follow-up instructions",
-        "next steps": "Follow-up instructions",
-        "follow-up": "Follow-up instructions",
-        "follow up": "Follow-up instructions",
-        "medications": "Medications and advice",
-        "medication": "Medications and advice",
-        "prescription": "Medications and advice",
-        "recommendations": "Medications and advice",
-        "advice": "Medications and advice",
-        "treatment": "Medications and advice",
-    }
-
-    sections = {}
-    current_section = "General report information"
-
-    for line in lines:
-        clean = re.sub(r"^[^A-Za-z0-9]+", "", line).strip()
-        normalized = re.sub(r"[:\s]+$", "", clean.lower()).strip()
-
-        if normalized in headings:
-            current_section = headings[normalized]
-            continue
-
-        if re.fullmatch(r"general check-up report", normalized):
-            current_section = "General report information"
-            sections.setdefault(current_section, []).append(clean)
-            continue
-
-        sections.setdefault(current_section, []).append(clean)
-
-    # Remove empty values and labels whose values were placed on another line.
-    for label in ("Patient details", "Medical history and symptoms",
-                  "Vital signs", "Laboratory results",
-                  "Imaging and scan findings", "Doctor's observations",
-                  "Medications and advice", "Follow-up instructions",
-                  "General report information"):
-        values = sections.get(label, [])
-        if values:
-            output.extend([f"## {label}", ""])
-            for value in values:
-                if value and not re.fullmatch(
-                    r"(?:Name|DOB|Date of birth|Age|Gender|Sex)\s*:",
-                    value,
-                    re.IGNORECASE,
-                ):
-                    output.append(f"- {value}")
-            output.append("")
-
+    result_context = "No laboratory values were recognized."
     if isinstance(results_df, pd.DataFrame) and not results_df.empty:
-        output.extend([
-            "## Recognized Laboratory Results",
-            "",
-            results_df.to_string(index=False),
-            "",
-            "Reference ranges vary by laboratory and patient factors. "
-            "Discuss results with a qualified healthcare professional.",
-            "",
-        ])
-    else:
-        output.extend([
-            "## Laboratory Results",
-            "",
-            "No laboratory values were recognized by the current rules. "
-            "This does not mean that the report is normal or abnormal.",
-            "",
-        ])
+        result_context = results_df.to_string(index=False)
 
-    output.extend([
-        "## Important Limitations",
-        "",
-        "- Some values may be missing or incorrectly extracted by OCR.",
-        "- Patient details should be verified against the original report.",
-        "- Medication names and instructions must be checked with the prescriber.",
-        "- This summary does not diagnose disease or recommend treatment.",
-    ])
+    try:
+        from openai import OpenAI
 
-    return "\n".join(output)
+        client = OpenAI(api_key=api_key)
+
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            instructions=(
+                "Explain the complete medical report in simple English. "
+                "Organize the answer into patient details, medical history, "
+                "vital signs, laboratory results, imaging findings, doctor's "
+                "observations, medications, and follow-up instructions when "
+                "those sections are present. Only include relevant sections. "
+                "Do not invent missing information, correct uncertain OCR "
+                "values by guessing, diagnose diseases, or recommend treatment. "
+                "Clearly identify unclear or missing information. Explain that "
+                "reference ranges vary and encourage review by a qualified "
+                "healthcare professional. This is educational information, "
+                "not medical advice."
+            ),
+            input=(
+                "Explain this extracted medical report.\n\n"
+                "EXTRACTED REPORT:\n"
+                f"{report_text[:15000]}\n\n"
+                "RECOGNIZED LABORATORY RESULTS:\n"
+                f"{result_context[:4000]}"
+            ),
+            max_output_tokens=1200,
+        )
+
+        return response.output_text or "The AI returned an empty explanation."
+
+    except Exception as error:
+        error_text = str(error)
+
+        if "credit_balance_exhausted" in error_text or "insufficient_quota" in error_text:
+            return (
+                "OpenAI API credits are exhausted. Add credits to the API "
+                "account associated with your key, then try again."
+            )
+
+        if "401" in error_text or "invalid_api_key" in error_text:
+            return (
+                "The API key was rejected. Check that OPENAI_API_KEY in "
+                "Streamlit Secrets is correct and active."
+            )
+
+        return f"AI explanation failed. Technical detail: {error_text}"
