@@ -2,30 +2,35 @@
 import pymupdf
 
 
-def extract_text_from_pdf(uploaded_file):
-    try:
-        uploaded_file.seek(0)
-        pdf_bytes = uploaded_file.read()
+def extract_text_from_pdf(uploaded_file) -> str:
+    """Extract selectable text from a PDF uploaded through Streamlit."""
 
-        if not pdf_bytes:
-            raise ValueError("The uploaded PDF is empty.")
+    uploaded_file.seek(0)
+    pdf_bytes = uploaded_file.read()
+    uploaded_file.seek(0)
 
-        text_parts = []
+    if not pdf_bytes:
+        raise ValueError("The uploaded PDF is empty.")
 
-        with pymupdf.open(
-            stream=pdf_bytes,
-            filetype="pdf"
-        ) as document:
-            for page in document:
-                page_text = page.get_text("text")
-                if page_text.strip():
-                    text_parts.append(page_text.strip())
+    if not pdf_bytes.startswith(b"%PDF"):
+        raise ValueError("The uploaded file is not a valid PDF.")
 
-        uploaded_file.seek(0)
-        return "\n\n".join(text_parts)
+    text_parts = []
 
-    except Exception as error:
-        uploaded_file.seek(0)
-        raise RuntimeError(
-            f"PDF text extraction failed: {error}"
-        ) from error
+    with pymupdf.open(
+        stream=pdf_bytes,
+        filetype="pdf"
+    ) as document:
+
+        if document.needs_pass:
+            raise ValueError(
+                "This PDF is password-protected. Upload an unlocked copy."
+            )
+
+        for page in document:
+            page_text = page.get_text("text")
+
+            if page_text.strip():
+                text_parts.append(page_text.strip())
+
+    return "\n\n".join(text_parts).strip()
