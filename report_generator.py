@@ -1,10 +1,11 @@
 
-import io
-import pandas as pd
+from io import BytesIO
+from xml.sax.saxutils import escape
 
+import pandas as pd
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate,
@@ -12,150 +13,72 @@ from reportlab.platypus import (
     Spacer,
     Table,
     TableStyle,
-    Image,
 )
 
 
-def create_pdf_report(
-    results: pd.DataFrame,
-    extracted_text: str,
-    chart_png: bytes,
-    generated_at: str
-) -> bytes:
+def generate_pdf_report(report_text, results_df=None, ai_explanation=""):
+    output = BytesIO()
 
-    output = io.BytesIO()
-
-    document = SimpleDocTemplate(
+    doc = SimpleDocTemplate(
         output,
-        pagesize=A4,
+        pagesize=landscape(A4),
         rightMargin=15 * mm,
         leftMargin=15 * mm,
-        topMargin=16 * mm,
-        bottomMargin=16 * mm,
-        title="Medical Report Summary"
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
     )
 
     styles = getSampleStyleSheet()
-
-    styles.add(
-        ParagraphStyle(
-            name="BrandTitle",
-            parent=styles["Title"],
-            textColor=colors.HexColor("#12304A"),
-            fontSize=21,
-            leading=25
-        )
-    )
-
-    styles.add(
-        ParagraphStyle(
-            name="SmallNote",
-            parent=styles["BodyText"],
-            textColor=colors.HexColor("#586b80"),
-            fontSize=8,
-            leading=11
-        )
-    )
-
     story = [
-        Paragraph("MediLens", styles["BrandTitle"]),
+        Paragraph("AI Medical Report Explainer", styles["Title"]),
+        Spacer(1, 5 * mm),
         Paragraph(
-            "Medical Laboratory Report Summary",
-            styles["Heading2"]
+            "Educational summary only. Not a diagnosis or a substitute "
+            "for professional medical advice.",
+            styles["Normal"],
         ),
-        Paragraph(
-            f"Generated: {generated_at}",
-            styles["SmallNote"]
-        ),
-        Spacer(1, 7 * mm),
-        Paragraph("Detected Results", styles["Heading2"]),
-        Paragraph(
-            "Automated extraction may be incomplete or incorrect. "
-            "Verify values against the original PDF.",
-            styles["SmallNote"]
-        ),
-        Spacer(1, 3 * mm)
+        Spacer(1, 5 * mm),
     ]
 
-    table_data = [[
-        "Test",
-        "Value",
-        "Reference Range",
-        "Status"
-    ]]
+    if results_df is not None and not results_df.empty:
+        story.append(Paragraph("Recognized Laboratory Results", styles["Heading2"]))
 
-    for _, row in results.iterrows():
-        table_data.append([
-            str(row.get("Test", "")),
-            str(row.get("Value", "")),
-            str(row.get("Reference range", "")),
-            str(row.get("Status", "Not assessed"))
-        ])
+        safe_df = results_df.fillna("").astype(str)
+        table_data = [list(safe_df.columns)] + safe_df.values.tolist()
 
-    results_table = Table(
-        table_data,
-        repeatRows=1,
-        colWidths=[
-            34 * mm,
-            22 * mm,
-            48 * mm,
-            45 * mm
-        ]
-    )
-
-    results_table.setStyle(
-        TableStyle([
-            (
-                "BACKGROUND",
-                (0, 0),
-                (-1, 0),
-                colors.HexColor("#12304A")
-            ),
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#163A5F")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#d8e1ea")),
-            (
-                "ROWBACKGROUNDS",
-                (0, 1),
-                (-1, -1),
-                [colors.white, colors.HexColor("#f4f8fb")]
-            ),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
             ("LEFTPADDING", (0, 0), (-1, -1), 5),
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
             ("TOPPADDING", (0, 0), (-1, -1), 5),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ])
-    )
-
-    story.append(results_table)
-
-    if chart_png:
-        story.extend([
-            Spacer(1, 7 * mm),
-            Paragraph("Result Status Overview", styles["Heading2"]),
-            Spacer(1, 2 * mm),
-            Image(
-                io.BytesIO(chart_png),
-                width=165 * mm,
-                height=73 * mm
+        ]))
+        story.extend([table, Spacer(1, 5 * mm)])
+    else:
+        story.append(
+            Paragraph(
+                "No structured laboratory results were recognized.",
+                styles["Normal"],
             )
-        ])
-
-    story.extend([
-        Spacer(1, 7 * mm),
-        Paragraph("Important Medical Notice", styles["Heading2"]),
-        Paragraph(
-            "This document is an educational summary generated by software. "
-            "It is not a diagnosis or treatment plan and is not a substitute "
-            "for advice from a qualified healthcare professional. "
-            "Reference ranges vary by laboratory and patient factors. "
-            "Results marked Not assessed were not classified by this application.",
-            styles["SmallNote"]
         )
-    ])
 
-    document.build(story)
+    if ai_explanation:
+        story.append(Paragraph("AI Explanation", styles["Heading2"]))
+        safe_explanation = escape(str(ai_explanation)).replace("\n", "<br/>")
+        story.append(Paragraph(safe_explanation, styles["BodyText"]))
+        story.append(Spacer(1, 5 * mm))
 
+    if report_text:
+        story.append(Paragraph("Extracted Report Text", styles["Heading2"]))
+        safe_text = escape(report_text[:12000]).replace("\n", "<br/>")
+        story.append(Paragraph(safe_text, styles["BodyText"]))
+
+    doc.build(story)
+    output.seek(0)
     return output.getvalue()
+        
