@@ -1,10 +1,7 @@
+
 streamlit
-pymupdf
 pandas
-openai
-pillow
-pytesseract
-reportlab  
 matplotlib
-
-
+pymupdf
+Pillow
+pytesseract
