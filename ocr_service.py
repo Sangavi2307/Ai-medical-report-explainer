@@ -1,6 +1,6 @@
-
-from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 import pytesseract
+import io
 
 
 def extract_text_from_image(uploaded_file):
