@@ -3,400 +3,124 @@ import re
 import pandas as pd
 
 
-# ==================================================
-# REGULAR EXPRESSIONS
-# ==================================================
-
-NUMBER = r"\d[\d,]*(?:\.\d+)?"
-
-RANGE_PATTERN = re.compile(
-    rf"({NUMBER})\s*(?:-|–|—|to)\s*({NUMBER})",
-    re.IGNORECASE,
-)
-
-RESULT_NUMBER_PATTERN = re.compile(
-    rf"(?<![\d.])({NUMBER})(?![\d.])"
-)
-
-
-# ==================================================
-# TEST NAME ALIASES
-# ==================================================
-
-TEST_ALIASES = {
-    "Hemoglobin": [
-        "hemoglobin",
-        "haemoglobin",
-        "hb",
-    ],
-    "WBC Count": [
-        "white blood cell count",
-        "total leukocyte count",
-        "total leucocyte count",
-        "wbc count",
-        "tlc",
-        "wbc",
-    ],
-    "Platelets": [
-        "platelet count",
-        "platelets",
-        "platelet",
-        "plt",
-    ],
-    "Fasting Blood Sugar": [
-        "fasting blood sugar",
-        "fasting blood glucose",
-        "fasting glucose",
-        "fbs",
-    ],
-    "Random Blood Sugar": [
-        "random blood sugar",
-        "random glucose",
-        "rbs",
-    ],
-    "Postprandial Blood Sugar": [
-        "postprandial blood sugar",
-        "pp blood sugar",
-        "ppbs",
-    ],
-    "Total Cholesterol": [
-        "total cholesterol",
-        "cholesterol",
-    ],
-    "Triglycerides": [
-        "triglycerides",
-        "triglyceride",
-    ],
-    "HDL Cholesterol": [
-        "hdl cholesterol",
-        "hdl",
-    ],
-    "LDL Cholesterol": [
-        "ldl cholesterol",
-        "ldl",
-    ],
-    "Creatinine": [
-        "serum creatinine",
-        "creatinine",
-    ],
-    "Urea": [
-        "blood urea",
-        "serum urea",
-        "urea",
-    ],
-    "Hemoglobin A1c": [
-        "hemoglobin a1c",
-        "haemoglobin a1c",
-        "hba1c",
-    ],
+TEST_NAMES = {
+    "Hemoglobin": [r"\bhemoglobin\b", r"\bhaemoglobin\b", r"\bhb\b"],
+    "WBC": [r"\bwbc\b", r"\bwhite blood cells?\b", r"\btotal leukocyte count\b"],
+    "RBC": [r"\brbc\b", r"\bred blood cells?\b"],
+    "Platelets": [r"\bplatelets?\b", r"\bplatelet count\b"],
+    "Glucose": [r"\bglucose\b", r"\bblood sugar\b", r"\bfbs\b", r"\brbs\b"],
+    "Creatinine": [r"\bcreatinine\b"],
+    "Urea": [r"\burea\b", r"\bblood urea\b"],
+    "Cholesterol": [r"\btotal cholesterol\b", r"\bcholesterol\b"],
+    "Vitamin D": [r"\bvitamin\s*d\b"],
+    "Vitamin B12": [r"\bvitamin\s*b12\b"],
+    "TSH": [r"\btsh\b", r"\bthyroid stimulating hormone\b"],
+    "ALT": [r"\balt\b", r"\bsgpt\b", r"\balanine aminotransferase\b"],
+    "AST": [r"\bast\b", r"\bsgot\b", r"\baspartate aminotransferase\b"],
 }
 
 
-# ==================================================
-# TEXT NORMALIZATION
-# ==================================================
-
-def normalize_text(text):
-    """Normalize common OCR characters and spacing."""
-
-    text = str(text or "")
-
-    replacements = {
-        "\u00a0": " ",
-        "−": "-",
-        "–": "-",
-        "—": "-",
-        "µ": "u",
-    }
-
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-
-    # Normalize common OCR confusion in words only where
-    # possible; do not globally replace letters in numbers.
-    return text
-
-
-def clean_lines(report_text):
-    """Return normalized, non-empty report lines."""
-
-    text = normalize_text(report_text)
-
-    return [
-        re.sub(r"\s+", " ", line).strip()
-        for line in text.splitlines()
-        if line.strip()
-    ]
-
-
-# ==================================================
-# IDENTIFY LABORATORY TESTS
-# ==================================================
-
-def identify_test(line):
-    """Identify a supported laboratory test."""
-
-    normalized = normalize_text(line).lower().strip()
-    normalized = re.sub(r"^[\W_]+", "", normalized)
-
-    aliases = []
-
-    for standard_name, names in TEST_ALIASES.items():
-        for alias in names:
-            aliases.append((alias, standard_name))
-
-    # Match the longest aliases first.
-    aliases.sort(key=lambda item: len(item[0]), reverse=True)
-
-    for alias, standard_name in aliases:
-        pattern = rf"^{re.escape(alias)}(?:\b|(?=\s|:))"
-
-        if re.match(pattern, normalized):
-            return standard_name
-
-    return None
-
-
-def remove_test_name(line, test_name):
-    """Remove the test name from the beginning of a line."""
-
-    normalized = normalize_text(line).strip()
-
-    aliases = sorted(
-        TEST_ALIASES.get(test_name, []),
-        key=len,
-        reverse=True,
-    )
-
-    for alias in aliases:
-        pattern = (
-            rf"^\s*{re.escape(alias)}\b\s*[:=]?\s*"
-        )
-
-        updated = re.sub(
-            pattern,
-            "",
-            normalized,
-            count=1,
-            flags=re.IGNORECASE,
-        )
-
-        if updated != normalized:
-            return updated.strip()
-
-    return normalized
-
-
-# ==================================================
-# PARSE NUMERIC RESULT AND UNIT
-# ==================================================
-
-def parse_result_line(line):
-    """
-    Extract the first result number and its trailing unit.
-
-    Example:
-        13.2 g/dL 12-16
-    Result:
-        value = 13.2
-        unit = g/dL
-    """
-
-    line = normalize_text(line).strip()
-
-    if not line:
-        return None
-
-    # Remove reference ranges before extracting the result.
-    # This prevents the range limits being mistaken for results.
-    cleaned = RANGE_PATTERN.sub(" ", line)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-
-    match = RESULT_NUMBER_PATTERN.search(cleaned)
-
-    if not match:
-        return None
-
-    number_text = match.group(1)
-
-    try:
-        value = float(number_text.replace(",", ""))
-    except ValueError:
-        return None
-
-    # Remove the extracted number and keep the trailing unit.
-    unit = cleaned[match.end():].strip(" :;()")
-
-    # Avoid treating another number as a unit.
-    if re.match(r"^\d", unit):
-        unit = ""
-
-    return {
-        "value": value,
-        "result_text": number_text,
-        "unit": unit,
-    }
-
-
-# ==================================================
-# PARSE REFERENCE RANGE
-# ==================================================
-
-def parse_range_line(line):
-    """Extract a lower and upper reference limit."""
-
-    line = normalize_text(line)
-
-    match = RANGE_PATTERN.search(line)
-
-    if not match:
-        return None
-
-    try:
-        low = float(match.group(1).replace(",", ""))
-        high = float(match.group(2).replace(",", ""))
-    except ValueError:
-        return None
-
-    if low > high:
-        return None
-
-    return {
-        "low": low,
-        "high": high,
-        "range_text": match.group(0).strip(),
-    }
-
-
-# ==================================================
-# CLASSIFY RESULT
-# ==================================================
-
-def classify_result(value, low, high):
-    """Compare a result with the detected reference range."""
-
-    if value < low:
-        return "Below Range"
-
-    if value > high:
-        return "Above Range"
-
-    return "Within Range"
-
-
-# ==================================================
-# MAIN REPORT ANALYZER
-# ==================================================
-
-def analyze_report(report_text):
-    """
-    Extract supported laboratory results from report text.
-
-    Returns a Pandas DataFrame with:
-        Test
-        Result
-        Unit
-        Reference Range
-        Status
-
-    A result without a detected reference range is retained
-    as Not Classified. No missing reference range is invented.
-    """
-
+def analyze_report(text):
     columns = [
-        "Test",
-        "Result",
-        "Unit",
-        "Reference Range",
-        "Status",
+        "Test", "Result", "Unit", "Reference Range", "Status"
     ]
 
-    if report_text is None or not str(report_text).strip():
+    if not isinstance(text, str) or not text.strip():
         return pd.DataFrame(columns=columns)
 
-    lines = clean_lines(report_text)
+    rows = []
+    seen = set()
 
-    results = []
-    seen_tests = set()
+    for line in text.splitlines():
+        clean_line = re.sub(r"\s+", " ", line).strip()
 
-    for i, line in enumerate(lines):
-
-        test_name = identify_test(line)
-
-        if not test_name:
+        if not clean_line:
             continue
 
-        if test_name in seen_tests:
-            continue
+        # Find the test name
+        matched_test = None
 
-        result_info = None
-        range_info = None
-
-        # Search the current line and the next four lines.
-        # Stop when a different laboratory test is encountered.
-        for j in range(i, min(i + 5, len(lines))):
-
-            candidate = lines[j]
-
-            if j > i and identify_test(candidate):
+        for test_name, patterns in TEST_NAMES.items():
+            if any(re.search(pattern, clean_line, re.IGNORECASE)
+                   for pattern in patterns):
+                matched_test = test_name
                 break
 
-            if j == i:
-                candidate_for_result = remove_test_name(
-                    candidate,
-                    test_name,
-                )
-            else:
-                candidate_for_result = candidate
-
-            # Look for the result.
-            if result_info is None:
-                result_info = parse_result_line(
-                    candidate_for_result
-                )
-
-            # Look for the reference range in the original line.
-            if range_info is None:
-                range_info = parse_range_line(candidate)
-
-            if result_info and range_info:
-                break
-
-        # No numerical result: skip this test.
-        if result_info is None:
+        if not matched_test:
             continue
 
-        # Classify only when the report provides a detectable range.
-        if range_info is not None:
-            status = classify_result(
-                result_info["value"],
-                range_info["low"],
-                range_info["high"],
-            )
-
-            reference_range = range_info["range_text"]
-
-        else:
-            status = "Not Classified"
-            reference_range = "Not detected"
-
-        unit = result_info["unit"]
-
-        # Display the micro-litre symbol where applicable.
-        unit = re.sub(
-            r"(?i)/uL\b",
-            "/µL",
-            unit,
+        # Extract numeric values, including decimals and commas
+        numbers = re.findall(
+            r"(?<![A-Za-z])[-+]?\d[\d,]*(?:\.\d+)?",
+            clean_line
         )
 
-        results.append({
-            "Test": test_name,
-            "Result": result_info["result_text"],
+        if not numbers:
+            continue
+
+        # Use the first number after the test name as the result
+        match = None
+        for pattern in TEST_NAMES[matched_test]:
+            match = re.search(pattern, clean_line, re.IGNORECASE)
+            if match:
+                break
+
+        remainder = clean_line[match.end():] if match else clean_line
+        result_match = re.search(
+            r"[-+]?\d[\d,]*(?:\.\d+)?",
+            remainder
+        )
+
+        if not result_match:
+            continue
+
+        result_text = result_match.group().replace(",", "")
+
+        try:
+            result_value = float(result_text)
+        except ValueError:
+            continue
+
+        # Find a possible reference range on this same line
+        range_match = re.search(
+            r"(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)",
+            clean_line,
+            re.IGNORECASE
+        )
+
+        reference_range = ""
+        status = "Not assessed"
+
+        if range_match:
+            low = float(range_match.group(1))
+            high = float(range_match.group(2))
+            reference_range = f"{low:g} - {high:g}"
+
+            if result_value < low:
+                status = "Below range"
+            elif result_value > high:
+                status = "Above range"
+            else:
+                status = "Within range"
+
+        # Capture possible unit text after the result
+        unit_match = re.match(
+            r"\s*([a-zA-Zµμ/%]+(?:/[a-zA-Zµμ]+)?)",
+            remainder[result_match.end():]
+        )
+        unit = unit_match.group(1) if unit_match else ""
+
+        key = (matched_test, result_text)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        rows.append({
+            "Test": matched_test,
+            "Result": result_value,
             "Unit": unit,
             "Reference Range": reference_range,
-            "Status": status,
+            "Status": status
         })
 
-        seen_tests.add(test_name)
-
-    return pd.DataFrame(results, columns=columns)
+    return pd.DataFrame(rows, columns=columns)
