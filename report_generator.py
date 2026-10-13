@@ -1,9 +1,8 @@
 
-from io import BytesIO
-
+import io
 import pandas as pd
+
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
@@ -13,129 +12,150 @@ from reportlab.platypus import (
     Spacer,
     Table,
     TableStyle,
+    Image,
 )
 
 
-def create_pdf_report(results_df, ai_summary):
-    buffer = BytesIO()
+def create_pdf_report(
+    results: pd.DataFrame,
+    extracted_text: str,
+    chart_png: bytes,
+    generated_at: str
+) -> bytes:
+
+    output = io.BytesIO()
 
     document = SimpleDocTemplate(
-        buffer,
+        output,
         pagesize=A4,
         rightMargin=15 * mm,
         leftMargin=15 * mm,
-        topMargin=15 * mm,
-        bottomMargin=15 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+        title="Medical Report Summary"
     )
 
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle(
-        "ReportTitle",
-        parent=styles["Title"],
-        alignment=TA_CENTER,
-        textColor=colors.HexColor("#156082"),
-        spaceAfter=12,
+    styles.add(
+        ParagraphStyle(
+            name="BrandTitle",
+            parent=styles["Title"],
+            textColor=colors.HexColor("#12304A"),
+            fontSize=21,
+            leading=25
+        )
     )
 
-    body_style = ParagraphStyle(
-        "ReportBody",
-        parent=styles["BodyText"],
-        leading=14,
-        spaceAfter=6,
-        wordWrap="CJK",
+    styles.add(
+        ParagraphStyle(
+            name="SmallNote",
+            parent=styles["BodyText"],
+            textColor=colors.HexColor("#586b80"),
+            fontSize=8,
+            leading=11
+        )
     )
 
-    story = []
-
-    story.append(
-        Paragraph("AI Medical Report Explainer", title_style)
-    )
-    story.append(
+    story = [
+        Paragraph("MediLens", styles["BrandTitle"]),
         Paragraph(
-            "Educational explanation of uploaded medical report",
-            styles["Normal"],
-        )
-    )
-    story.append(Spacer(1, 8 * mm))
+            "Medical Laboratory Report Summary",
+            styles["Heading2"]
+        ),
+        Paragraph(
+            f"Generated: {generated_at}",
+            styles["SmallNote"]
+        ),
+        Spacer(1, 7 * mm),
+        Paragraph("Detected Results", styles["Heading2"]),
+        Paragraph(
+            "Automated extraction may be incomplete or incorrect. "
+            "Verify values against the original PDF.",
+            styles["SmallNote"]
+        ),
+        Spacer(1, 3 * mm)
+    ]
 
-    story.append(
-        Paragraph("Laboratory Results", styles["Heading2"])
-    )
-    story.append(Spacer(1, 3 * mm))
+    table_data = [[
+        "Test",
+        "Value",
+        "Reference Range",
+        "Status"
+    ]]
 
-    if isinstance(results_df, pd.DataFrame) and not results_df.empty:
-        table_data = [
-            [
-                Paragraph(str(column), styles["BodyText"])
-                for column in results_df.columns
-            ]
+    for _, row in results.iterrows():
+        table_data.append([
+            str(row.get("Test", "")),
+            str(row.get("Value", "")),
+            str(row.get("Reference range", "")),
+            str(row.get("Status", "Not assessed"))
+        ])
+
+    results_table = Table(
+        table_data,
+        repeatRows=1,
+        colWidths=[
+            34 * mm,
+            22 * mm,
+            48 * mm,
+            45 * mm
         ]
+    )
 
-        for _, row in results_df.iterrows():
-            table_data.append([
-                Paragraph(str(value), body_style)
-                for value in row.tolist()
-            ])
-
-        column_count = len(results_df.columns)
-        available_width = A4[0] - 30 * mm
-        column_widths = [available_width / column_count] * column_count
-
-        table = Table(
-            table_data,
-            colWidths=column_widths,
-            repeatRows=1,
-        )
-
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0),
-             colors.HexColor("#DDEBF7")),
-            ("TEXTCOLOR", (0, 0), (-1, 0),
-             colors.HexColor("#17365D")),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+    results_table.setStyle(
+        TableStyle([
+            (
+                "BACKGROUND",
+                (0, 0),
+                (-1, 0),
+                colors.HexColor("#12304A")
+            ),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#d8e1ea")),
+            (
+                "ROWBACKGROUNDS",
+                (0, 1),
+                (-1, -1),
+                [colors.white, colors.HexColor("#f4f8fb")]
+            ),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LEFTPADDING", (0, 0), (-1, -1), 5),
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
             ("TOPPADDING", (0, 0), (-1, -1), 5),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ]))
-
-        story.append(table)
-    else:
-        story.append(
-            Paragraph("No laboratory results were detected.",
-                      body_style)
-        )
-
-    story.append(Spacer(1, 8 * mm))
-    story.append(
-        Paragraph("AI Explanation", styles["Heading2"])
+        ])
     )
-    story.append(Spacer(1, 3 * mm))
 
-    summary = str(ai_summary or "No AI explanation is available.")
+    story.append(results_table)
 
-    for line in summary.splitlines():
-        # Escape special HTML characters in the AI-generated text.
-        from xml.sax.saxutils import escape
+    if chart_png:
+        story.extend([
+            Spacer(1, 7 * mm),
+            Paragraph("Result Status Overview", styles["Heading2"]),
+            Spacer(1, 2 * mm),
+            Image(
+                io.BytesIO(chart_png),
+                width=165 * mm,
+                height=73 * mm
+            )
+        ])
 
-        story.append(
-            Paragraph(escape(line) if line.strip() else " ", body_style)
-        )
-
-    story.append(Spacer(1, 8 * mm))
-    story.append(
+    story.extend([
+        Spacer(1, 7 * mm),
+        Paragraph("Important Medical Notice", styles["Heading2"]),
         Paragraph(
-            "<b>Important:</b> This report is for educational "
-            "purposes only. It is not a medical diagnosis or a "
-            "substitute for advice from a qualified healthcare "
-            "professional.",
-            body_style,
+            "This document is an educational summary generated by software. "
+            "It is not a diagnosis or treatment plan and is not a substitute "
+            "for advice from a qualified healthcare professional. "
+            "Reference ranges vary by laboratory and patient factors. "
+            "Results marked Not assessed were not classified by this application.",
+            styles["SmallNote"]
         )
-    )
+    ])
 
     document.build(story)
-    buffer.seek(0)
 
-    return buffer.getvalue()
+    return output.getvalue()
