@@ -189,3 +189,4 @@ def analyze_report(report_text):
             break
 
     return pd.DataFrame(results, columns=columns)
+            
