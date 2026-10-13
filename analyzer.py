@@ -3,124 +3,142 @@ import re
 import pandas as pd
 
 
-TEST_NAMES = {
-    "Hemoglobin": [r"\bhemoglobin\b", r"\bhaemoglobin\b", r"\bhb\b"],
-    "WBC": [r"\bwbc\b", r"\bwhite blood cells?\b", r"\btotal leukocyte count\b"],
-    "RBC": [r"\brbc\b", r"\bred blood cells?\b"],
-    "Platelets": [r"\bplatelets?\b", r"\bplatelet count\b"],
-    "Glucose": [r"\bglucose\b", r"\bblood sugar\b", r"\bfbs\b", r"\brbs\b"],
-    "Creatinine": [r"\bcreatinine\b"],
-    "Urea": [r"\burea\b", r"\bblood urea\b"],
-    "Cholesterol": [r"\btotal cholesterol\b", r"\bcholesterol\b"],
-    "Vitamin D": [r"\bvitamin\s*d\b"],
-    "Vitamin B12": [r"\bvitamin\s*b12\b"],
-    "TSH": [r"\btsh\b", r"\bthyroid stimulating hormone\b"],
-    "ALT": [r"\balt\b", r"\bsgpt\b", r"\balanine aminotransferase\b"],
-    "AST": [r"\bast\b", r"\bsgot\b", r"\baspartate aminotransferase\b"],
-}
+TEST_PATTERNS = [
+    ("Hemoglobin", r"\b(?:haemoglobin|hemoglobin|hb)\b"),
+    ("WBC", r"\b(?:wbc|total\s+leucocyte\s+count|white\s+blood\s+cells?)\b"),
+    ("RBC", r"\b(?:rbc|red\s+blood\s+cells?)\b"),
+    ("Platelets", r"\b(?:platelet\s+count|platelets?)\b"),
+    ("Fasting glucose", r"\b(?:fasting\s+blood\s+sugar|fasting\s+glucose|fbs)\b"),
+    ("Random glucose", r"\b(?:random\s+blood\s+sugar|random\s+glucose|rbs)\b"),
+    ("HbA1c", r"\bhba1c\b"),
+    ("Creatinine", r"\bcreatinine\b"),
+    ("Urea", r"\burea\b"),
+    ("Total cholesterol", r"\btotal\s+cholesterol\b"),
+    ("Vitamin D", r"\b(?:25[- ]?oh\s+)?vitamin\s*d\b"),
+    ("Vitamin B12", r"\bvitamin\s*b12\b"),
+    ("TSH", r"\btsh\b"),
+    ("ALT", r"\b(?:alt|sgpt)\b"),
+    ("AST", r"\b(?:ast|sgot)\b"),
+]
+
+NUMBER = r"[-+]?\d+(?:,\d{3})*(?:\.\d+)?"
+
+
+def parse_range(line):
+    match = re.search(
+        rf"({NUMBER})\s*(?:-|–|to)\s*({NUMBER})",
+        line,
+        re.IGNORECASE
+    )
+
+    if not match:
+        return None
+
+    try:
+        low = float(match.group(1).replace(",", ""))
+        high = float(match.group(2).replace(",", ""))
+
+        if low > high:
+            return None
+
+        return low, high
+
+    except ValueError:
+        return None
+
+
+def parse_value(line, pattern):
+    label_match = re.search(pattern, line, re.IGNORECASE)
+
+    if not label_match:
+        return None
+
+    tail = line[label_match.end():]
+
+    match = re.search(
+        rf"^\s*[:=]?\s*({NUMBER})",
+        tail
+    )
+
+    if not match:
+        return None
+
+    try:
+        return float(match.group(1).replace(",", ""))
+
+    except ValueError:
+        return None
+
+
+def display_number(value):
+    if float(value).is_integer():
+        return str(int(value))
+
+    return f"{value:g}"
 
 
 def analyze_report(text):
-    columns = [
-        "Test", "Result", "Unit", "Reference Range", "Status"
-    ]
-
-    if not isinstance(text, str) or not text.strip():
-        return pd.DataFrame(columns=columns)
-
     rows = []
     seen = set()
 
     for line in text.splitlines():
-        clean_line = re.sub(r"\s+", " ", line).strip()
+        clean = re.sub(r"\s+", " ", line).strip()
 
-        if not clean_line:
+        if not clean:
             continue
 
-        # Find the test name
-        matched_test = None
+        for name, pattern in TEST_PATTERNS:
+            if not re.search(pattern, clean, re.IGNORECASE):
+                continue
 
-        for test_name, patterns in TEST_NAMES.items():
-            if any(re.search(pattern, clean_line, re.IGNORECASE)
-                   for pattern in patterns):
-                matched_test = test_name
-                break
+            value = parse_value(clean, pattern)
 
-        if not matched_test:
-            continue
+            if value is None:
+                continue
 
-        # Extract numeric values, including decimals and commas
-        numbers = re.findall(
-            r"(?<![A-Za-z])[-+]?\d[\d,]*(?:\.\d+)?",
-            clean_line
-        )
+            key = (name, value, clean.lower())
 
-        if not numbers:
-            continue
+            if key in seen:
+                continue
 
-        # Use the first number after the test name as the result
-        match = None
-        for pattern in TEST_NAMES[matched_test]:
-            match = re.search(pattern, clean_line, re.IGNORECASE)
-            if match:
-                break
+            seen.add(key)
+            reference_range = parse_range(clean)
 
-        remainder = clean_line[match.end():] if match else clean_line
-        result_match = re.search(
-            r"[-+]?\d[\d,]*(?:\.\d+)?",
-            remainder
-        )
+            if reference_range:
+                low, high = reference_range
 
-        if not result_match:
-            continue
+                if value < low:
+                    result_status = "Below range"
+                elif value > high:
+                    result_status = "Above range"
+                else:
+                    result_status = "Within range"
 
-        result_text = result_match.group().replace(",", "")
+                reference_text = (
+                    f"{display_number(low)} - {display_number(high)}"
+                )
 
-        try:
-            result_value = float(result_text)
-        except ValueError:
-            continue
-
-        # Find a possible reference range on this same line
-        range_match = re.search(
-            r"(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)",
-            clean_line,
-            re.IGNORECASE
-        )
-
-        reference_range = ""
-        status = "Not assessed"
-
-        if range_match:
-            low = float(range_match.group(1))
-            high = float(range_match.group(2))
-            reference_range = f"{low:g} - {high:g}"
-
-            if result_value < low:
-                status = "Below range"
-            elif result_value > high:
-                status = "Above range"
             else:
-                status = "Within range"
+                result_status = "Not assessed"
+                reference_text = "Not found on result line"
 
-        # Capture possible unit text after the result
-        unit_match = re.match(
-            r"\s*([a-zA-Zµμ/%]+(?:/[a-zA-Zµμ]+)?)",
-            remainder[result_match.end():]
-        )
-        unit = unit_match.group(1) if unit_match else ""
+            rows.append({
+                "Test": name,
+                "Value": display_number(value),
+                "Reference range": reference_text,
+                "Status": result_status,
+                "Source line": clean
+            })
 
-        key = (matched_test, result_text)
-        if key in seen:
-            continue
-        seen.add(key)
+            break
 
-        rows.append({
-            "Test": matched_test,
-            "Result": result_value,
-            "Unit": unit,
-            "Reference Range": reference_range,
-            "Status": status
-        })
-
-    return pd.DataFrame(rows, columns=columns)
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "Test",
+            "Value",
+            "Reference range",
+            "Status",
+            "Source line"
+        ]
+    )
