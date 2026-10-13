@@ -1,33 +1,31 @@
+
 import pymupdf
-import pytesseract
-from PIL import Image
 
 
 def extract_text_from_pdf(uploaded_file):
-    uploaded_file.seek(0)
+    try:
+        uploaded_file.seek(0)
+        pdf_bytes = uploaded_file.read()
 
-    pdf_bytes = uploaded_file.read()
+        if not pdf_bytes:
+            raise ValueError("The uploaded PDF is empty.")
 
-    document = pymupdf.open(
-        stream=pdf_bytes,
-        filetype="pdf"
-    )
+        text_parts = []
 
-    text = ""
+        with pymupdf.open(
+            stream=pdf_bytes,
+            filetype="pdf"
+        ) as document:
+            for page in document:
+                page_text = page.get_text("text")
+                if page_text.strip():
+                    text_parts.append(page_text.strip())
 
-    for page in document:
-        text += page.get_text() + "\n"
+        uploaded_file.seek(0)
+        return "\n\n".join(text_parts)
 
-    document.close()
-
-    return text
-
-
-def extract_text_from_image(uploaded_file):
-    uploaded_file.seek(0)
-
-    image = Image.open(uploaded_file)
-
-    text = pytesseract.image_to_string(image)
-
-    return text
+    except Exception as error:
+        uploaded_file.seek(0)
+        raise RuntimeError(
+            f"PDF text extraction failed: {error}"
+        ) from error
