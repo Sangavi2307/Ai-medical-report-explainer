@@ -1,7 +1,4 @@
-
-import io
-import os
-
+```python
 import pandas as pd
 import streamlit as st
 
@@ -12,6 +9,8 @@ from ai_explainer import ai_explain_report
 from report_generator import generate_pdf_report
 
 
+# ---------------- PAGE CONFIGURATION ----------------
+
 st.set_page_config(
     page_title="AI Medical Report Explainer",
     page_icon="🩺",
@@ -19,76 +18,120 @@ st.set_page_config(
 )
 
 st.title("🩺 AI Medical Report Explainer")
+
 st.caption(
-    "Upload a laboratory report to extract text and review recognized results."
+    "Upload a medical report to review patient details, medical history, "
+    "vital signs, laboratory results, doctor's observations, medications, "
+    "and follow-up advice."
 )
 
 st.warning(
-    "Educational use only. This app does not diagnose conditions or "
-    "recommend treatment. Confirm results with a qualified healthcare professional."
+    "Educational use only. This application does not diagnose diseases "
+    "or recommend treatment. Consult a qualified healthcare professional."
 )
 
+
+# ---------------- FILE UPLOAD ----------------
+
 uploaded_file = st.file_uploader(
-    "Upload a medical report",
+    "Upload your medical report",
     type=["pdf", "png", "jpg", "jpeg"],
-    help="Supported formats: PDF, PNG, JPG and JPEG.",
 )
 
 pasted_text = st.text_area(
-    "Or paste report text here",
-    height=150,
-    placeholder="Paste the text from your laboratory report...",
+    "Or paste your report text here",
+    height=180,
+    placeholder="Paste the complete text of your medical report...",
 )
+
+
+# ---------------- SESSION STATE ----------------
 
 if "report_text" not in st.session_state:
     st.session_state.report_text = ""
+
 if "results_df" not in st.session_state:
     st.session_state.results_df = pd.DataFrame()
+
 if "ai_explanation" not in st.session_state:
     st.session_state.ai_explanation = ""
 
+
+# ---------------- EXTRACT REPORT ----------------
+
 if st.button("Extract and analyze report", type="primary"):
+
     report_text = ""
 
     try:
-        if uploaded_file is not None:
-            file_name = uploaded_file.name.lower()
+        with st.spinner("Reading your medical report..."):
 
-            with st.spinner("Reading your report..."):
+            if pasted_text.strip():
+                report_text = pasted_text.strip()
+
+            elif uploaded_file is not None:
+                file_name = uploaded_file.name.lower()
+
                 if file_name.endswith(".pdf"):
                     report_text = extract_text_from_pdf(uploaded_file)
                 else:
                     report_text = extract_text_from_image(uploaded_file)
 
-        elif pasted_text.strip():
-            report_text = pasted_text.strip()
+            else:
+                st.error("Please upload a report or paste report text.")
+                st.stop()
 
-        else:
-            st.error("Please upload a report or paste report text.")
+        if not report_text or not report_text.strip():
+            st.error(
+                "No readable text was extracted. Try a clearer image "
+                "or paste the report text manually."
+            )
             st.stop()
 
-        # A PDF can contain no selectable text if it is scanned.
         if report_text.startswith("No selectable text was found"):
-            st.session_state.report_text = report_text
-            st.session_state.results_df = pd.DataFrame()
-            st.session_state.ai_explanation = ""
-            st.warning(report_text)
+            st.warning(
+                "This PDF may be scanned. Try uploading it as an image "
+                "or paste its text manually."
+            )
             st.stop()
 
+        # Save the extracted report.
         st.session_state.report_text = report_text
-        st.session_state.results_df = analyze_report(report_text)
+
+        # Analyze laboratory results separately.
+        # An empty table does not prevent the full report explanation.
+        try:
+            results = analyze_report(report_text)
+
+            if isinstance(results, pd.DataFrame):
+                st.session_state.results_df = results
+            else:
+                st.session_state.results_df = pd.DataFrame()
+
+        except Exception:
+            st.session_state.results_df = pd.DataFrame()
+
+        # Clear the previous explanation for the new report.
         st.session_state.ai_explanation = ""
+
+        st.success("Report text extracted successfully.")
 
     except Exception as error:
         st.error(f"Could not process this report: {error}")
+
+
+# ---------------- DISPLAY REPORT ----------------
 
 report_text = st.session_state.report_text
 results_df = st.session_state.results_df
 
 if report_text:
-    st.subheader("Extracted Report Text")
+
+    st.divider()
+    st.subheader("1. Extracted Medical Report")
+
     st.text_area(
-        "Check the text recognized from your report",
+        "Extracted text — check that it matches your report",
         value=report_text,
         height=250,
         disabled=True,
@@ -102,45 +145,87 @@ if report_text:
         mime="text/plain",
     )
 
-    st.subheader("Laboratory Results Analysis")
+    # ---------------- LABORATORY ANALYSIS ----------------
 
-    if results_df is not None and not results_df.empty:
-        st.success(f"Recognized {len(results_df)} laboratory result(s).")
-        st.dataframe(results_df, use_container_width=True, hide_index=True)
+    st.divider()
+    st.subheader("2. Laboratory Results")
+
+    if not results_df.empty:
+
+        st.success(
+            f"Recognized {len(results_df)} laboratory result(s)."
+        )
+
+        st.dataframe(
+            results_df,
+            use_container_width=True,
+            hide_index=True,
+        )
 
         csv_data = results_df.to_csv(index=False).encode("utf-8")
+
         st.download_button(
-            "Download results as CSV",
+            "Download laboratory results as CSV",
             data=csv_data,
             file_name="laboratory_results.csv",
             mime="text/csv",
         )
+
     else:
-        st.warning(
-            "No laboratory results were recognized. Check the extracted text "
-            "and update the test-name patterns in analyzer.py if necessary."
-        )
         st.info(
-            "If the extracted text is readable, the issue is likely the "
-            "analyzer's pattern matching. If the text itself is incorrect, "
-            "try a clearer image or improve OCR."
+            "No laboratory values were recognized. You can still generate "
+            "an explanation of the complete report, including patient "
+            "details, history, vital signs, observations, medications, "
+            "and follow-up advice."
         )
+
+    # ---------------- FULL REPORT EXPLANATION ----------------
 
     st.divider()
-    st.subheader("AI Explanation")
+    st.subheader("3. Complete Medical Report Explanation")
 
-    if st.button("Generate AI explanation"):
-        with st.spinner("Preparing explanation..."):
-            st.session_state.ai_explanation = ai_explain_report(
-                report_text,
-                results_df,
-            )
+    st.write(
+        "Generate a plain-English explanation of the extracted report. "
+        "The explanation depends on the readability of the extracted text "
+        "and availability of the configured AI service."
+    )
+
+    if st.button("Generate full report explanation", type="primary"):
+
+        with st.spinner("Analyzing the complete report..."):
+
+            try:
+                explanation = ai_explain_report(
+                    report_text,
+                    results_df,
+                )
+
+                st.session_state.ai_explanation = (
+                    str(explanation)
+                    if explanation
+                    else "The AI service returned no explanation."
+                )
+
+            except Exception as error:
+                st.session_state.ai_explanation = (
+                    f"Could not generate the explanation: {error}"
+                )
 
     if st.session_state.ai_explanation:
-        st.write(st.session_state.ai_explanation)
+
+        st.markdown("### Explanation")
+
+        st.markdown(st.session_state.ai_explanation)
+
+        st.caption(
+            "This explanation is informational only. Verify medical "
+            "interpretations with a qualified healthcare professional."
+        )
+
+    # ---------------- DOWNLOAD SUMMARY ----------------
 
     st.divider()
-    st.subheader("Download report")
+    st.subheader("4. Download Report Summary")
 
     try:
         pdf_bytes = generate_pdf_report(
@@ -155,6 +240,7 @@ if report_text:
             file_name="medical_report_summary.pdf",
             mime="application/pdf",
         )
+
     except Exception as error:
         st.error(f"Could not create PDF report: {error}")
-        
+```
