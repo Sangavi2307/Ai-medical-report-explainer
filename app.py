@@ -9,8 +9,6 @@ from analyzer import analyze_report
 from ai_explainer import ai_explain_report
 from report_generator import generate_pdf_report
 
-=========================================================
-
 PAGE CONFIGURATION
 
 =========================================================
