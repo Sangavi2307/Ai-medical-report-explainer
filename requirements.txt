@@ -1,4 +1,5 @@
 
+
 streamlit
 pandas
 Pillow
@@ -7,3 +8,4 @@ pymupdf
 matplotlib
 reportlab
 openai
+pyarrow<25
