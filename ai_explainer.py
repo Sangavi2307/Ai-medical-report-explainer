@@ -1,107 +1,190 @@
 
 import os
 import pandas as pd
-from openai import OpenAI
+from openai import OpenAI, RateLimitError, APIConnectionError, APIStatusError
 
 
-def ai_explain_report(
-    results,
-    patient_fields=None,
-    report_text="",
-):
-    """
-    Generate a plain-English explanation using an AI model.
-    Requires OPENAI_API_KEY in the environment.
-    """
-
-    patient_fields = patient_fields or {}
-
-    # Prepare laboratory results for the model.
-    if isinstance(results, pd.DataFrame) and not results.empty:
-        lab_data = results.to_dict(orient="records")
-    else:
-        lab_data = []
-
-    if not report_text or not report_text.strip():
+def _fallback_explanation(results, patient_fields=None):
+    """Provide a cautious explanation without calling the AI API."""
+    if results is None or results.empty:
         return (
-            "## Explanation unavailable\n\n"
-            "No readable text was extracted from the report. "
-            "Try a clearer image or PDF."
+            "### Basic report summary\n\n"
+            "No supported laboratory results were confidently "
+            "identified. Please check the extracted text against "
+            "your original report."
         )
+
+    messages = [
+        "### Basic report summary",
+        "",
+        "The AI service is currently unavailable. The following "
+        "summary is generated using detected reference-range flags "
+        "only; it is not an AI interpretation or a diagnosis.",
+        ""
+    ]
+
+    for _, row in results.iterrows():
+        test = str(row.get("Test", "Unknown test"))
+        result = str(row.get("Result", "Not detected"))
+        unit = str(row.get("Unit", "") or "")
+        reference = str(row.get("Reference Range", "") or "")
+        status = str(row.get("Status", "Range not detected"))
+
+        measurement = f"{result} {unit}".strip()
+
+        messages.append(f"- **{test}:** {measurement}")
+
+        if reference:
+            messages.append(f"  - Detected reference range: {reference}")
+
+        if status == "Below detected range":
+            messages.append(
+                "  - The detected value is below the range printed "
+                "or extracted from this report."
+            )
+        elif status == "Above detected range":
+            messages.append(
+                "  - The detected value is above the range printed "
+                "or extracted from this report."
+            )
+        elif status == "Within detected range":
+            messages.append(
+                "  - The detected value falls within the detected "
+                "range for this report."
+            )
+        else:
+            messages.append(
+                "  - A reference range was not reliably detected; "
+                "no range-based conclusion is provided."
+            )
+
+    messages.extend([
+        "",
+        "**Important:** OCR or text extraction can misread values, "
+        "decimal points, units, and reference ranges. Verify each "
+        "result against the original report. A value within a "
+        "reference range does not guarantee that a person is healthy, "
+        "and a flagged value does not by itself establish a disease.",
+        "",
+        "For personal interpretation, consult a qualified healthcare "
+        "professional."
+    ])
+
+    return "\n".join(messages)
+
+
+def ai_explain_report(results, patient_fields=None, report_text=""):
+    """
+    Generate an educational report explanation.
+
+    If the OpenAI API is unavailable or rate-limited, return a
+    cautious rule-based summary instead.
+    """
+    patient_fields = patient_fields or {}
 
     api_key = os.getenv("OPENAI_API_KEY")
 
     if not api_key:
         return (
-            "## AI explanation is not configured\n\n"
-            "The report text was extracted, but a real AI explanation "
-            "requires an OpenAI API key.\n\n"
-            "Add OPENAI_API_KEY to your Streamlit Cloud app secrets, "
-            "then redeploy the application.\n\n"
-            "The extracted report text is not itself an AI explanation."
+            "### AI explanation unavailable\n\n"
+            "The `OPENAI_API_KEY` secret is not configured. "
+            "A basic report summary is shown below instead.\n\n"
+            + _fallback_explanation(results, patient_fields)
         )
 
-    # Do not send unlimited document text to the model.
-    safe_report_text = report_text[:18000]
+    if results is None or results.empty:
+        return _fallback_explanation(results, patient_fields)
+
+    # Only send extracted results and limited report context.
+    # Avoid sending unnecessary patient identifiers.
+    safe_fields = {
+        key: value
+        for key, value in patient_fields.items()
+        if key != "Patient Name" and value
+    }
+
+    results_text = results.to_string(index=False)
+
+    # Limit the prompt size when the uploaded report is very long.
+    safe_report_text = (report_text or "")[:8000]
 
     prompt = f"""
-You explain medical laboratory reports in simple English for educational
-purposes. You are not a doctor and must not diagnose or prescribe treatment.
+You are an educational medical-report explainer, not a doctor.
 
-Patient details extracted from the document:
-{patient_fields}
-
-Laboratory results extracted by the application:
-{lab_data}
-
-Extracted report text:
-{safe_report_text}
+Explain the supplied laboratory results in simple English.
+Do not diagnose diseases, prescribe medication, recommend treatment,
+or claim that a result proves a condition.
 
 Instructions:
-1. Explain the identified tests in understandable language.
-2. Use the supplied result and reference range exactly as provided.
-3. Never invent a missing value, unit, range, patient detail, or diagnosis.
-4. Explain whether a value is below, within, or above its stated range
-   only when the provided data supports that comparison.
-5. If OCR or the table parsing may be incorrect, explicitly say to verify
-   the value against the original report.
-6. Mention important findings in a neutral way without claiming that a
-   single result proves a disease.
-7. Summarize the report, explain identified tests, list uncertainties,
-   and give general guidance to discuss results with a qualified
-   healthcare professional.
-8. If no laboratory results were identified, say so clearly.
-9. Do not provide medication doses or treatment instructions.
-10. Use clear headings and simple English.
+1. Explain what each test generally measures.
+2. Use only values, units, and reference ranges supplied below.
+3. Explain detected flags cautiously.
+4. If a reference range is missing or uncertain, say so.
+5. Mention that ranges may vary by laboratory, age, sex, pregnancy,
+   medical history, and other factors.
+6. Do not invent test results or reference ranges.
+7. Tell the reader to verify extracted data against the original report.
+8. Recommend discussing personal concerns with a qualified clinician.
+9. Keep the explanation clear, organized, and beginner-friendly.
+
+Patient fields detected (may be incomplete):
+{safe_fields}
+
+Parsed laboratory results:
+{results_text}
+
+Extracted report text for context:
+{safe_report_text}
 """
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=30.0, max_retries=0)
 
         response = client.responses.create(
             model="gpt-4.1-mini",
-            input=prompt,
+            input=prompt
         )
 
-        explanation = response.output_text.strip()
+        explanation = (response.output_text or "").strip()
 
-        if not explanation:
-            return (
-                "## AI explanation unavailable\n\n"
-                "The AI model returned an empty response. "
-                "Please try again."
-            )
+        if explanation:
+            return explanation
 
-        return explanation
-
-    except Exception as error:
-        # Keep the error useful for troubleshooting without exposing
-        # credentials or the full report.
         return (
-            "## AI explanation failed\n\n"
-            "The report was extracted, but the AI service could not "
-            "generate an explanation.\n\n"
-            f"Error type: {type(error).__name__}\n\n"
-            "Check your API key, API billing or available credits, "
-            "model access, and Streamlit Cloud logs."
+            "### AI response was empty\n\n"
+            + _fallback_explanation(results, patient_fields)
+        )
+
+    except RateLimitError:
+        return (
+            "### AI explanation temporarily unavailable\n\n"
+            "The OpenAI API rejected the request because of a rate "
+            "limit or usage/billing limit. Check your API usage and "
+            "billing, or wait and retry if it is a temporary request "
+            "rate limit.\n\n"
+            + _fallback_explanation(results, patient_fields)
+        )
+
+    except APIConnectionError:
+        return (
+            "### AI service connection failed\n\n"
+            "The app could not connect to the AI service. Check the "
+            "connection and try again.\n\n"
+            + _fallback_explanation(results, patient_fields)
+        )
+
+    except APIStatusError as exc:
+        return (
+            "### AI service request failed\n\n"
+            f"The API returned HTTP status `{exc.status_code}`. "
+            "Check your API key, model access, project limits, and "
+            "API service status.\n\n"
+            + _fallback_explanation(results, patient_fields)
+        )
+
+    except Exception as exc:
+        return (
+            "### AI explanation unavailable\n\n"
+            f"Error type: `{type(exc).__name__}`.\n\n"
+            + _fallback_explanation(results, patient_fields)
         )
