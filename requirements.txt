@@ -1,7 +1,9 @@
 
+
 streamlit
 pandas
 PyMuPDF
 Pillow
 pytesseract
 reportlab
+openai
