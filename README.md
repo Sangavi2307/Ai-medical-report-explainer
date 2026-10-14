@@ -1,34 +1,37 @@
 
 # MediLens — Medical Report Explainer
 
-MediLens is a Streamlit educational application that accepts PDF laboratory reports, extracts selectable text, detects supported laboratory results, displays a dashboard, and provides downloadable outputs.
+MediLens is an educational Streamlit application for extracting text
+from medical report PDFs and images and displaying supported laboratory
+result lines.
 
 ## Features
 
-- PDF-only upload
-- Text extraction from selectable-text PDFs
-- Laboratory result table
-- Result-status dashboard graph
-- CSV, TXT, PNG, and PDF downloads
-- Educational-use medical disclaimer
+- PDF text extraction using PyMuPDF
+- Image OCR using Tesseract
+- Basic laboratory result extraction
+- Patient details when supported labels are present
+- Interactive dashboard and results graph
+- Offline educational summary
+- Extracted text download
+- PDF report summary download
 
-## Run locally
+## Setup
 
-Install dependencies:
+Install Python dependencies:
 
     pip install -r requirements.txt
 
-Start the application:
+Install the Tesseract OCR system application separately.
+
+Run:
 
     streamlit run app.py
 
 ## Limitations
 
-- Scanned PDFs need OCR support.
-- The analyzer supports a limited set of laboratory test names and layouts.
-- Reference ranges must be present on the same line to be assessed.
-- Extracted values must be checked against the original report.
+The result parser supports only certain text formats. It may miss results,
+patient details, units, or reference ranges. It does not validate medical
+ranges or provide diagnosis or treatment advice.
 
-## Safety
-
-This application does not diagnose medical conditions or recommend treatment. It does not replace professional medical advice.
+Consult a qualified healthcare professional for medical interpretation.
