@@ -4,3 +4,4 @@ PyMuPDF
 Pillow
 pytesseract
 reportlab
+plotly
