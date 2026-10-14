@@ -15,7 +15,10 @@ def extract_text_from_pdf(uploaded_file):
 
         text_parts = []
 
-        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as pdf:
+        with pymupdf.open(
+            stream=pdf_bytes,
+            filetype="pdf"
+        ) as pdf:
             for page in pdf:
                 text_parts.append(page.get_text("text"))
 
