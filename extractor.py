@@ -1,4 +1,3 @@
-
 import pymupdf
 
 
@@ -12,12 +11,23 @@ def extract_text_from_pdf(uploaded_file):
     if not pdf_bytes:
         return ""
 
-    text_parts = []
+    pages = []
 
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as pdf:
-        for page in pdf:
-            page_text = page.get_text("text")
-            if page_text:
-                text_parts.append(page_text)
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+        for page in document:
+            pages.append(page.get_text("text") or "")
 
-    return "\n".join(text_parts).strip()
+    return "\n".join(pages).strip()
+
+
+def extract_text_from_pdf_bytes(pdf_bytes):
+    if not pdf_bytes:
+        return ""
+
+    pages = []
+
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+        for page in document:
+            pages.append(page.get_text("text") or "")
+
+    return "\n".join(pages).strip()
