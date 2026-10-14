@@ -3,190 +3,307 @@ import re
 import pandas as pd
 
 
-def extract_report_details(report_text):
-    """Extract general information from a medical report."""
+HEADINGS = {
+    "patient details": "Patient Details",
+    "personal details": "Patient Details",
+    "medical history": "Medical History",
+    "clinical history": "Medical History",
+    "symptoms": "Symptoms",
+    "vitals": "Vital Signs",
+    "vital signs": "Vital Signs",
+    "laboratory results": "Laboratory Results",
+    "lab results": "Laboratory Results",
+    "test results": "Laboratory Results",
+    "investigations": "Investigations",
+    "imaging": "Imaging and Scan Findings",
+    "radiology": "Imaging and Scan Findings",
+    "doctor's observations": "Doctor's Observations",
+    "clinical observations": "Doctor's Observations",
+    "observations": "Doctor's Observations",
+    "examination": "Examination",
+    "medications": "Medications and Advice",
+    "medication": "Medications and Advice",
+    "prescription": "Medications and Advice",
+    "treatment": "Treatment Information",
+    "recommendations": "Recommendations",
+    "advice": "Recommendations",
+    "notes and next steps": "Follow-up and Next Steps",
+    "follow-up": "Follow-up and Next Steps",
+    "follow up": "Follow-up and Next Steps",
+    "next steps": "Follow-up and Next Steps",
+    "plan": "Follow-up and Next Steps",
+}
 
-    text = report_text or ""
+FIELD_LABELS = {
+    "Patient Name": ["patient name", "name"],
+    "Age": ["age"],
+    "Date of Birth": ["date of birth", "dob", "birth date"],
+    "Gender": ["gender", "sex"],
+    "Blood Pressure": ["blood pressure", "bp"],
+    "Pulse": ["pulse", "heart rate"],
+    "Temperature": ["temperature"],
+    "Respiratory Rate": ["respiratory rate"],
+    "Oxygen Saturation": ["oxygen saturation", "spo2", "sp o2"],
+}
 
-    sections = {
-        "Patient Details": [],
-        "Medical History": [],
-        "Vital Signs": [],
-        "Doctor's Observations": [],
-        "Medications and Advice": [],
-        "Other Information": [],
-    }
-
-    section_patterns = {
-        "Patient Details": [
-            "patient details", "patient information",
-            "personal details"
-        ],
-        "Medical History": [
-            "medical history", "past medical history",
-            "allergies", "surgeries"
-        ],
-        "Vital Signs": [
-            "vitals", "vital signs"
-        ],
-        "Doctor's Observations": [
-            "doctor's observations", "clinical findings",
-            "examination", "assessment"
-        ],
-        "Medications and Advice": [
-            "medications", "medicines", "treatment",
-            "advice", "recommendations", "next steps",
-            "plan"
-        ],
-    }
-
-    current_section = "Other Information"
-
-    for raw_line in text.splitlines():
-        line = re.sub(r"\s+", " ", raw_line).strip()
-
-        if not line:
-            continue
-
-        normalized = line.lower().strip(" :.-")
-
-        matched_section = None
-
-        for section, headings in section_patterns.items():
-            if normalized in headings:
-                matched_section = section
-                break
-
-        if matched_section:
-            current_section = matched_section
-            continue
-
-        sections[current_section].append(line)
-
-    details = {}
-
-    for section, lines in sections.items():
-        details[section] = "\n".join(lines).strip()
-
-    return details
+SECTION_ORDER = [
+    "General Information",
+    "Patient Details",
+    "Medical History",
+    "Symptoms",
+    "Vital Signs",
+    "Laboratory Results",
+    "Investigations",
+    "Imaging and Scan Findings",
+    "Examination",
+    "Doctor's Observations",
+    "Medications and Advice",
+    "Treatment Information",
+    "Recommendations",
+    "Follow-up and Next Steps",
+]
 
 
-def analyze_report(report_text):
-    """Extract laboratory results when recognizable test names exist."""
+def clean_line(line):
+    """Remove surrounding whitespace and common OCR bullet symbols."""
+    line = str(line).strip()
+    line = re.sub(r"^[^\w]+", "", line)
+    return line.strip()
 
-    columns = [
-        "Test", "Result", "Unit", "Reference Range", "Status"
+
+def normalize_heading(line):
+    return clean_line(line).lower().rstrip(":").strip()
+
+
+def extract_patient_fields(lines):
+    """Extract only explicitly labeled patient details and vital signs."""
+    fields = {}
+
+    aliases = [
+        (label, alias)
+        for label, names in FIELD_LABELS.items()
+        for alias in names
     ]
-
-    if not isinstance(report_text, str) or not report_text.strip():
-        return pd.DataFrame(columns=columns)
-
-    tests = {
-        "Hemoglobin": r"\b(?:hemoglobin|haemoglobin|hb)\b",
-        "WBC Count": r"\b(?:wbc(?:\s+count)?|white blood cell count|total leukocyte count|tlc)\b",
-        "Platelets": r"\b(?:platelets?|platelet count|plt)\b",
-        "Fasting Blood Sugar": r"\b(?:fasting blood sugar|fasting glucose|fbs)\b",
-        "Random Blood Sugar": r"\b(?:random blood sugar|random glucose|rbs)\b",
-        "HbA1c": r"\b(?:hba1c|glycated hemoglobin)\b",
-        "RBC Count": r"\b(?:rbc(?:\s+count)?|red blood cell count)\b",
-        "Creatinine": r"\b(?:serum creatinine|creatinine)\b",
-        "Total Cholesterol": r"\b(?:total cholesterol|cholesterol)\b",
-        "Urea": r"\b(?:blood urea|serum urea|urea)\b",
-        "TSH": r"\b(?:thyroid stimulating hormone|tsh)\b",
-        "Vitamin D": r"\b(?:25[- ]?oh vitamin d|vitamin d)\b",
-        "Vitamin B12": r"\b(?:vitamin b12|cobalamin)\b",
-    }
-
-    number = r"[-+]?\d[\d,]*(?:\.\d+)?"
-    range_pattern = re.compile(
-        rf"({number})\s*(?:-|–|—|\bto\b)\s*({number})",
-        re.IGNORECASE,
-    )
-
-    lines = [
-        re.sub(r"\s+", " ", line).strip()
-        for line in report_text.replace("\u00a0", " ").splitlines()
-        if line.strip()
-    ]
-
-    results = []
-    seen = set()
 
     for i, line in enumerate(lines):
-        for test_name, pattern in tests.items():
-            match = re.search(pattern, line, re.IGNORECASE)
+        cleaned = clean_line(line)
+
+        for label, alias in aliases:
+            pattern = (
+                r"^\s*" + re.escape(alias) +
+                r"\s*[:\-]\s*(.*?)\s*$"
+            )
+            match = re.match(pattern, cleaned, re.IGNORECASE)
 
             if not match:
                 continue
 
-            # Look at nearby lines for the result and reference range.
-            block = [line] + lines[i + 1:i + 4]
-            block_text = " ".join(block)
+            value = match.group(1).strip()
 
-            range_match = range_pattern.search(block_text)
-            low = high = None
-            reference = "Not provided"
+            # Read the next line only when the value is on a separate line.
+            if not value and i + 1 < len(lines):
+                next_line = clean_line(lines[i + 1])
 
-            if range_match:
-                try:
-                    low = float(range_match.group(1).replace(",", ""))
-                    high = float(range_match.group(2).replace(",", ""))
-                    if low <= high:
-                        reference = f"{low:g} - {high:g}"
-                    else:
-                        low = high = None
-                except ValueError:
-                    low = high = None
+                next_is_label = any(
+                    re.match(
+                        r"^\s*" + re.escape(other_alias) +
+                        r"\s*[:\-]",
+                        next_line,
+                        re.IGNORECASE,
+                    )
+                    for _, other_alias in aliases
+                )
 
-            value = None
-            unit = ""
+                if not next_is_label:
+                    value = next_line
 
-            # Search after the test name first.
-            remainder = line[match.end():]
-            value_match = re.search(number, remainder)
-
-            if value_match:
-                value = float(value_match.group().replace(",", ""))
-                unit = remainder[value_match.end():].strip()
-
-            # Otherwise look on the following lines.
-            if value is None:
-                for candidate_line in block[1:]:
-                    if range_pattern.search(candidate_line):
-                        continue
-
-                    candidate = re.search(number, candidate_line)
-
-                    if candidate:
-                        value = float(candidate.group().replace(",", ""))
-                        unit = candidate_line[candidate.end():].strip()
-                        break
-
-            if value is None:
-                continue
-
-            if low is None or high is None:
-                status = "Needs review"
-            elif value < low:
-                status = "Below range"
-            elif value > high:
-                status = "Above range"
-            else:
-                status = "Within range"
-
-            key = (test_name, value)
-
-            if key not in seen:
-                seen.add(key)
-                results.append({
-                    "Test": test_name,
-                    "Result": value,
-                    "Unit": unit,
-                    "Reference Range": reference,
-                    "Status": status,
-                })
+            if value:
+                fields[label] = value
 
             break
 
-    return pd.DataFrame(results, columns=columns)
-            
+    return fields
+
+
+def collect_sections(lines):
+    """Group extracted report text under recognized headings."""
+    sections = {}
+    current = "General Information"
+
+    for line in lines:
+        cleaned = clean_line(line)
+
+        if not cleaned:
+            continue
+
+        heading = normalize_heading(cleaned)
+
+        if heading in HEADINGS:
+            current = HEADINGS[heading]
+            sections.setdefault(current, [])
+            continue
+
+        if heading in {
+            "medical report",
+            "health report",
+            "general check-up report",
+            "general check up report",
+        }:
+            sections.setdefault("General Information", []).append(cleaned)
+            continue
+
+        sections.setdefault(current, []).append(cleaned)
+
+    return sections
+
+
+def explain_laboratory_results(results_df):
+    """Describe values and statuses supplied by the existing analyzer."""
+    if not isinstance(results_df, pd.DataFrame) or results_df.empty:
+        return (
+            "No laboratory values were recognized by the current "
+            "analysis rules. This does not mean the report is normal "
+            "or abnormal. Check the original report."
+        )
+
+    output = []
+
+    for _, row in results_df.iterrows():
+        test = row.get("Test", "Unknown test")
+        result = row.get("Result", "Not available")
+        unit = row.get("Unit", "")
+        reference = row.get("Reference Range", "")
+        status = row.get("Status", "Not evaluated")
+
+        result_text = f"- **{test}:** {result}"
+
+        if pd.notna(unit) and str(unit).strip():
+            result_text += f" {unit}"
+
+        if pd.notna(reference) and str(reference).strip():
+            result_text += f" | Reference range: {reference}"
+
+        if pd.notna(status) and str(status).strip():
+            result_text += f" | Program status: {status}"
+
+        output.append(result_text)
+
+    output.append(
+        "\nReference ranges vary by laboratory and individual. "
+        "The program's status is a basic comparison, not a diagnosis."
+    )
+
+    return "\n".join(output)
+
+
+def ai_explain_report(report_text, results_df=None):
+    """
+    Free, rule-based report summarizer.
+
+    No network request or paid AI API is used.
+    The function summarizes only the text supplied to it.
+    """
+
+    if not isinstance(report_text, str) or not report_text.strip():
+        return (
+            "# Medical Report Summary\n\n"
+            "No report text is available. Upload a report or paste "
+            "its text first."
+        )
+
+    lines = [
+        line.strip()
+        for line in report_text.splitlines()
+        if line.strip()
+    ]
+
+    fields = extract_patient_fields(lines)
+    sections = collect_sections(lines)
+
+    output = [
+        "# Medical Report Summary",
+        "",
+        "This summary organizes information found in the extracted "
+        "report text using Python rules. It is not a medical diagnosis.",
+        "",
+    ]
+
+    if fields:
+        output.extend([
+            "## Patient Details and Vital Signs",
+            "",
+        ])
+
+        for label, value in fields.items():
+            output.append(f"- **{label}:** {value}")
+
+        output.append("")
+
+    for section_name in SECTION_ORDER:
+        values = sections.get(section_name, [])
+
+        if not values:
+            continue
+
+        output.extend([f"## {section_name}", ""])
+
+        for value in values:
+            cleaned = clean_line(value)
+
+            if cleaned:
+                output.append(f"- {cleaned}")
+
+        output.append("")
+
+    # Preserve other sections instead of silently discarding their text.
+    for section_name, values in sections.items():
+        if section_name in SECTION_ORDER or not values:
+            continue
+
+        output.extend([f"## {section_name}", ""])
+
+        for value in values:
+            cleaned = clean_line(value)
+
+            if cleaned:
+                output.append(f"- {cleaned}")
+
+        output.append("")
+
+    output.extend([
+        "## Laboratory Results Analysis",
+        "",
+        explain_laboratory_results(results_df),
+        "",
+        "## Text Quality Check",
+        "",
+    ])
+
+    if re.search(
+        r"\b(unreadable|illegible|unclear|ocr error)\b",
+        report_text,
+        re.IGNORECASE,
+    ):
+        output.append(
+            "- Some extracted information may be unclear. "
+            "Verify it against the original report."
+        )
+    else:
+        output.append(
+            "- OCR can misread numbers, names, dates, units, and "
+            "medication names. Verify important details."
+        )
+
+    output.extend([
+        "",
+        "## Important Limitations",
+        "",
+        "- This summary uses only the text supplied to the program.",
+        "- Missing or ambiguous values are not inferred.",
+        "- A reference-range comparison cannot determine overall health.",
+        "- Verify medication instructions against the original prescription.",
+        "- Consult a qualified healthcare professional for interpretation.",
+        "- This educational tool does not replace professional medical advice.",
+    ])
+
+    return "\n".join(output)
