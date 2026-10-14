@@ -1,12 +1,10 @@
-
 from io import BytesIO
 from xml.sax.saxutils import escape
 
-import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import mm
+from reportlab.lib.units import cm
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -16,76 +14,105 @@ from reportlab.platypus import (
 )
 
 
-def generate_pdf_report(report_name, patient_fields, results_df, summary):
-    buffer = BytesIO()
+def generate_pdf_report(
+    report_name,
+    report_type,
+    patient_fields,
+    results_df,
+    summary,
+):
+    output = BytesIO()
 
     document = SimpleDocTemplate(
-        buffer,
+        output,
         pagesize=A4,
-        rightMargin=16 * mm,
-        leftMargin=16 * mm,
-        topMargin=16 * mm,
-        bottomMargin=16 * mm,
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm,
     )
 
     styles = getSampleStyleSheet()
-    story = []
-
-    story.append(Paragraph("MediLens Report Summary", styles["Title"]))
-    story.append(Spacer(1, 8))
-    story.append(Paragraph(f"Source file: {escape(str(report_name))}", styles["Normal"]))
-    story.append(Spacer(1, 12))
-
-    story.append(Paragraph("Extracted Patient Details", styles["Heading2"]))
+    story = [
+        Paragraph("MediLens", styles["Title"]),
+        Paragraph("Medical Report Summary", styles["Heading2"]),
+        Spacer(1, 12),
+        Paragraph(
+            f"Report file: {escape(str(report_name))}",
+            styles["Normal"],
+        ),
+        Paragraph(
+            f"Detected category: {escape(str(report_type))}",
+            styles["Normal"],
+        ),
+        Spacer(1, 8),
+        Paragraph("Patient Information", styles["Heading2"]),
+    ]
 
     for key, value in patient_fields.items():
-        safe_value = escape(str(value or "Not extracted"))
         story.append(
-            Paragraph(f"<b>{escape(str(key))}:</b> {safe_value}", styles["Normal"])
+            Paragraph(
+                f"{escape(str(key))}: {escape(str(value))}",
+                styles["Normal"],
+            )
         )
 
-    story.append(Spacer(1, 12))
-    story.append(Paragraph("Laboratory Results", styles["Heading2"]))
+    story.extend([
+        Spacer(1, 10),
+        Paragraph("Summary", styles["Heading2"]),
+    ])
 
-    if isinstance(results_df, pd.DataFrame) and not results_df.empty:
-        headers = list(results_df.columns)
-        table_data = [headers]
+    for item in summary:
+        story.append(Paragraph(escape(str(item)), styles["Normal"]))
+
+    if results_df is not None and not results_df.empty:
+        story.extend([
+            Spacer(1, 10),
+            Paragraph("Extracted Laboratory Results", styles["Heading2"]),
+        ])
+
+        columns = ["Test", "Result", "Unit", "Reference Range", "Status"]
+        table_data = [
+            [Paragraph(escape(column), styles["Normal"]) for column in columns]
+        ]
 
         for _, row in results_df.iterrows():
             table_data.append([
-                escape(str(row[column]))[:150]
-                for column in headers
+                Paragraph(escape(str(row.get(column, "")),), styles["Normal"])
+                for column in columns
             ])
 
-        table = Table(table_data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#123B55")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#D5DFE8")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        story.append(table)
-    else:
-        story.append(
-            Paragraph("No supported result lines were recognized.", styles["Normal"])
+        table = Table(
+            table_data,
+            colWidths=[4.1 * cm, 2 * cm, 2 * cm, 3.1 * cm, 3.8 * cm],
+            repeatRows=1,
         )
 
-    story.append(Spacer(1, 12))
-    story.append(Paragraph("Educational Summary", styles["Heading2"]))
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#16324F")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
 
-    for paragraph in str(summary).split("\n\n"):
-        story.append(Paragraph(escape(paragraph), styles["Normal"]))
-        story.append(Spacer(1, 6))
+        story.append(table)
 
-    story.append(Spacer(1, 12))
-    story.append(Paragraph(
-        "Educational use only. This document is not a diagnosis or treatment "
-        "recommendation. Consult a qualified healthcare professional.",
-        styles["Italic"],
-    ))
+    story.extend([
+        Spacer(1, 14),
+        Paragraph("Important Disclaimer", styles["Heading2"]),
+        Paragraph(
+            "This document is generated from extracted text and basic rules. "
+            "Extraction may be incomplete or inaccurate. It is not a diagnosis "
+            "or treatment recommendation. Consult a qualified healthcare "
+            "professional for interpretation.",
+            styles["Normal"],
+        ),
+    ])
 
     document.build(story)
-    return buffer.getvalue()
+    return output.getvalue()
