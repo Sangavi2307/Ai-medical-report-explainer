@@ -3,135 +3,180 @@ import re
 import pandas as pd
 
 COLUMNS = [
-    "Test",
-    "Result",
-    "Unit",
-    "Reference Range",
-    "Status",
+    "Test", "Result", "Unit", "Reference Range", "Status"
 ]
 
-TEST_PATTERNS = [
-    ("HbA1c", r"\bhba1c\b"),
-    ("Hemoglobin", r"\b(?:hemoglobin|haemoglobin|hb)\b"),
-    ("WBC Count", r"\b(?:wbc(?:\s+count)?|white blood cells?(?:\s+count)?)\b"),
-    ("Platelets", r"\b(?:platelets?|platelet count)\b"),
-    ("Fasting Blood Sugar", r"\b(?:fasting blood sugar|fasting glucose|fbs)\b"),
-    ("Random Blood Sugar", r"\b(?:random blood sugar|random glucose|rbs)\b"),
-    ("RBC Count", r"\b(?:rbc(?:\s+count)?|red blood cells?(?:\s+count)?)\b"),
-    ("Total Cholesterol", r"\btotal cholesterol\b"),
-    ("Creatinine", r"\bcreatinine\b"),
-    ("Urea", r"\burea\b"),
-    ("Sodium", r"\bsodium\b"),
-    ("Potassium", r"\bpotassium\b"),
-    ("TSH", r"\btsh\b"),
-    ("Hematocrit", r"\b(?:hematocrit|haematocrit|pcv)\b"),
+# Common laboratory tests and their aliases.
+TESTS = [
+    ("Hemoglobin", [r"hemoglobin", r"haemoglobin", r"\bhb\b"]),
+    ("WBC Count", [r"\bwbc\b", r"white blood cell"]),
+    ("RBC Count", [r"\brbc\b", r"red blood cell"]),
+    ("Platelets", [r"platelet"]),
+    ("Hematocrit", [r"hematocrit", r"haematocrit", r"\bpcv\b"]),
+    ("MCV", [r"\bmcv\b", r"mean corpuscular volume"]),
+    ("MCH", [r"\bmch\b", r"mean corpuscular hemoglobin"]),
+    ("MCHC", [r"\bmchc\b"]),
+    ("Neutrophils", [r"neutrophil"]),
+    ("Lymphocytes", [r"lymphocyte"]),
+    ("Eosinophils", [r"eosinophil"]),
+    ("Monocytes", [r"monocyte"]),
+    ("Basophils", [r"basophil"]),
+    ("Fasting Blood Sugar", [r"fasting blood sugar", r"fasting glucose", r"\bfbs\b"]),
+    ("Random Blood Sugar", [r"random blood sugar", r"random glucose", r"\brbs\b"]),
+    ("HbA1c", [r"\bhba1c\b", r"glycated hemoglobin"]),
+    ("Total Cholesterol", [r"total cholesterol"]),
+    ("HDL Cholesterol", [r"\bhdl\b"]),
+    ("LDL Cholesterol", [r"\bldl\b"]),
+    ("Triglycerides", [r"triglyceride"]),
+    ("Creatinine", [r"creatinine"]),
+    ("Blood Urea", [r"\burea\b", r"\bbun\b", r"blood urea nitrogen"]),
+    ("Uric Acid", [r"uric acid"]),
+    ("Sodium", [r"\bsodium\b", r"\bna\+\b"]),
+    ("Potassium", [r"\bpotassium\b", r"\bk\+\b"]),
+    ("Chloride", [r"\bchloride\b"]),
+    ("Calcium", [r"\bcalcium\b"]),
+    ("Magnesium", [r"\bmagnesium\b"]),
+    ("Phosphorus", [r"\bphosphorus\b"]),
+    ("Total Bilirubin", [r"total bilirubin"]),
+    ("Direct Bilirubin", [r"direct bilirubin"]),
+    ("ALT / SGPT", [r"\balt\b", r"\bsgpt\b"]),
+    ("AST / SGOT", [r"\bast\b", r"\bsgot\b"]),
+    ("Alkaline Phosphatase", [r"alkaline phosphatase", r"\balp\b"]),
+    ("Albumin", [r"\balbumin\b"]),
+    ("Total Protein", [r"total protein"]),
+    ("TSH", [r"\btsh\b", r"thyroid stimulating hormone"]),
+    ("T3", [r"\bt3\b", r"triiodothyronine"]),
+    ("T4", [r"\bt4\b", r"thyroxine"]),
+    ("Vitamin D", [r"vitamin d", r"25-oh vitamin d"]),
+    ("Vitamin B12", [r"vitamin b12", r"cobalamin"]),
+    ("CRP", [r"\bcrp\b", r"c-reactive protein"]),
+    ("ESR", [r"\besr\b", r"erythrocyte sedimentation"]),
+    ("Amylase", [r"\bamylase\b"]),
+    ("Lipase", [r"\blipase\b"]),
+    ("PSA", [r"\bpsa\b", r"prostate specific antigen"]),
+    ("Ferritin", [r"\bferritin\b"]),
+    ("Iron", [r"\biron\b"]),
+    ("Urine pH", [r"urine ph"]),
+    ("Specific Gravity", [r"specific gravity"]),
 ]
 
-NUMBER = r"\d[\d,]*(?:\.\d+)?"
+NUMBER = r"[-+]?\d[\d,]*(?:\.\d+)?"
 
-RANGE_RE = re.compile(
-    rf"(?<![\d.])({NUMBER})\s*(?:-|to)\s*({NUMBER})(?![\d.])",
-    re.I,
+RANGE = re.compile(
+    rf"({NUMBER})\s*(?:-|to)\s*({NUMBER})",
+    re.I
 )
 
-UNIT_RE = re.compile(
-    r"(?:"
-    r"lakh\s*/\s*[µμu]?l|"
-    r"million\s*/\s*[µμu]?l|"
-    r"cells?\s*/\s*[µμu]?l|"
-    r"/\s*[µμu]?l|"
-    r"mg\s*/\s*dl|g\s*/\s*dl|"
-    r"mmol\s*/\s*l|"
-    r"m[iu]u\s*/\s*l|"
-    r"ng\s*/\s*ml|pg\s*/\s*ml|"
-    r"µ?mol\s*/\s*l|"
-    r"fl|%"
-    r")",
-    re.I,
+VALUE = re.compile(NUMBER)
+
+UNIT = re.compile(
+    r"\b(?:mg/dL|mg/L|g/dL|g/L|mmol/L|"
+    r"umol/L|µmol/L|ng/mL|pg/mL|"
+    r"mIU/L|uIU/mL|IU/L|U/L|"
+    r"cells/uL|cells/µL|"
+    r"mm/hr|mm/h|fL|pg|%|"
+    r"million/uL|lakh/uL)\b|"
+    r"/\s*[uµμ]?L",
+    re.I
 )
 
 
-def clean_lines(text):
-    text = (text or "").replace("\r", "\n")
-    text = text.replace("\u00a0", " ")
+def normalize(text):
+    text = (text or "").replace("\u00a0", " ")
     text = text.replace("–", "-").replace("—", "-").replace("−", "-")
-
-    return [
-        re.sub(r"\s+", " ", line).strip()
-        for line in text.splitlines()
-        if line.strip()
-    ]
+    return re.sub(r"[ \t]+", " ", text)
 
 
-def find_test(line):
-    for name, pattern in TEST_PATTERNS:
-        match = re.search(pattern, line, re.I)
-        if match:
-            return name, pattern, match
+def match_test(line):
+    low = line.lower()
+
+    for name, aliases in TESTS:
+        for alias in aliases:
+            match = re.search(alias, low, re.I)
+            if match:
+                return name, match.start(), match.end()
+
     return None
 
 
-def to_number(value):
+def number_value(text):
     try:
-        return float(value.replace(",", ""))
+        return float(text.replace(",", ""))
     except (ValueError, AttributeError):
         return None
 
 
-def parse_block(test_name, lines):
-    block = " ".join(lines)
+def parse_line_block(name, block):
+    """
+    Parse a test and its nearby text.
+    Results are kept uncertain if the value or range is ambiguous.
+    """
+    block = normalize(block)
 
-    pattern = dict(TEST_PATTERNS)[test_name]
-    block = re.sub(pattern, " ", block, count=1, flags=re.I)
+    found = match_test(block)
+    if not found:
+        return None
 
-    range_match = RANGE_RE.search(block)
+    _, start, end = found
+    remainder = block[:start] + " " + block[end:]
+
+    range_match = RANGE.search(remainder)
+    reference = ""
     low = high = None
-    reference_range = ""
 
     if range_match:
-        low = to_number(range_match.group(1))
-        high = to_number(range_match.group(2))
-        reference_range = range_match.group(0).strip()
+        low = number_value(range_match.group(1))
+        high = number_value(range_match.group(2))
+        reference = range_match.group(0)
 
-        # Remove the range before looking for the measured result.
-        block_for_value = (
-            block[:range_match.start()]
+        remainder = (
+            remainder[:range_match.start()]
             + " "
-            + block[range_match.end():]
+            + remainder[range_match.end():]
         )
-    else:
-        block_for_value = block
 
-    values = re.findall(
-        r"(?<![\w.])(" + NUMBER + r")(?![\w.])",
-        block_for_value,
+    # Remove dates and common ID-like values from consideration.
+    remainder = re.sub(
+        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
+        " ",
+        remainder
     )
 
-    if not values:
+    numbers = [
+        number_value(m.group())
+        for m in VALUE.finditer(remainder)
+    ]
+
+    numbers = [n for n in numbers if n is not None]
+
+    # If no value remains after removing the reference range,
+    # the result cannot be safely identified.
+    if not numbers:
         return None
 
-    result = to_number(values[0])
+    result = numbers[0]
 
-    if result is None:
+    # Avoid treating a range endpoint as the measured result.
+    if low is not None and result in (low, high):
         return None
 
-    unit_match = UNIT_RE.search(block)
+    unit_match = UNIT.search(block)
     unit = unit_match.group(0) if unit_match else ""
 
     if low is None or high is None:
-        status = "Range not recognized"
+        status = "Range not identified"
     elif low <= result <= high:
-        status = "Within Range"
+        status = "Within stated range"
     elif result < low:
-        status = "Below Range"
+        status = "Below stated range"
     else:
-        status = "Above Range"
+        status = "Above stated range"
 
     return {
-        "Test": test_name,
+        "Test": name,
         "Result": result,
         "Unit": unit,
-        "Reference Range": reference_range,
+        "Reference Range": reference,
         "Status": status,
     }
 
@@ -140,51 +185,50 @@ def analyze_report(report_text):
     if not report_text or not report_text.strip():
         return pd.DataFrame(columns=COLUMNS)
 
-    lines = clean_lines(report_text)
-    starts = []
-
-    for index, line in enumerate(lines):
-        found = find_test(line)
-
-        if found:
-            name, _, _ = found
-            starts.append((index, name))
+    lines = [
+        line.strip()
+        for line in normalize(report_text).splitlines()
+        if line.strip()
+    ]
 
     results = []
     seen = set()
 
-    for position, (start, test_name) in enumerate(starts):
-        if test_name in seen:
+    # First pass: test names and their nearby lines.
+    for i, line in enumerate(lines):
+        found = match_test(line)
+        if not found:
             continue
 
-        if position + 1 < len(starts):
-            end = starts[position + 1][0]
-        else:
-            end = min(start + 7, len(lines))
+        name, _, _ = found
 
-        block_lines = lines[start:end][:7]
-        parsed = parse_block(test_name, block_lines)
+        if name in seen:
+            continue
 
-        if parsed is not None:
+        # Keep the block short to reduce accidental cross-matching.
+        block = " ".join(lines[i:min(i + 4, len(lines))])
+        parsed = parse_line_block(name, block)
+
+        if parsed:
             results.append(parsed)
-            seen.add(test_name)
+            seen.add(name)
 
-    # If test labels and results are separated into table columns,
-    # try matching each test with nearby numbers and ranges.
-    if not results:
-        flat_text = " ".join(lines)
-        for test_name, pattern in TEST_PATTERNS:
-            match = re.search(pattern, flat_text, re.I)
-            if not match:
-                continue
+    # Second pass: same-line entries such as "Glucose 92 mg/dL 70-100".
+    for line in lines:
+        found = match_test(line)
+        if not found:
+            continue
 
-            parsed = parse_block(
-                test_name,
-                [flat_text[match.start():match.start() + 180]],
-            )
+        name, _, _ = found
 
-            if parsed is not None:
-                results.append(parsed)
+        if name in seen:
+            continue
+
+        parsed = parse_line_block(name, line)
+
+        if parsed:
+            results.append(parsed)
+            seen.add(name)
 
     return pd.DataFrame(results, columns=COLUMNS)
 
@@ -210,13 +254,9 @@ def extract_patient_fields(report_text):
 
     for field, pattern in patterns.items():
         match = re.search(pattern, text, re.I)
-
         if match:
             value = match.group(1).strip()
-
-            if value and value.lower() not in {
-                "not found", "name", "age", "gender"
-            }:
+            if value:
                 fields[field] = value
 
     return fields
