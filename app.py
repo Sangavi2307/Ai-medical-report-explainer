@@ -9,55 +9,48 @@ from ai_explainer import explain_report
 from report_generator import generate_pdf_report
 
 st.set_page_config(
-    page_title="AI Medical Report Explainer",
+    page_title="MediLens | Medical Report Explainer",
     page_icon="🩺",
     layout="wide",
 )
 
 st.markdown("""
 <style>
-.stApp { background: #0d111b; color: #f4f6fa; }
-.block-container { max-width: 1200px; padding-top: 1.5rem; }
-h1, h2, h3 { color: #f4f6fa; }
+.stApp { background:#0d111b; color:#f4f6fa; }
+.block-container { max-width:1200px; padding-top:1.5rem; }
 .hero {
-    background: linear-gradient(120deg,#14283d,#075d68);
-    padding: 24px;
-    border-radius: 15px;
-    margin-bottom: 22px;
+    background:linear-gradient(120deg,#14283d,#075d68);
+    padding:25px; border-radius:15px; margin-bottom:20px;
 }
-.hero h1 { color: white; margin: 0; }
-.hero p { color: #d8edf0; margin-bottom: 0; }
-.panel {
-    background: #191f2c;
-    border: 1px solid #303849;
-    border-radius: 12px;
-    padding: 16px;
-}
+.hero h1 {color:white; margin:0;}
+.hero p {color:#d8edf0;}
 div[data-testid="stMetric"] {
-    background: #191f2c;
-    border: 1px solid #303849;
-    padding: 14px;
-    border-radius: 12px;
+    background:#191f2c; border:1px solid #303849;
+    padding:15px; border-radius:12px;
 }
-.stButton > button, .stDownloadButton > button {
-    border-radius: 9px;
-    min-height: 42px;
-}
+h1,h2,h3 {color:#f4f6fa;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="hero">
-  <h1>🩺 AI Medical Report Explainer</h1>
-  <p>Upload your report, review extracted results, and understand the information.</p>
+<h1>🩺 MediLens</h1>
+<p>AI Medical Report Explainer · Upload, analyze and understand</p>
 </div>
 """, unsafe_allow_html=True)
 
 st.warning(
     "Educational use only. This application does not diagnose conditions "
-    "or recommend treatment. Consult a qualified healthcare professional."
+    "or replace a healthcare professional."
 )
 
+uploaded = st.file_uploader(
+    "📄 Upload your medical report (PDF or image)",
+    type=["pdf", "png", "jpg", "jpeg"],
+)
+
+if "report_signature" not in st.session_state:
+    st.session_state.report_signature = None
 if "report_text" not in st.session_state:
     st.session_state.report_text = ""
 if "report_name" not in st.session_state:
@@ -69,175 +62,150 @@ if "patient_fields" not in st.session_state:
 if "explanation" not in st.session_state:
     st.session_state.explanation = ""
 
-with st.sidebar:
-    st.title("🩺 MediLens")
-    page = st.radio(
-        "Navigation",
-        [
-            "Report Dashboard",
-            "Upload Report",
-            "Laboratory Results",
-            "AI Explanation",
-            "Extracted Text",
-        ],
-    )
-    st.divider()
-    st.caption("Private report session · Educational prototype")
+if uploaded is not None:
+    signature = (uploaded.name, uploaded.size)
 
-if page == "Upload Report":
-    st.subheader("📄 Upload your medical report")
+    if st.session_state.report_signature != signature:
+        st.session_state.report_signature = signature
+        st.session_state.report_text = ""
+        st.session_state.report_name = ""
+        st.session_state.results_df = pd.DataFrame()
+        st.session_state.patient_fields = {}
+        st.session_state.explanation = ""
 
-    uploaded = st.file_uploader(
-        "Choose a PDF or image",
-        type=["pdf", "png", "jpg", "jpeg"],
-    )
-
-    if uploaded:
-        st.caption(f"Selected file: {uploaded.name}")
-
-        if st.button("🔎 Analyze My Report", type="primary"):
-            try:
-                with st.spinner("Extracting report text..."):
-                    if uploaded.name.lower().endswith(".pdf"):
-                        text = extract_text_from_pdf(uploaded)
-                    else:
-                        text = extract_text_from_image(uploaded)
+    if st.button("🔎 Analyze Report", type="primary", use_container_width=True):
+        try:
+            with st.spinner("Extracting and analyzing this report..."):
+                if uploaded.name.lower().endswith(".pdf"):
+                    text = extract_text_from_pdf(uploaded)
+                else:
+                    text = extract_text_from_image(uploaded)
 
                 if not text.strip():
                     st.error(
-                        "No readable text was detected. Try a clearer image "
-                        "or a text-based PDF."
+                        "No text could be extracted. If this is a scanned PDF, "
+                        "OCR must be applied to its pages."
                     )
                 else:
-                    # Reset and replace all report-specific data.
+                    df = analyze_report(text)
+                    patient = extract_patient_fields(text)
+                    explanation = explain_report(text, df, patient)
+
                     st.session_state.report_text = text
                     st.session_state.report_name = uploaded.name
-                    st.session_state.results_df = analyze_report(text)
-                    st.session_state.patient_fields = extract_patient_fields(text)
-                    st.session_state.explanation = explain_report(
-                        text,
-                        st.session_state.results_df,
-                        st.session_state.patient_fields,
-                    )
-                    st.success("Report analysis completed.")
+                    st.session_state.results_df = df
+                    st.session_state.patient_fields = patient
+                    st.session_state.explanation = explanation
+                    st.success("Report processed. Review the sections below.")
 
-            except Exception as error:
-                st.error("Unable to process this report.")
-                st.code(f"{type(error).__name__}: {error}")
+        except Exception as error:
+            st.error("Report processing failed.")
+            st.code(f"{type(error).__name__}: {error}")
 
-elif page == "Report Dashboard":
-    st.subheader("📋 Uploaded Report")
+if st.session_state.report_text:
+    text = st.session_state.report_text
+    df = st.session_state.results_df
+    patient = st.session_state.patient_fields
 
-    if not st.session_state.report_text:
-        st.info("Open Upload Report in the sidebar to get started.")
-    else:
-        st.write(f"**File name:** {st.session_state.report_name}")
-        st.subheader("📝 Extracted Report Text")
+    st.divider()
+    st.header("📄 Uploaded Report")
+    st.write(f"**File:** {st.session_state.report_name}")
+
+    with st.expander("View extracted report text", expanded=True):
         st.text_area(
-            "Text detected in the report",
-            st.session_state.report_text,
-            height=160,
+            "Extracted text",
+            value=text,
+            height=220,
+            disabled=True,
         )
 
-        df = st.session_state.results_df
-        fields = st.session_state.patient_fields
+    st.divider()
+    st.header("👤 Patient Details")
+    detail_cols = st.columns(4)
+    for col, (key, value) in zip(detail_cols, patient.items()):
+        col.metric(key, value or "Not extracted")
 
-        st.divider()
-        st.subheader("🔬 Laboratory Results Analysis")
+    st.divider()
+    st.header("🔬 Laboratory Results Analysis")
 
-        if df.empty:
-            st.info("No supported laboratory result lines were recognized.")
-        else:
-            st.dataframe(df, use_container_width=True, hide_index=True)
+    a, b = st.columns(2)
+    a.metric("Recognized tests", len(df))
+    b.metric("Report characters", len(text))
 
-        st.subheader("📌 Results Summary")
-        a, b, c = st.columns(3)
-        a.metric("Tests recognized", len(df))
-        b.metric("Patient details", sum(bool(v) for v in fields.values()))
-        c.metric("Report text", f"{len(st.session_state.report_text)} chars")
+    if not df.empty:
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.caption(
+            "Results are extracted from report text. Confirm the values, "
+            "units, and reference ranges against the original report."
+        )
+    else:
+        st.error(
+            "No supported laboratory results were recognized. Check the "
+            "extracted text above. The report may use a table or layout that "
+            "needs a more specialized parser."
+        )
 
-        st.divider()
-        st.subheader("📊 Laboratory Results Graph")
+    st.divider()
+    st.header("📊 Laboratory Results Graph")
 
-        if not df.empty:
-            chart_data = df[["Test", "Result"]].copy()
-            chart_data["Result"] = pd.to_numeric(
-                chart_data["Result"].astype(str).str.replace(",", ""),
-                errors="coerce",
+    if not df.empty:
+        chart = df[["Test", "Result", "Unit"]].copy()
+        chart["Numeric Result"] = pd.to_numeric(
+            chart["Result"].astype(str).str.replace(",", "", regex=False),
+            errors="coerce",
+        )
+        chart = chart.dropna(subset=["Numeric Result"])
+
+        if not chart.empty:
+            st.bar_chart(chart.set_index("Test")["Numeric Result"])
+            st.dataframe(
+                chart[["Test", "Numeric Result", "Unit"]],
+                use_container_width=True,
+                hide_index=True,
             )
-            chart_data = chart_data.dropna()
+            st.caption(
+                "The chart shows extracted numbers, not medical severity. "
+                "Different tests and units should not be compared directly."
+            )
+        else:
+            st.info("No numeric results were available to graph.")
 
-            if not chart_data.empty:
-                st.bar_chart(chart_data.set_index("Test"))
-                st.caption(
-                    "Values are plotted as extracted. Different tests and units "
-                    "are not directly comparable; this graph is not a health rating."
-                )
-            else:
-                st.info("No numeric values were available to plot.")
+    st.divider()
+    st.header("✨ AI Explanation")
+    st.markdown(st.session_state.explanation)
 
-        st.divider()
-        st.subheader("✨ AI Explanation")
-        st.write(st.session_state.explanation)
+    st.divider()
+    st.header("📥 Download Report")
 
+    st.download_button(
+        "Download extracted text",
+        data=text,
+        file_name="extracted_report.txt",
+        mime="text/plain",
+    )
+
+    if st.button("Prepare PDF Summary"):
         try:
             pdf = generate_pdf_report(
                 st.session_state.report_name,
-                fields,
+                patient,
                 df,
                 st.session_state.explanation,
             )
             st.download_button(
-                "📥 Download PDF Summary",
+                "Download PDF Summary",
                 data=pdf,
-                file_name="medilens_report_summary.pdf",
+                file_name="medilens_summary.pdf",
                 mime="application/pdf",
             )
         except Exception as error:
-            st.error(f"PDF generation failed: {error}")
+            st.error(f"PDF creation failed: {error}")
 
-elif page == "Laboratory Results":
-    st.subheader("🔬 Laboratory Results Analysis")
-    if st.session_state.report_text:
-        fields = st.session_state.patient_fields
-        for label, value in fields.items():
-            if value:
-                st.write(f"**{label}:** {value}")
-
-        df = st.session_state.results_df
-        if df.empty:
-            st.info("No supported results were recognized.")
-        else:
-            st.dataframe(df, use_container_width=True, hide_index=True)
-    else:
-        st.info("Upload a report first.")
-
-elif page == "AI Explanation":
-    st.subheader("✨ AI Explanation")
-    if st.session_state.explanation:
-        st.markdown(st.session_state.explanation)
-    else:
-        st.info("Upload a report first to generate its educational explanation.")
-
-elif page == "Extracted Text":
-    st.subheader("📝 Extracted Report Text")
-    if st.session_state.report_text:
-        st.text_area(
-            "Text detected in the current report",
-            st.session_state.report_text,
-            height=400,
-        )
-        st.download_button(
-            "Download text",
-            st.session_state.report_text,
-            file_name="extracted_report.txt",
-            mime="text/plain",
-        )
-    else:
-        st.info("Upload a report first.")
+else:
+    st.info("Upload a report above and select Analyze Report to see all results here.")
 
 st.divider()
 st.caption(
-    "AI Medical Report Explainer | Educational project | "
-    "Not a substitute for professional medical advice."
+    "MediLens is an educational prototype. It may miss results or extract "
+    "values incorrectly. Consult a qualified healthcare professional."
 )
