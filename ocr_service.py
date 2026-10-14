@@ -1,57 +1,19 @@
 
-import io
-
+from PIL import Image, ImageOps, ImageEnhance
 import pytesseract
-from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 
 def extract_text_from_image(uploaded_file):
-    try:
-        uploaded_file.seek(0)
-        image_bytes = uploaded_file.read()
+    if uploaded_file is None:
+        return ""
 
-        if not image_bytes:
-            raise ValueError("The uploaded image is empty.")
+    uploaded_file.seek(0)
 
-        image = Image.open(io.BytesIO(image_bytes))
-        image.load()
-        image = ImageOps.exif_transpose(image).convert("RGB")
+    with Image.open(uploaded_file) as original:
+        image = ImageOps.exif_transpose(original).convert("RGB")
+        image = ImageOps.grayscale(image)
+        image = ImageEnhance.Contrast(image).enhance(1.5)
 
-        # Enlarge small images for improved OCR.
-        if image.width < 1600:
-            scale = 1600 / image.width
-            image = image.resize(
-                (1600, max(1, int(image.height * scale))),
-                Image.Resampling.LANCZOS,
-            )
+        text = pytesseract.image_to_string(image, config="--psm 6")
 
-        processed = ImageOps.grayscale(image)
-        processed = ImageOps.autocontrast(processed)
-        processed = ImageEnhance.Contrast(processed).enhance(2)
-        processed = processed.filter(ImageFilter.SHARPEN)
-
-        candidates = []
-        for page_mode in (6, 11):
-            text = pytesseract.image_to_string(
-                processed,
-                config=f"--oem 3 --psm {page_mode}",
-            )
-            if text and text.strip():
-                candidates.append(text.strip())
-
-        extracted_text = max(candidates, key=len, default="")
-        uploaded_file.seek(0)
-
-        if not extracted_text:
-            raise ValueError(
-                "No text was detected. Try a clearer, higher-resolution image."
-            )
-
-        return extracted_text
-
-    except Exception as error:
-        uploaded_file.seek(0)
-        raise RuntimeError(
-            f"Image text extraction failed: {error}"
-        ) from error
-      
+    return text.strip()
