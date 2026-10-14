@@ -9,9 +9,9 @@ from analyzer import analyze_report, extract_patient_fields
 from ai_explainer import ai_explain_report
 
 
-# --------------------------------------------------
+# =========================================================
 # PAGE CONFIGURATION
-# --------------------------------------------------
+# =========================================================
 
 st.set_page_config(
     page_title="MediLens | Medical Report Explainer",
@@ -21,14 +21,14 @@ st.set_page_config(
 )
 
 
-# --------------------------------------------------
-# CUSTOM UI
-# --------------------------------------------------
+# =========================================================
+# CUSTOM DESIGN
+# =========================================================
 
 st.markdown("""
 <style>
 .stApp {
-    background-color: #08111F;
+    background: #08111F;
     color: #EDF5FF;
 }
 .block-container {
@@ -46,19 +46,18 @@ h1, h2, h3, h4, p, label {
     background: linear-gradient(130deg, #102238, #0B3038);
     margin-bottom: 24px;
 }
-.hero .eyebrow {
+.eyebrow {
     color: #65E6D1;
     font-size: 12px;
     font-weight: bold;
     letter-spacing: 2px;
 }
 .hero h1 {
-    font-size: 2.35rem;
+    font-size: 2.3rem;
     margin-bottom: 8px;
 }
 .hero p {
     color: #B9C9D9;
-    font-size: 1rem;
 }
 .panel {
     background: #101D2C;
@@ -94,43 +93,39 @@ div[data-testid="stMetricLabel"] {
     border-radius: 12px;
     padding: 14px;
 }
-div[data-testid="stAlert"] {
-    border-radius: 10px;
-}
 </style>
 """, unsafe_allow_html=True)
 
 
-# --------------------------------------------------
+# =========================================================
 # HEADER
-# --------------------------------------------------
+# =========================================================
 
 st.markdown("""
 <div class="hero">
     <div class="eyebrow">MEDILENS • REPORT INSIGHTS</div>
     <h1>🩺 AI Medical Report Explainer</h1>
     <p>
-        Upload a medical report image or PDF to extract text,
-        identify supported laboratory values, and review
-        a plain-English explanation.
+        Upload a medical report image or PDF, extract laboratory
+        values, and receive a plain-English AI explanation.
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 st.info(
-    "Educational use only. This application does not diagnose "
-    "medical conditions or replace professional medical advice."
+    "Educational use only. This app does not diagnose diseases "
+    "or replace advice from a qualified healthcare professional."
 )
 
 
-# --------------------------------------------------
-# FILE UPLOAD
-# --------------------------------------------------
+# =========================================================
+# UPLOAD
+# =========================================================
 
 uploaded_file = st.file_uploader(
     "Upload your medical report",
     type=["pdf", "png", "jpg", "jpeg"],
-    help="Upload a clear JPG, JPEG, PNG, or PDF report.",
+    help="Supported formats: PDF, PNG, JPG, and JPEG.",
 )
 
 analyze_button = st.button(
@@ -139,14 +134,14 @@ analyze_button = st.button(
 )
 
 
-# --------------------------------------------------
-# TEXT EXTRACTION
-# --------------------------------------------------
+# =========================================================
+# EXTRACT TEXT AND ANALYZE
+# =========================================================
 
 if analyze_button:
 
     if uploaded_file is None:
-        st.warning("Please upload a medical report first.")
+        st.warning("Please upload a report first.")
         st.stop()
 
     extracted_text = ""
@@ -155,9 +150,12 @@ if analyze_button:
         file_name = uploaded_file.name.lower()
         file_type = uploaded_file.type or ""
 
-        with st.spinner("Extracting report text..."):
+        with st.spinner("Extracting text from your report..."):
 
-            # PDF: extract embedded text first.
+            # -------------------------------------------------
+            # PDF
+            # -------------------------------------------------
+
             if (
                 file_type == "application/pdf"
                 or file_name.endswith(".pdf")
@@ -166,7 +164,7 @@ if analyze_button:
                     uploaded_file
                 )
 
-                # Scanned PDF: use OCR if no embedded text exists.
+                # Scanned PDF fallback: use OCR.
                 if not extracted_text.strip():
                     import pymupdf
                     import pytesseract
@@ -191,18 +189,21 @@ if analyze_button:
                                 io.BytesIO(pix.tobytes("png"))
                             )
 
-                            text = pytesseract.image_to_string(
+                            page_text = pytesseract.image_to_string(
                                 image,
                                 config="--oem 3 --psm 6",
                             )
 
-                            page_texts.append(text)
+                            page_texts.append(page_text)
 
                     extracted_text = "\n".join(
                         page_texts
                     ).strip()
 
-            # Image: always use OCR.
+            # -------------------------------------------------
+            # IMAGE OCR
+            # -------------------------------------------------
+
             else:
                 extracted_text = extract_text_from_image(
                     uploaded_file
@@ -211,15 +212,15 @@ if analyze_button:
         if not extracted_text.strip():
             st.error(
                 "No text could be extracted. Try a clearer image "
-                "or a PDF with readable text."
+                "or a PDF containing selectable text."
             )
             st.stop()
 
-        # --------------------------------------------------
-        # ANALYZE THE EXTRACTED TEXT
-        # --------------------------------------------------
+        # -------------------------------------------------
+        # PATIENT DETAILS AND LABORATORY ANALYSIS
+        # -------------------------------------------------
 
-        with st.spinner("Analyzing supported laboratory results..."):
+        with st.spinner("Analyzing laboratory results..."):
 
             results = analyze_report(extracted_text)
 
@@ -227,33 +228,39 @@ if analyze_button:
                 extracted_text
             )
 
+        # -------------------------------------------------
+        # REAL AI EXPLANATION
+        # -------------------------------------------------
+
+        with st.spinner("Generating your AI explanation..."):
+
             explanation = ai_explain_report(
-                results,
-                patient_fields,
-                extracted_text,
+                results=results,
+                patient_fields=patient_fields,
+                report_text=extracted_text,
             )
 
-        # Store results so Streamlit reruns preserve the report.
+        # Store results across Streamlit reruns.
         st.session_state["report_text"] = extracted_text
         st.session_state["report_results"] = results
         st.session_state["patient_fields"] = patient_fields
         st.session_state["report_explanation"] = explanation
         st.session_state["report_filename"] = uploaded_file.name
 
-        st.success("Text extraction and analysis finished.")
+        st.success("Report processing completed.")
 
     except Exception as error:
-        st.error(f"Unable to process this report: {error}")
+        st.error(f"Unable to process the report: {error}")
         st.info(
-            "Check that all required Python packages are installed "
-            "and that the imports match your repository filenames."
+            "Check your file dependencies, GitHub filenames, "
+            "and Streamlit Cloud application logs."
         )
         st.stop()
 
 
-# --------------------------------------------------
-# DISPLAY THE RESULTS
-# --------------------------------------------------
+# =========================================================
+# DISPLAY RESULTS
+# =========================================================
 
 if "report_text" in st.session_state:
 
@@ -264,14 +271,13 @@ if "report_text" in st.session_state:
 
     st.divider()
 
-    # --------------------------------------------------
-    # SUMMARY CARDS
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # SUMMARY
+    # -----------------------------------------------------
 
     st.header("📊 Report Summary")
 
     total_tests = len(results)
-
     within_count = 0
     below_count = 0
     above_count = 0
@@ -310,45 +316,44 @@ if "report_text" in st.session_state:
     c4.metric("Unclassified", unknown_count)
 
     st.caption(
-        "These are automated text-based comparisons, not a diagnosis. "
-        "Incorrect OCR or reference ranges can produce incorrect results."
+        "These are automated comparisons, not a diagnosis. "
+        "Always verify values against the original report."
     )
 
-    # --------------------------------------------------
-    # PATIENT DETAILS
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # PATIENT INFORMATION
+    # -----------------------------------------------------
 
     st.header("👤 Patient Information")
 
-    patient_columns = st.columns(2)
+    if patient_fields:
+        patient_columns = st.columns(2)
 
-    for index, (field, value) in enumerate(
-        patient_fields.items()
-    ):
-        with patient_columns[index % 2]:
-            st.markdown(
-                f'<div class="panel"><strong>{field}</strong><br>'
-                f'{value}</div>',
-                unsafe_allow_html=True,
-            )
+        for index, (field, value) in enumerate(
+            patient_fields.items()
+        ):
+            with patient_columns[index % 2]:
+                st.markdown(
+                    f'<div class="panel">'
+                    f'<strong>{field}</strong><br>'
+                    f'{value}</div>',
+                    unsafe_allow_html=True,
+                )
+    else:
+        st.write("No patient information was identified.")
 
-    # --------------------------------------------------
-    # LABORATORY TABLE
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # LABORATORY RESULTS
+    # -----------------------------------------------------
 
     st.header("🧪 Laboratory Results")
 
     if results.empty:
 
         st.warning(
-            "No supported laboratory tests were recognized. "
-            "The text may have been extracted successfully, but "
-            "the report layout or test names may not be supported."
-        )
-
-        st.write(
-            "Open the extracted text section below to check whether "
-            "the test names, values, and ranges were read correctly."
+            "No supported laboratory tests were identified. "
+            "Check the extracted text below. The report may use "
+            "an unsupported test name or table layout."
         )
 
     else:
@@ -359,9 +364,9 @@ if "report_text" in st.session_state:
             hide_index=True,
         )
 
-        # --------------------------------------------------
-        # RESULT GRAPH
-        # --------------------------------------------------
+        # -------------------------------------------------
+        # GRAPH
+        # -------------------------------------------------
 
         numeric_results = results.copy()
 
@@ -385,34 +390,33 @@ if "report_text" in st.session_state:
             st.bar_chart(chart_data)
 
             st.caption(
-                "Different laboratory tests may use different units "
-                "and scales. The graph does not indicate severity."
+                "Laboratory tests can use different units and scales. "
+                "The graph is for visualization, not a severity ranking."
             )
 
-    # --------------------------------------------------
-    # EXPLANATION
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # AI EXPLANATION
+    # -----------------------------------------------------
 
-    st.header("💡 Report Explanation")
+    st.header("💡 AI Report Explanation")
 
     st.markdown(
         '<div class="panel">',
         unsafe_allow_html=True,
     )
 
-    st.text(explanation)
+    st.markdown(explanation)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # EXTRACTED TEXT
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     st.header("📄 Extracted Report Text")
 
     st.caption(
-        "Verify this text against the uploaded report. "
-        "OCR can misread decimal points, units, and test names."
+        "Check this text to confirm that OCR read the report correctly."
     )
 
     with st.expander(
@@ -421,9 +425,9 @@ if "report_text" in st.session_state:
     ):
         st.text(report_text)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # DOWNLOADS
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     st.header("⬇️ Download Results")
 
@@ -444,7 +448,7 @@ if "report_text" in st.session_state:
 
     with download_col2:
         st.download_button(
-            "Download Explanation (TXT)",
+            "Download AI Explanation (TXT)",
             data=explanation.encode("utf-8"),
             file_name="medical_report_explanation.txt",
             mime="text/plain",
@@ -452,22 +456,23 @@ if "report_text" in st.session_state:
         )
 
     st.caption(
-        "Privacy reminder: medical reports contain sensitive personal "
-        "information. Upload only documents you are authorized to use."
+        "Medical reports contain sensitive personal information. "
+        "Upload only documents you are authorized to use."
     )
 
 else:
 
-    # --------------------------------------------------
-    # EMPTY STATE
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # WELCOME SCREEN
+    # -----------------------------------------------------
 
     st.markdown("""
     <div class="panel">
         <h3>✨ How MediLens works</h3>
-        <p>1. Upload a PDF or medical report image.</p>
-        <p>2. Extract text from the document.</p>
+        <p>1. Upload a medical report as a PDF or image.</p>
+        <p>2. Extract the report text using PDF reading or OCR.</p>
         <p>3. Identify laboratory tests supported by the analyzer.</p>
-        <p>4. Review the explanation and download the results.</p>
+        <p>4. Generate an AI explanation when API access is configured.</p>
+        <p>5. Review the results and download the report summary.</p>
     </div>
     """, unsafe_allow_html=True)
