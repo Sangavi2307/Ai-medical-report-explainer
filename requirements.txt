@@ -1,11 +1,7 @@
 
-
 streamlit
 pandas
+PyMuPDF
 Pillow
 pytesseract
-pymupdf
-matplotlib
 reportlab
-openai
-pyarrow<25
