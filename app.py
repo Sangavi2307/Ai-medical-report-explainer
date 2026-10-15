@@ -27,302 +27,59 @@ st.set_page_config(
 # CLINICAL NAVY + MEDICAL TEAL DESIGN
 # =========================================================
 
+
 st.markdown(
     """
     <style>
-    :root {
-        --clinical-navy: #16324F;
-        --deep-navy: #10263D;
-        --medical-teal: #0F9D91;
-        --teal-dark: #087F78;
-        --pale-blue: #EAF4FB;
-        --page-bg: #F4F8FC;
-        --white: #FFFFFF;
-        --text: #25384A;
-        --muted: #6B7C8F;
-        --border: #DCE6EF;
-        --normal: #198754;
-        --warning: #D99000;
-        --alert: #C83E4D;
-    }
-
     .stApp {
-        background-color: var(--page-bg);
-        color: var(--text);
+        background: linear-gradient(
+            135deg,
+            #0B1F3A 0%,
+            #123B5D 60%,
+            #164B65 100%
+        );
+        color: #F5F8FC;
     }
 
     [data-testid="stHeader"] {
-        background: rgba(244, 248, 252, 0.95);
-    }
-
-    .block-container {
-        max-width: 1440px;
-        padding-top: 1.5rem;
-        padding-bottom: 3rem;
-    }
-
-    h1, h2, h3 {
-        color: var(--clinical-navy) !important;
-        font-weight: 750 !important;
-    }
-
-    p, label, li {
-        color: var(--text);
+        background: transparent;
     }
 
     [data-testid="stSidebar"] {
-        background: var(--deep-navy);
+        background: #08172B;
     }
 
-    [data-testid="stSidebar"] * {
-        color: white;
+    h1, h2, h3, p, label {
+        color: #F5F8FC;
     }
 
-    /* Brand header */
-    .brand-row {
-        display: flex;
-        align-items: center;
-        gap: 13px;
-        margin-bottom: 20px;
-    }
-
-    .brand-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 15px;
-        background: var(--medical-teal);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 27px;
-        font-weight: bold;
-    }
-
-    .brand-title {
-        color: var(--clinical-navy);
-        font-size: 27px;
-        font-weight: 800;
-        line-height: 1.2;
-    }
-
-    .brand-subtitle {
-        color: var(--muted);
-        font-size: 13px;
-        margin-top: 3px;
-    }
-
-    /* Hero banner */
-    .hero {
-        background: linear-gradient(
-            115deg,
-            #10263D 0%,
-            #163E5A 58%,
-            #087F78 100%
-        );
-        padding: 30px;
-        border-radius: 20px;
-        color: white;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 28px rgba(16, 38, 61, 0.12);
-    }
-
-    .hero h1 {
-        color: white !important;
-        font-size: 31px;
-        margin: 0 0 10px 0;
-    }
-
-    .hero p {
-        color: #E0F2F1;
-        font-size: 15px;
-        margin: 0;
-        line-height: 1.7;
-    }
-
-    .hero-tag {
-        display: inline-block;
-        padding: 6px 11px;
-        border: 1px solid rgba(255,255,255,0.28);
-        background: rgba(255,255,255,0.09);
-        border-radius: 30px;
-        color: #FFFFFF;
-        font-size: 12px;
-        margin-bottom: 13px;
-    }
-
-    /* Section heading */
-    .section-title {
-        font-size: 21px;
-        font-weight: 800;
-        color: var(--clinical-navy);
-        margin: 24px 0 5px 0;
-    }
-
-    .section-subtitle {
-        color: var(--muted);
-        font-size: 13px;
-        margin-bottom: 15px;
-    }
-
-    /* Cards */
-    .panel {
-        background: var(--white);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 16px;
-        box-shadow: 0 3px 12px rgba(22, 50, 79, 0.035);
-    }
-
-    .panel-title {
-        color: var(--clinical-navy);
-        font-size: 17px;
-        font-weight: 750;
-        margin-bottom: 8px;
-    }
-
-    .panel-text {
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    /* Status labels */
-    .status {
-        display: inline-block;
-        padding: 5px 10px;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 750;
-    }
-
-    .status-normal {
-        color: #146C43;
-        background: #DDF4E7;
-    }
-
-    .status-high {
-        color: #8A5700;
-        background: #FFF0C2;
-    }
-
-    .status-low {
-        color: #9E2634;
-        background: #FCE3E6;
-    }
-
-    .status-other {
-        color: #38566F;
-        background: #E5EFF7;
-    }
-
-    /* Buttons */
-    .stButton > button,
-    .stDownloadButton > button {
-        background: var(--medical-teal);
-        color: white;
+    .stButton > button {
+        background: #20C9B0;
+        color: #0B1F3A;
         border: none;
         border-radius: 10px;
         font-weight: 700;
-        min-height: 43px;
-        transition: 0.2s ease;
+        padding: 0.65rem 1.2rem;
     }
 
-    .stButton > button:hover,
-    .stDownloadButton > button:hover {
-        background: var(--teal-dark);
-        color: white;
+    .stButton > button:hover {
+        background: #65E3D0;
+        color: #0B1F3A;
         border: none;
     }
 
-    /* Upload area */
     [data-testid="stFileUploader"] {
-        background: white;
-        border: 1px dashed #9CB9C9;
-        border-radius: 13px;
-        padding: 12px;
-    }
-
-    /* Metrics */
-    [data-testid="stMetric"] {
-        background: white;
-        border: 1px solid var(--border);
+        background: #123B5D;
+        border: 1px solid #3E6785;
         border-radius: 14px;
-        padding: 17px;
+        padding: 16px;
     }
 
-    [data-testid="stMetricLabel"] {
-        color: var(--muted);
-    }
-
-    [data-testid="stMetricValue"] {
-        color: var(--clinical-navy);
-        font-weight: 800;
-    }
-
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        color: var(--muted);
-        font-weight: 650;
-    }
-
-    .stTabs [aria-selected="true"] {
-        color: var(--teal-dark) !important;
-    }
-
-    /* Expander */
-    [data-testid="stExpander"] {
-        background: white;
-        border: 1px solid var(--border);
+    [data-testid="stDataFrame"] {
+        background: #F5F8FC;
         border-radius: 12px;
-        margin-bottom: 8px;
     }
 
-    /* Footer */
-    .footer {
-        margin-top: 35px;
-        padding: 22px 0;
-        border-top: 1px solid var(--border);
-        text-align: center;
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.8;
-    }
-
-    .disclaimer {
-        background: #FFF7E6;
-        border: 1px solid #F1D69A;
-        color: #76530C;
-        padding: 14px 16px;
-        border-radius: 12px;
-        font-size: 12px;
-        line-height: 1.7;
-        margin-top: 18px;
-    }
-
-    @media (max-width: 768px) {
-        .block-container {
-            padding: 1rem;
-        }
-
-        .hero {
-            padding: 22px;
-        }
-
-        .hero h1 {
-            font-size: 25px;
-        }
-
-        .brand-title {
-            font-size: 23px;
-        }
-    }
     </style>
     """,
     unsafe_allow_html=True,
