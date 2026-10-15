@@ -1,383 +1,251 @@
 
-import re
 import pandas as pd
+from analyzer import find_test_name
 
-
-# --------------------------------------------------
-# COMMON LAB TEST INFORMATION
-# --------------------------------------------------
 
 TEST_INFO = {
-    "hemoglobin": {
-        "name": "Hemoglobin (Hb)",
-        "purpose": "Measures the oxygen-carrying protein in red blood cells.",
-        "high": "A high value may occur with dehydration or other conditions.",
-        "low": "A low value may be associated with anemia, blood loss, or nutritional deficiencies."
-    },
-    "wbc": {
-        "name": "White Blood Cell Count (WBC)",
-        "purpose": "Measures white blood cells, which help the body fight infections.",
-        "high": "A high value can occur with infection, inflammation, stress, or certain medicines.",
-        "low": "A low value can occur with some infections, medicines, or bone marrow conditions."
-    },
-    "rbc": {
-        "name": "Red Blood Cell Count (RBC)",
-        "purpose": "Measures the number of red blood cells that carry oxygen.",
-        "high": "A high value can occur with dehydration or other medical conditions.",
-        "low": "A low value may be associated with anemia or blood loss."
-    },
-    "platelet": {
-        "name": "Platelet Count",
-        "purpose": "Measures platelets, which help blood clot.",
-        "high": "A high value can occur with inflammation, iron deficiency, or other conditions.",
-        "low": "A low value may increase bleeding risk, depending on how low it is."
-    },
-    "glucose": {
-        "name": "Blood Glucose",
-        "purpose": "Measures the amount of glucose in the blood. Interpretation depends on whether the sample was fasting, random, or taken after a meal.",
-        "high": "A high value may indicate elevated blood sugar and may need follow-up testing.",
-        "low": "A low value may indicate low blood sugar; symptoms and circumstances matter."
-    },
-    "hba1c": {
-        "name": "HbA1c",
-        "purpose": "Estimates average blood glucose over approximately the previous two to three months.",
-        "high": "A high value can indicate that average blood glucose has been elevated.",
-        "low": "A low value should be interpreted with the clinical context; some blood conditions can affect accuracy."
-    },
-    "creatinine": {
-        "name": "Creatinine",
-        "purpose": "A waste product used, alongside other information, to assess kidney function.",
-        "high": "A high value may occur with reduced kidney function, dehydration, or other causes.",
-        "low": "A low value can be associated with lower muscle mass and is not usually interpreted alone."
-    },
-    "urea": {
-        "name": "Blood Urea",
-        "purpose": "Measures a waste product processed by the kidneys.",
-        "high": "A high value can occur with dehydration, kidney problems, high protein breakdown, or other causes.",
-        "low": "A low value may occur with low protein intake, certain liver conditions, or overhydration."
-    },
-    "cholesterol": {
-        "name": "Total Cholesterol",
-        "purpose": "Measures total cholesterol in the blood and contributes to cardiovascular risk assessment.",
-        "high": "A high value may increase cardiovascular risk depending on the full lipid profile and other risk factors.",
-        "low": "A low value is generally interpreted alongside the full clinical picture."
-    },
-    "ldl": {
-        "name": "LDL Cholesterol",
-        "purpose": "Often called 'bad' cholesterol because higher levels can contribute to plaque in arteries.",
-        "high": "A high value may increase cardiovascular risk. The appropriate target depends on individual risk.",
-        "low": "A low value is often desirable, but interpretation depends on the clinical context."
-    },
-    "hdl": {
-        "name": "HDL Cholesterol",
-        "purpose": "Often called 'good' cholesterol; it is one part of cardiovascular risk assessment.",
-        "high": "Higher HDL is often associated with lower risk, but very high values are not always protective.",
-        "low": "A low value can be associated with increased cardiovascular risk."
-    },
-    "triglyceride": {
-        "name": "Triglycerides",
-        "purpose": "Measures a type of fat in the blood.",
-        "high": "A high value may be associated with metabolic factors, diet, medicines, or other conditions.",
-        "low": "A low value is often not concerning by itself but should be interpreted in context."
-    },
-    "sodium": {
-        "name": "Sodium",
-        "purpose": "An electrolyte important for fluid balance and nerve and muscle function.",
-        "high": "A high value may be related to water balance or other medical conditions.",
-        "low": "A low value can have several causes and may be important if substantially reduced."
-    },
-    "potassium": {
-        "name": "Potassium",
-        "purpose": "An electrolyte essential for muscle function and the heart's electrical activity.",
-        "high": "A high value can affect heart rhythm. A falsely high result can also occur if the sample is damaged.",
-        "low": "A low value can affect muscles and heart rhythm."
-    },
-    "calcium": {
-        "name": "Calcium",
-        "purpose": "Supports bones, muscles, nerves, and other body functions.",
-        "high": "A high value can have several causes and may require further assessment.",
-        "low": "A low value may be associated with vitamin D, parathyroid, kidney, or other problems."
-    },
-    "bilirubin": {
-        "name": "Bilirubin",
-        "purpose": "A substance produced when red blood cells break down; it is assessed in liver and blood-related investigations.",
-        "high": "A high value may occur with liver or bile duct problems or increased red blood cell breakdown.",
-        "low": "A low value is usually not significant on its own."
-    },
-    "alt": {
-        "name": "ALT",
-        "purpose": "An enzyme commonly measured to assess liver cell irritation or injury.",
-        "high": "A high value can have multiple causes, including liver inflammation, medicines, or fatty liver.",
-        "low": "A low value is generally not a concern by itself."
-    },
-    "ast": {
-        "name": "AST",
-        "purpose": "An enzyme found in the liver and other tissues, including muscles.",
-        "high": "A high value can be associated with liver or muscle injury and must be interpreted with other results.",
-        "low": "A low value is generally not a concern by itself."
-    },
-    "tsh": {
-        "name": "TSH",
-        "purpose": "A hormone test used with thyroid hormone measurements to assess thyroid function.",
-        "high": "A high value can be associated with an underactive thyroid, but other results and context are needed.",
-        "low": "A low value can be associated with an overactive thyroid or thyroid medication effects."
-    },
-    "vitamin d": {
-        "name": "Vitamin D",
-        "purpose": "Assesses vitamin D status, which is important for bone and muscle health.",
-        "high": "A high value may indicate excessive supplementation and should be reviewed.",
-        "low": "A low value may indicate vitamin D deficiency."
-    },
-    "vitamin b12": {
-        "name": "Vitamin B12",
-        "purpose": "A vitamin important for red blood cell production and nerve function.",
-        "high": "A high value may reflect supplementation or other factors; interpretation depends on context.",
-        "low": "A low value may be associated with anemia or nerve symptoms."
-    },
-    "esr": {
-        "name": "ESR",
-        "purpose": "A nonspecific measure that may rise with inflammation.",
-        "high": "A high value can occur with inflammation, infection, and many other conditions; it does not identify a specific cause.",
-        "low": "A low value is generally less concerning and must be interpreted in context."
-    },
-    "crp": {
-        "name": "CRP",
-        "purpose": "A marker of inflammation in the body.",
-        "high": "A high value suggests inflammation but does not identify its cause.",
-        "low": "A low value generally indicates little measurable CRP-related inflammation at the time of testing."
-    },
-    "uric acid": {
-        "name": "Uric Acid",
-        "purpose": "Measures uric acid in the blood; it may be used when evaluating gout and other conditions.",
-        "high": "A high value may increase the chance of gout in some people, but does not diagnose gout by itself.",
-        "low": "A low value is usually interpreted alongside symptoms and other results."
-    },
-    "albumin": {
-        "name": "Albumin",
-        "purpose": "A major blood protein that can provide information about liver function, nutrition, and protein loss.",
-        "high": "A high value often occurs with dehydration.",
-        "low": "A low value can have several causes, including liver disease, kidney protein loss, inflammation, or poor nutrition."
-    },
-    "protein": {
-        "name": "Total Protein",
-        "purpose": "Measures the combined amount of several proteins in the blood.",
-        "high": "A high value may occur with dehydration or certain inflammatory conditions.",
-        "low": "A low value can have several causes, including liver or kidney conditions and nutritional issues."
-    },
-    "hemoglobin": {
-        "name": "Hemoglobin (Hb)",
-        "purpose": "Measures the oxygen-carrying protein in red blood cells.",
-        "high": "A high value may occur with dehydration or other conditions.",
-        "low": "A low value may be associated with anemia, blood loss, or nutritional deficiencies."
-    }
+    "hemoglobin": (
+        "Measures the oxygen-carrying protein in red blood cells.",
+        "A high result can have several causes, including dehydration.",
+        "A low result can be associated with anemia, blood loss, or nutritional deficiencies."
+    ),
+    "wbc": (
+        "Measures white blood cells, which help the body fight infections.",
+        "A high result may occur with infection, inflammation, stress, or some medicines.",
+        "A low result may occur with certain infections, medicines, or bone marrow conditions."
+    ),
+    "rbc": (
+        "Measures the number of red blood cells that carry oxygen.",
+        "A high result may occur with dehydration or other conditions.",
+        "A low result may be associated with anemia or blood loss."
+    ),
+    "platelets": (
+        "Measures platelets, which help blood clot.",
+        "A high result can occur with inflammation, iron deficiency, or other causes.",
+        "A low result can increase bleeding risk, depending on the level."
+    ),
+    "glucose": (
+        "Measures blood sugar. Interpretation depends on whether the sample was fasting, random, or after a meal.",
+        "A high result may indicate elevated blood sugar and could need follow-up testing.",
+        "A low result may indicate low blood sugar; symptoms and circumstances matter."
+    ),
+    "hba1c": (
+        "Estimates average blood glucose over approximately two to three months.",
+        "A high result can indicate that average blood glucose has been elevated.",
+        "A low result should be interpreted in context because some blood conditions can affect accuracy."
+    ),
+    "creatinine": (
+        "A waste product used alongside other information to assess kidney function.",
+        "A high result may occur with reduced kidney function, dehydration, or other causes.",
+        "A low result may be associated with lower muscle mass and is not usually interpreted alone."
+    ),
+    "urea": (
+        "Measures a waste product processed by the kidneys.",
+        "A high result can occur with dehydration, kidney problems, or other causes.",
+        "A low result may occur with low protein intake, overhydration, or some liver conditions."
+    ),
+    "total cholesterol": (
+        "Measures total cholesterol in the blood.",
+        "A high result may increase cardiovascular risk depending on the full lipid profile and other risk factors.",
+        "A low result should be interpreted with the overall clinical picture."
+    ),
+    "ldl": (
+        "LDL is often called 'bad' cholesterol because higher levels can contribute to plaque in arteries.",
+        "A high result may increase cardiovascular risk; the target depends on individual risk.",
+        "A low result is often desirable, but context still matters."
+    ),
+    "hdl": (
+        "HDL is often called 'good' cholesterol and is part of cardiovascular risk assessment.",
+        "Higher HDL is often associated with lower risk, but it is not protective in every circumstance.",
+        "A low result can be associated with increased cardiovascular risk."
+    ),
+    "triglycerides": (
+        "Measures a type of fat in the blood.",
+        "A high result may be associated with metabolic factors, diet, medicines, or other conditions.",
+        "A low result is often not concerning by itself."
+    ),
+    "sodium": (
+        "An electrolyte important for fluid balance and nerve and muscle function.",
+        "A high result may be related to water balance or other medical conditions.",
+        "A low result has several possible causes and can be important if substantially reduced."
+    ),
+    "potassium": (
+        "An electrolyte essential for muscle function and the heart's electrical activity.",
+        "A high result can affect heart rhythm; sample damage can also cause a falsely high result.",
+        "A low result can affect muscles and heart rhythm."
+    ),
+    "calcium": (
+        "Supports bones, muscles, nerves, and other body functions.",
+        "A high result has several possible causes and may require assessment.",
+        "A low result may be associated with vitamin D, parathyroid, kidney, or other problems."
+    ),
+    "bilirubin": (
+        "A substance produced when red blood cells break down.",
+        "A high result can occur with liver or bile duct problems or increased red blood cell breakdown.",
+        "A low result is usually not significant on its own."
+    ),
+    "alt": (
+        "An enzyme commonly measured to assess liver cell irritation or injury.",
+        "A high result has several possible causes, including liver inflammation, medicines, or fatty liver.",
+        "A low result is generally not concerning by itself."
+    ),
+    "ast": (
+        "An enzyme found in the liver and other tissues, including muscles.",
+        "A high result may be associated with liver or muscle injury.",
+        "A low result is generally not concerning by itself."
+    ),
+    "tsh": (
+        "A hormone test used with thyroid hormone measurements to assess thyroid function.",
+        "A high result can be associated with an underactive thyroid, but other results are needed.",
+        "A low result can be associated with an overactive thyroid or thyroid medicine effects."
+    ),
+    "vitamin d": (
+        "Assesses vitamin D status, which is important for bone and muscle health.",
+        "A high result may indicate excessive supplementation and should be reviewed.",
+        "A low result may indicate vitamin D deficiency."
+    ),
+    "vitamin b12": (
+        "A vitamin important for red blood cell production and nerve function.",
+        "A high result may reflect supplementation or other factors.",
+        "A low result may be associated with anemia or nerve symptoms."
+    ),
+    "esr": (
+        "A nonspecific measure that may rise with inflammation.",
+        "A high result can occur with inflammation, infection, and many other conditions.",
+        "A low result is generally less concerning but must be interpreted in context."
+    ),
+    "crp": (
+        "A marker of inflammation in the body.",
+        "A high result suggests inflammation but does not identify its cause.",
+        "A low result generally indicates little measurable CRP-related inflammation at the time of testing."
+    ),
+    "uric acid": (
+        "Measures uric acid in the blood and may be used when evaluating gout.",
+        "A high result can increase the chance of gout in some people but does not diagnose gout alone.",
+        "A low result is usually interpreted alongside symptoms and other results."
+    ),
+    "albumin": (
+        "A major blood protein that can provide information about liver function, nutrition, and protein loss.",
+        "A high result often occurs with dehydration.",
+        "A low result has several possible causes, including liver disease, kidney protein loss, inflammation, or poor nutrition."
+    ),
+    "total protein": (
+        "Measures the combined amount of several proteins in the blood.",
+        "A high result may occur with dehydration or some inflammatory conditions.",
+        "A low result can have several causes, including liver or kidney conditions and nutritional issues."
+    )
 }
 
 
-def clean_text(value):
-    if pd.isna(value):
-        return ""
-    return str(value).strip()
+def normalize_status(status):
+    status = str(status or "").lower()
 
+    if "above" in status or "high" in status or "elevated" in status:
+        return "high"
 
-def find_test_info(test_name):
-    """Match common test names and abbreviations."""
-    name = clean_text(test_name).lower()
+    if "below" in status or "low" in status or "decreased" in status:
+        return "low"
 
-    aliases = {
-        "hb": "hemoglobin",
-        "haemoglobin": "hemoglobin",
-        "white blood cells": "wbc",
-        "white blood cell count": "wbc",
-        "total leukocyte count": "wbc",
-        "tlc": "wbc",
-        "total leucocyte count": "wbc",
-        "red blood cells": "rbc",
-        "red blood cell count": "rbc",
-        "thrombocyte count": "platelet",
-        "platelets": "platelet",
-        "fbs": "glucose",
-        "fasting blood sugar": "glucose",
-        "rbs": "glucose",
-        "random blood sugar": "glucose",
-        "blood sugar": "glucose",
-        "glycated hemoglobin": "hba1c",
-        "glycosylated hemoglobin": "hba1c",
-        "serum creatinine": "creatinine",
-        "blood urea nitrogen": "urea",
-        "bun": "urea",
-        "total cholesterol": "cholesterol",
-        "ldl cholesterol": "ldl",
-        "hdl cholesterol": "hdl",
-        "sgpt": "alt",
-        "sgot": "ast",
-        "25-oh vitamin d": "vitamin d",
-        "c-reactive protein": "crp",
-        "serum uric acid": "uric acid",
-        "total protein": "protein"
-    }
+    if "within" in status or "normal" in status:
+        return "normal"
 
-    for alias, key in aliases.items():
-        if alias in name:
-            name = key
-            break
+    return "unknown"
 
-    for key, info in TEST_INFO.items():
-        if key in name:
-            return info
-
-    return None
-
-
-# --------------------------------------------------
-# STATUS INTERPRETATION
-# --------------------------------------------------
-
-def explain_status(status):
-    value = clean_text(status).lower()
-
-    if any(word in value for word in ["high", "above", "elevated", "abnormal high"]):
-        return (
-            "The report marks this result as higher than its stated reference range. "
-            "The meaning depends on the test, the amount of elevation, symptoms, "
-            "medicines, and medical history."
-        )
-
-    if any(word in value for word in ["low", "below", "decreased", "abnormal low"]):
-        return (
-            "The report marks this result as lower than its stated reference range. "
-            "The meaning depends on the test, how far below range it is, symptoms, "
-            "and the person's medical context."
-        )
-
-    if any(word in value for word in ["normal", "within range", "within reference"]):
-        return (
-            "The report marks this result as within its stated reference range. "
-            "A result within range does not rule out every health condition."
-        )
-
-    return (
-        "The status could not be interpreted confidently from the extracted text. "
-        "Please compare the value with the original report's reference range."
-    )
-
-
-# --------------------------------------------------
-# MAIN EXPLANATION FUNCTION
-# --------------------------------------------------
 
 def explain_report(report_text, results_df=None, patient_fields=None):
-    """
-    Creates a detailed educational explanation from extracted report text
-    and the structured results DataFrame.
-
-    This function does not diagnose disease.
-    """
-
-    report_text = clean_text(report_text)
+    report_text = report_text or ""
     patient_fields = patient_fields or {}
 
-    sections = []
+    sections = [
+        "# MediLens — Medical Report Explanation",
+        (
+            "This is an educational explanation of the extracted report. "
+            "It is not a diagnosis, and it should not be used to start, stop, "
+            "or change treatment."
+        )
+    ]
 
-    sections.append("MEDICAL REPORT EXPLANATION")
-    sections.append(
-        "This explanation describes the information extracted from the uploaded report. "
-        "It is for education only and is not a diagnosis or treatment recommendation."
-    )
-
-    # Patient/report information
     if patient_fields:
-        patient_lines = []
+        details = []
         for key, value in patient_fields.items():
-            value = clean_text(value)
-            if value:
-                patient_lines.append(f"- {key.replace('_', ' ').title()}: {value}")
+            if value is not None and str(value).strip():
+                details.append(f"- **{key}:** {value}")
 
-        if patient_lines:
-            sections.append("1. PATIENT AND REPORT DETAILS\n" + "\n".join(patient_lines))
+        if details:
+            sections.append("## 1. Patient and Report Details\n" + "\n".join(details))
 
-    # Test-by-test interpretation
-    test_sections = []
+    explanations = []
+
     if isinstance(results_df, pd.DataFrame) and not results_df.empty:
         for _, row in results_df.iterrows():
-            test = clean_text(row.get("Test", row.get("Test Name", "")))
-            result = clean_text(row.get("Result", row.get("Value", "")))
-            unit = clean_text(row.get("Unit", ""))
-            reference = clean_text(
-                row.get("Reference Range", row.get("Reference", row.get("Normal Range", "")))
-            )
-            status = clean_text(row.get("Status", ""))
+            test = str(row.get("Test", "Unknown test"))
+            result = str(row.get("Result", "Not extracted"))
+            unit = str(row.get("Unit", "") or "").strip()
+            reference = str(row.get("Reference Range", "") or "").strip()
+            status = str(row.get("Status", "Needs review") or "Needs review")
 
-            if not test:
-                continue
+            canonical, _, _ = find_test_name(test)
+            info = TEST_INFO.get(canonical)
 
-            info = find_test_info(test)
-            display_result = f"{result} {unit}".strip() or "Not clearly extracted"
-            explanation = [
-                f"Test: {test}",
-                f"Reported result: {display_result}",
-                f"Reference range: {reference or 'Not provided or not extracted'}",
-                f"Reported status: {status or 'Not identified'}"
+            parts = [
+                f"### {test}",
+                f"- **Result:** {result} {unit}".strip(),
+                f"- **Reference range:** {reference or 'Not extracted'}",
+                f"- **Status:** {status}"
             ]
 
             if info:
-                explanation.append(f"What it measures: {info['purpose']}")
+                purpose, high_text, low_text = info
+                parts.append(f"- **What it measures:** {purpose}")
 
-                if any(word in status.lower() for word in ["high", "above", "elevated"]):
-                    explanation.append(f"Possible meaning: {info['high']}")
-                elif any(word in status.lower() for word in ["low", "below", "decreased"]):
-                    explanation.append(f"Possible meaning: {info['low']}")
+                status_type = normalize_status(status)
+
+                if status_type == "high":
+                    parts.append(f"- **Possible meaning:** {high_text}")
+                elif status_type == "low":
+                    parts.append(f"- **Possible meaning:** {low_text}")
+                elif status_type == "normal":
+                    parts.append(
+                        "- **Interpretation:** The report marks this result as within "
+                        "its reference range. This alone does not rule out all health conditions."
+                    )
                 else:
-                    explanation.append(
-                        "Interpretation: " + explain_status(status)
+                    parts.append(
+                        "- **Interpretation:** The status could not be confidently determined. "
+                        "Check the value and reference range on the original report."
                     )
             else:
-                explanation.append(
-                    "What it means: This test name is not in the built-in explanation "
-                    "dictionary. The result and range are shown as extracted, but a "
-                    "reliable test-specific interpretation is not available here."
+                parts.append(
+                    "- **Explanation:** This test is not in the built-in test dictionary. "
+                    "Its name and extracted values are displayed without guessing a medical meaning."
                 )
-                explanation.append(explain_status(status))
 
-            test_sections.append("\n".join(explanation))
+            explanations.append("\n".join(parts))
 
-    if test_sections:
+    if explanations:
         sections.append(
-            "2. TEST-BY-TEST EXPLANATION\n\n" + "\n\n".join(test_sections)
+            "## 2. Test-by-Test Explanation\n\n" + "\n\n".join(explanations)
         )
     else:
         sections.append(
-            "2. TEST-BY-TEST EXPLANATION\n"
-            "No structured laboratory results were available to explain. "
-            "Check whether the report text was extracted correctly and whether "
-            "analyzer.py created rows in the results table."
+            "## 2. Test-by-Test Explanation\n"
+            "No laboratory rows were extracted. Check the extracted text and the analyzer parser."
         )
 
-    # Full report text overview, so non-lab data is not silently ignored
-    if report_text:
-        lines = [
-            re.sub(r"\s+", " ", line).strip()
-            for line in report_text.splitlines()
-            if line.strip()
-        ]
-
+    if report_text.strip():
         sections.append(
-            "3. OTHER INFORMATION FOUND IN THE REPORT\n"
-            "The original extracted text may include symptoms, clinical notes, "
-            "specimen details, recommendations, and other information not represented "
-            "in the laboratory results table."
+            "## 3. Original Extracted Report Text\n"
+            "Review this text against the uploaded report to check for OCR errors.\n\n"
+            + report_text.strip()
         )
-
-        if lines:
-            # Show all extracted lines in chunks rather than silently dropping them.
-            sections.append("EXTRACTED REPORT TEXT:\n" + "\n".join(lines))
 
     sections.append(
-        "4. IMPORTANT LIMITATIONS\n"
-        "- A reference range can vary by laboratory, age, sex, pregnancy status, and method.\n"
-        "- The program may misread scanned text, decimal points, units, or reference ranges.\n"
-        "- A high or low result does not by itself confirm a disease.\n"
-        "- Unknown tests are displayed but are not given a guessed medical interpretation.\n"
-        "- Ask a qualified healthcare professional to interpret the original report in context."
+        "## 4. Limitations and Next Steps\n"
+        "- OCR may misread decimal points, test names, units, or reference ranges.\n"
+        "- Reference intervals differ between laboratories and patient groups.\n"
+        "- A high or low result does not confirm a disease by itself.\n"
+        "- Review unexpected or concerning results with a qualified healthcare professional.\n"
+        "- If you have severe or rapidly worsening symptoms, seek urgent medical care."
     )
 
     return "\n\n".join(sections)
