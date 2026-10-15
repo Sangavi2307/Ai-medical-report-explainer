@@ -28,58 +28,470 @@ st.set_page_config(
 # =========================================================
 
 
+
+# =========================================================
+# MEDILENS — 3D VIRTUAL MEDICAL WEBSITE DESIGN
+# =========================================================
+
 st.markdown(
     """
     <style>
-    .stApp {
-        background: linear-gradient(
-            135deg,
-            #0B1F3A 0%,
-            #123B5D 60%,
-            #164B65 100%
-        );
-        color: #F5F8FC;
+    :root {
+        --navy: #071629;
+        --navy-light: #10314F;
+        --blue-panel: #123B5D;
+        --teal: #27E0C0;
+        --teal-glow: #70F6E1;
+        --text: #F5FAFF;
+        --muted: #B9D0E3;
+        --border: rgba(112, 246, 225, 0.20);
     }
 
+    /* Main virtual background */
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 85% 10%,
+                rgba(39, 224, 192, 0.13),
+                transparent 28%
+            ),
+            radial-gradient(
+                circle at 5% 45%,
+                rgba(37, 110, 180, 0.20),
+                transparent 35%
+            ),
+            linear-gradient(
+                135deg,
+                #071629 0%,
+                #0B2139 48%,
+                #10314F 100%
+            );
+        color: var(--text);
+    }
+
+    /* Main content spacing */
+    .main .block-container {
+        max-width: 1250px;
+        padding: 2rem 2.2rem 4rem;
+    }
+
+    /* Transparent top header */
     [data-testid="stHeader"] {
         background: transparent;
     }
 
+    /* Sidebar */
     [data-testid="stSidebar"] {
-        background: #08172B;
+        background: linear-gradient(
+            180deg,
+            #061323,
+            #0C2943
+        );
+        border-right: 1px solid var(--border);
     }
 
-    h1, h2, h3, p, label {
-        color: #F5F8FC;
+    /* Typography */
+    h1, h2, h3, h4, p, label {
+        color: var(--text);
     }
 
-    .stButton > button {
-        background: #20C9B0;
-        color: #0B1F3A;
-        border: none;
-        border-radius: 10px;
+    h1 {
+        letter-spacing: -1.3px;
+        font-weight: 800;
+    }
+
+    h2, h3 {
         font-weight: 700;
-        padding: 0.65rem 1.2rem;
     }
 
-    .stButton > button:hover {
-        background: #65E3D0;
-        color: #0B1F3A;
-        border: none;
+    /* MediLens brand header */
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 22px;
+        margin-bottom: 28px;
+        background: rgba(14, 43, 68, 0.82);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow:
+            0 12px 30px rgba(0, 0, 0, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(16px);
     }
 
+    .brand-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        flex-shrink: 0;
+        border-radius: 16px;
+        color: #071629;
+        font-size: 28px;
+        font-weight: 900;
+        background: linear-gradient(
+            145deg,
+            #70F6E1,
+            #27E0C0 65%,
+            #0CA992
+        );
+        box-shadow:
+            0 7px 0 #087F78,
+            0 13px 25px rgba(39, 224, 192, 0.24);
+    }
+
+    .brand-title {
+        color: #FFFFFF;
+        font-size: 27px;
+        font-weight: 850;
+        letter-spacing: -0.6px;
+    }
+
+    .brand-subtitle {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 3px;
+    }
+
+    /* Hero banner */
+    .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 42px 38px;
+        margin: 20px 0 35px;
+        border-radius: 28px;
+        border: 1px solid rgba(112, 246, 225, 0.24);
+        background:
+            radial-gradient(
+                circle at 90% 15%,
+                rgba(39, 224, 192, 0.20),
+                transparent 32%
+            ),
+            linear-gradient(
+                135deg,
+                rgba(18, 59, 93, 0.97),
+                rgba(7, 22, 41, 0.98)
+            );
+        box-shadow:
+            0 24px 55px rgba(0, 0, 0, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.09);
+    }
+
+    .hero-tag {
+        display: inline-block;
+        padding: 8px 13px;
+        border-radius: 30px;
+        background: rgba(39, 224, 192, 0.12);
+        border: 1px solid rgba(39, 224, 192, 0.32);
+        color: var(--teal-glow);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 1.6px;
+    }
+
+    .hero h1 {
+        color: #FFFFFF;
+        font-size: clamp(34px, 4.4vw, 54px);
+        line-height: 1.13;
+        max-width: 850px;
+        margin: 24px 0 18px;
+    }
+
+    .hero p {
+        max-width: 750px;
+        color: #C8DBEB;
+        font-size: 16px;
+        line-height: 1.85;
+    }
+
+    /* Section headings */
+    .section-title {
+        color: #FFFFFF;
+        font-size: 25px;
+        font-weight: 800;
+        margin-top: 30px;
+        margin-bottom: 8px;
+    }
+
+    .section-subtitle {
+        color: #B9D0E3;
+        font-size: 14px;
+        line-height: 1.8;
+        margin-bottom: 18px;
+    }
+
+    /* Glass-style content panels */
+    .panel {
+        height: 100%;
+        padding: 23px;
+        margin: 12px 0;
+        border-radius: 20px;
+        background: linear-gradient(
+            145deg,
+            rgba(22, 59, 88, 0.94),
+            rgba(10, 32, 53, 0.97)
+        );
+        border: 1px solid rgba(112, 246, 225, 0.18);
+        box-shadow:
+            0 15px 30px rgba(0, 0, 0, 0.20),
+            inset 0 1px 0 rgba(255, 255, 255, 0.07);
+        transition:
+            transform 0.25s ease,
+            box-shadow 0.25s ease;
+    }
+
+    .panel:hover {
+        transform: translateY(-4px);
+        box-shadow:
+            0 22px 38px rgba(0, 0, 0, 0.30),
+            0 0 18px rgba(39, 224, 192, 0.08);
+    }
+
+    .panel-title {
+        color: var(--teal-glow);
+        font-size: 18px;
+        font-weight: 800;
+        margin-bottom: 13px;
+    }
+
+    .panel-text {
+        color: #D8E6F2;
+        font-size: 14px;
+        line-height: 2;
+        overflow-wrap: anywhere;
+    }
+
+    /* Streamlit metric cards */
+    [data-testid="stMetric"] {
+        padding: 20px;
+        min-height: 115px;
+        border-radius: 18px;
+        background: linear-gradient(
+            145deg,
+            #143B5B,
+            #0A2239
+        );
+        border: 1px solid var(--border);
+        box-shadow:
+            0 12px 25px rgba(0, 0, 0, 0.20),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #B9D0E3;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #70F6E1;
+        font-weight: 800;
+    }
+
+    /* Raised 3D buttons */
+    .stButton > button,
+    .stDownloadButton > button {
+        min-height: 46px;
+        padding: 10px 22px;
+        border: 1px solid rgba(112, 246, 225, 0.65);
+        border-radius: 12px;
+        background: linear-gradient(
+            145deg,
+            #70F6E1,
+            #27E0C0 65%,
+            #17BFA7
+        );
+        color: #071629;
+        font-weight: 800;
+        box-shadow:
+            0 5px 0 #087F78,
+            0 10px 20px rgba(39, 224, 192, 0.17);
+        transition: all 0.2s ease;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        transform: translateY(-2px);
+        background: linear-gradient(
+            145deg,
+            #A1FFEF,
+            #4AEBD2
+        );
+        color: #071629;
+        border-color: #A1FFEF;
+        box-shadow:
+            0 7px 0 #087F78,
+            0 15px 26px rgba(39, 224, 192, 0.25);
+    }
+
+    .stButton > button:active,
+    .stDownloadButton > button:active {
+        transform: translateY(3px);
+        box-shadow: 0 2px 0 #087F78;
+    }
+
+    /* Upload area */
     [data-testid="stFileUploader"] {
-        background: #123B5D;
-        border: 1px solid #3E6785;
-        border-radius: 14px;
-        padding: 16px;
+        padding: 18px;
+        border: 1px dashed rgba(112, 246, 225, 0.65);
+        border-radius: 20px;
+        background: rgba(16, 49, 79, 0.82);
+        box-shadow:
+            0 12px 30px rgba(0, 0, 0, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
+    [data-testid="stFileUploader"] section {
+        background: transparent;
+    }
+
+    /* Tabs */
+    [data-testid="stTabs"] [role="tablist"] {
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    [data-testid="stTabs"] button[role="tab"] {
+        color: #C7D9E8;
+        background: rgba(16, 49, 79, 0.72);
+        border-radius: 11px 11px 0 0;
+        padding: 12px 16px;
+    }
+
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: #70F6E1;
+        background: rgba(39, 224, 192, 0.10);
+        border-bottom: 2px solid #27E0C0;
+    }
+
+    /* Inputs */
+    .stTextInput input,
+    .stSelectbox [data-baseweb="select"] > div,
+    .stTextArea textarea {
+        color: #FFFFFF;
+        background: #102D49;
+        border-color: #32617B;
+        border-radius: 10px;
+    }
+
+    /* Data tables */
     [data-testid="stDataFrame"] {
+        overflow: hidden;
+        border: 1px solid #D1E0EC;
+        border-radius: 14px;
         background: #F5F8FC;
+    }
+
+    /* Expanders */
+    [data-testid="stExpander"] {
+        background: rgba(16, 49, 79, 0.78);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    /* Status badges */
+    .status {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 25px;
+        font-size: 12px;
+        font-weight: 800;
+        border: 1px solid transparent;
+    }
+
+    .status-normal {
+        color: #70F6C2;
+        background: rgba(25, 180, 119, 0.13);
+        border-color: rgba(112, 246, 194, 0.28);
+    }
+
+    .status-high {
+        color: #FFD28A;
+        background: rgba(255, 165, 45, 0.13);
+        border-color: rgba(255, 210, 138, 0.28);
+    }
+
+    .status-low {
+        color: #FF9BBA;
+        background: rgba(239, 68, 104, 0.13);
+        border-color: rgba(255, 155, 186, 0.28);
+    }
+
+    .status-other {
+        color: #B9D9FF;
+        background: rgba(93, 160, 235, 0.13);
+        border-color: rgba(185, 217, 255, 0.28);
+    }
+
+    /* Medical disclaimer */
+    .disclaimer {
+        padding: 19px 22px;
+        margin-top: 25px;
+        border: 1px solid rgba(255, 190, 100, 0.35);
+        border-left: 4px solid #F5B95F;
+        border-radius: 12px;
+        background: rgba(106, 72, 24, 0.20);
+        color: #FFE2B4;
+        font-size: 13px;
+        line-height: 1.85;
+    }
+
+    /* Footer */
+    .footer {
+        margin-top: 45px;
+        padding: 25px 12px;
+        text-align: center;
+        color: #B9D0E3;
+        font-size: 12px;
+        line-height: 2;
+        border-top: 1px solid var(--border);
+    }
+
+    /* Streamlit alerts */
+    [data-testid="stAlert"] {
         border-radius: 12px;
     }
 
+    /* Mobile layout */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1rem 0.9rem 3rem;
+        }
+
+        .brand-row {
+            padding: 14px;
+        }
+
+        .brand-title {
+            font-size: 23px;
+        }
+
+        .hero {
+            padding: 28px 22px;
+            border-radius: 21px;
+        }
+
+        .hero h1 {
+            font-size: 35px;
+        }
+
+        .hero p {
+            font-size: 14px;
+        }
+
+        .section-title {
+            font-size: 22px;
+        }
+    }
+
+    /* Respect reduced motion settings */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            transition: none !important;
+            animation: none !important;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
