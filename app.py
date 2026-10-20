@@ -1,4 +1,5 @@
 
+import hashlib
 import streamlit as st
 import pandas as pd
 
@@ -9,142 +10,333 @@ from ai_explainer import explain_report
 from report_generator import generate_pdf_report
 
 
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
 st.set_page_config(
-    page_title="MediLens | Medical Report Explainer",
+    page_title="MediLens AI | Medical Report Intelligence",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ============== WEBSITE STYLE ==============
+
+# =========================================================
+# MODERN AI WEBSITE DESIGN
+# =========================================================
 
 st.markdown("""
 <style>
-.stApp {
-    background: #07111f;
-    color: #edf5ff;
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg: #070b14;
+    --panel: #101725;
+    --panel2: #141e30;
+    --border: #253248;
+    --text: #f3f7ff;
+    --muted: #9baac0;
+    --teal: #48e4c2;
+    --blue: #6b91ff;
 }
+
+html, body, [class*="css"] {
+    font-family: 'DM Sans', sans-serif;
+}
+
+.stApp {
+    background:
+        radial-gradient(ellipse at 10% 0%, #102c35 0%, transparent 35%),
+        radial-gradient(ellipse at 95% 5%, #171b3c 0%, transparent 30%),
+        var(--bg);
+    color: var(--text);
+}
+
 #MainMenu, footer, header {
     visibility: hidden;
 }
+
 [data-testid="stSidebar"] {
     display: none;
 }
+
 .block-container {
-    max-width: 1200px;
-    padding: 2rem 5%;
+    max-width: 1240px;
+    padding: 1.5rem 4% 3rem 4%;
 }
+
+h1, h2, h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.5px;
+    color: var(--text);
+}
+
+p, li, label {
+    color: #c3cde0;
+}
+
 .brand {
-    color: #45e0c1;
-    font-size: 32px;
-    font-weight: 800;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.1;
 }
-.subtitle {
-    color: #a8bfd4;
+
+.brand span {
+    color: var(--teal);
 }
+
+.brand-caption {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 7px;
+}
+
+.eyebrow {
+    color: var(--teal);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
 .hero {
-    background: linear-gradient(135deg, #102b42, #164b54);
-    padding: 40px;
-    border-radius: 22px;
-    margin: 25px 0;
-    border: 1px solid #28586a;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(125deg, #101d2d, #132a38 55%, #18213b);
+    border: 1px solid #2a4654;
+    border-radius: 28px;
+    padding: 48px 40px;
+    margin: 30px 0 24px 0;
 }
+
 .hero h1 {
-    color: white;
-    font-size: 38px;
+    font-size: clamp(34px, 5vw, 58px);
+    line-height: 1.12;
+    margin: 16px 0;
 }
+
+.hero h1 span {
+    color: var(--teal);
+}
+
 .hero p {
-    color: #d1e2ed;
-    font-size: 17px;
+    color: #b4c4d9;
+    font-size: 16px;
+    line-height: 1.8;
+    max-width: 650px;
 }
-.feature {
-    background: #101f31;
-    padding: 22px;
-    border: 1px solid #263b50;
-    border-radius: 16px;
-    min-height: 145px;
+
+.section-label {
+    color: var(--teal);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
 }
-.feature h3 {
-    color: #45e0c1;
+
+.panel {
+    background: linear-gradient(145deg, #111b2b, #0e1624);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 23px;
+    min-height: 155px;
 }
-div[data-testid="stMetric"] {
-    background: #101f31;
-    padding: 18px;
-    border-radius: 14px;
-    border: 1px solid #263b50;
+
+.panel h3 {
+    font-size: 18px;
+    margin: 12px 0 7px 0;
 }
-div[data-testid="stMetricValue"] {
-    color: #45e0c1;
+
+.panel p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
 }
-.stButton button, .stDownloadButton button {
-    border-radius: 10px;
-    min-height: 42px;
-    font-weight: 600;
-}
-.disclaimer {
-    background: #30291a;
-    color: #ffe6a6;
-    padding: 15px;
+
+.icon-box {
+    background: #183c3d;
+    color: var(--teal);
+    border: 1px solid #285b57;
     border-radius: 12px;
-    border: 1px solid #75613a;
+    width: 43px;
+    height: 43px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 21px;
 }
+
+.status-note {
+    background: #101d2a;
+    border: 1px solid #2b4852;
+    padding: 16px;
+    border-radius: 14px;
+    color: #c7d9e7;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.disclaimer {
+    background: #241f18;
+    border: 1px solid #6c5631;
+    color: #f3dba6;
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+div[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #141f30, #101725);
+    border: 1px solid #29364c;
+    padding: 19px;
+    border-radius: 17px;
+}
+
+div[data-testid="stMetricLabel"] {
+    color: #a9b8cd;
+}
+
+div[data-testid="stMetricValue"] {
+    color: var(--teal);
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+div[data-testid="stFileUploader"] {
+    background: #101725;
+    border: 1px dashed #427a78;
+    border-radius: 17px;
+    padding: 14px;
+}
+
+.stButton button, .stDownloadButton button {
+    border-radius: 11px;
+    min-height: 43px;
+    font-weight: 600;
+    border: 1px solid #34445c;
+    transition: 0.2s ease;
+}
+
+.stButton button[kind="primary"] {
+    background: var(--teal);
+    color: #07111a;
+    border: none;
+}
+
+.stButton button:hover, .stDownloadButton button:hover {
+    border-color: var(--teal);
+}
+
+div[data-testid="stDataFrame"] {
+    border: 1px solid #29364c;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.stTextArea textarea {
+    background: #0b1220;
+    color: #d9e7f7;
+    border: 1px solid #2a3b53;
+    border-radius: 12px;
+}
+
+hr {
+    border-color: #27354a;
+}
+
 .footer {
     text-align: center;
-    color: #8fa5ba;
-    border-top: 1px solid #263b50;
-    padding-top: 20px;
-    margin-top: 40px;
+    color: #8392a9;
+    font-size: 12px;
+    line-height: 2;
+    border-top: 1px solid #243047;
+    margin-top: 45px;
+    padding-top: 23px;
+}
+
+[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+@media (max-width: 700px) {
+    .hero {
+        padding: 28px 22px;
+    }
+    .block-container {
+        padding: 1rem 5% 2rem 5%;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ============== NAVIGATION ==============
+# =========================================================
+# SESSION STATE
+# =========================================================
 
-if "page" not in st.session_state:
-    st.session_state.page = "Home"
+DEFAULTS = {
+    "ml_page": "Home",
+    "ml_analysis": None,
+    "ml_explanation": None,
+    "ml_file_hash": None,
+}
 
-if "analysis" not in st.session_state:
-    st.session_state.analysis = None
-
-if "explanation" not in st.session_state:
-    st.session_state.explanation = None
+for key, value in DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 
-# ============== HEADER ==============
+# =========================================================
+# NAVIGATION HELPERS
+# =========================================================
 
-left, right = st.columns([3, 2])
+def navigate(page):
+    st.session_state.ml_page = page
 
-with left:
-    st.markdown(
-        '<div class="brand">🩺 MediLens.</div>'
-        '<div class="subtitle">Understand your medical reports with clarity</div>',
-        unsafe_allow_html=True,
-    )
 
-with right:
-    a, b, c = st.columns(3)
+def clear_analysis():
+    st.session_state.ml_analysis = None
+    st.session_state.ml_explanation = None
+    st.session_state.ml_file_hash = None
 
-    if a.button("Home", use_container_width=True):
-        st.session_state.page = "Home"
+
+# =========================================================
+# HEADER
+# =========================================================
+
+header_left, header_right = st.columns([2.5, 3])
+
+with header_left:
+    st.markdown("""
+    <div class="brand">MediLens<span>.</span></div>
+    <div class="brand-caption">MEDICAL REPORT INTELLIGENCE</div>
+    """, unsafe_allow_html=True)
+
+with header_right:
+    nav1, nav2, nav3 = st.columns(3)
+
+    if nav1.button("⌂  Home", use_container_width=True):
+        navigate("Home")
         st.rerun()
 
-    if b.button("Analyze", use_container_width=True):
-        st.session_state.page = "Analyze"
+    if nav2.button("✳  Workspace", use_container_width=True):
+        navigate("Workspace")
         st.rerun()
 
-    if c.button("About", use_container_width=True):
-        st.session_state.page = "About"
+    if nav3.button("ⓘ  About", use_container_width=True):
+        navigate("About")
         st.rerun()
 
 
-# ============== FILE EXTRACTION ==============
+# =========================================================
+# REPORT EXTRACTION
+# =========================================================
 
-def extract_uploaded_report(uploaded_file):
-    """Read only the currently uploaded report."""
-
-    if uploaded_file is None:
-        return ""
+def extract_report_text(uploaded_file):
+    """Extract text only from the selected upload."""
 
     filename = uploaded_file.name.lower()
 
@@ -165,224 +357,300 @@ def extract_uploaded_report(uploaded_file):
     return ""
 
 
-# ============== STATUS COUNTS ==============
+def status_counts(results):
+    """Count statuses returned by the existing analyzer."""
 
-def get_status_counts(df):
-
-    if df is None or df.empty or "Status" not in df.columns:
+    if results is None or results.empty or "Status" not in results.columns:
         return 0, 0, 0
 
-    status = df["Status"].fillna("").astype(str).str.lower()
+    statuses = results["Status"].fillna("").astype(str).str.lower()
 
-    low = status.str.contains(
+    below = statuses.str.contains(
         r"below|low|decreased", regex=True
     ).sum()
 
-    high = status.str.contains(
+    above = statuses.str.contains(
         r"above|high|increased", regex=True
     ).sum()
 
-    normal = status.str.contains(
+    within = statuses.str.contains(
         r"within|normal|reference range", regex=True
     ).sum()
 
-    return int(low), int(normal), int(high)
+    return int(below), int(within), int(above)
 
 
-# ============== HOME PAGE ==============
+def numeric_chart_data(results):
+    """Prepare numeric results for a chart."""
 
-if st.session_state.page == "Home":
+    if results is None or results.empty:
+        return pd.DataFrame()
+
+    if not {"Test", "Result"}.issubset(results.columns):
+        return pd.DataFrame()
+
+    chart = results[["Test", "Result"]].copy()
+
+    chart["Result"] = (
+        chart["Result"]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .str.extract(r"([-+]?\d*\.?\d+)")[0]
+    )
+
+    chart["Result"] = pd.to_numeric(
+        chart["Result"], errors="coerce"
+    )
+
+    chart = chart.dropna(subset=["Result"])
+    return chart
+
+
+# =========================================================
+# HOME PAGE
+# =========================================================
+
+if st.session_state.ml_page == "Home":
 
     st.markdown("""
     <div class="hero">
-        <h1>Your medical report,<br>made easier to understand.</h1>
+        <div class="eyebrow">✦ YOUR PERSONAL REPORT EXPLORER</div>
+        <h1>Medical reports.<br><span>More understandable.</span></h1>
         <p>
-        Upload a medical report to extract available text, organize
-        test results, and view educational explanations.
+        Explore extracted laboratory results, organize important values,
+        and read educational explanations in one clean workspace.
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("🚀 Analyze My Report", type="primary"):
-        st.session_state.page = "Analyze"
-        st.rerun()
+    start_col, info_col = st.columns([1.3, 2.7])
 
-    st.markdown("## What MediLens offers")
+    with start_col:
+        if st.button(
+            "✳  Open Analysis Workspace",
+            type="primary",
+            use_container_width=True,
+        ):
+            navigate("Workspace")
+            st.rerun()
 
-    col1, col2, col3 = st.columns(3)
+    with info_col:
+        st.markdown(
+            '<div class="status-note">🔒 Upload one report at a time. '
+            'Review extracted values against the original document.</div>',
+            unsafe_allow_html=True,
+        )
 
-    with col1:
+    st.markdown("### Built for clearer understanding")
+    st.write("A simple workflow for exploring the information in your report.")
+
+    f1, f2, f3 = st.columns(3)
+
+    with f1:
         st.markdown("""
-        <div class="feature">
-            <h3>📄 Report Upload</h3>
-            <p>Upload supported PDF and image reports.</p>
+        <div class="panel">
+            <div class="icon-box">📄</div>
+            <h3>Upload a report</h3>
+            <p>Read supported PDF documents and medical report images.</p>
         </div>
         """, unsafe_allow_html=True)
 
-    with col2:
+    with f2:
         st.markdown("""
-        <div class="feature">
-            <h3>📊 Result Overview</h3>
-            <p>View detected laboratory values and their reported status.</p>
+        <div class="panel">
+            <div class="icon-box">⌁</div>
+            <h3>Explore the results</h3>
+            <p>Review detected values, reference ranges, and reported statuses.</p>
         </div>
         """, unsafe_allow_html=True)
 
-    with col3:
+    with f3:
         st.markdown("""
-        <div class="feature">
-            <h3>💡 Easy Explanations</h3>
-            <p>Read educational information about extracted results.</p>
+        <div class="panel">
+            <div class="icon-box">✧</div>
+            <h3>Understand the report</h3>
+            <p>View educational explanations and download a report summary.</p>
         </div>
         """, unsafe_allow_html=True)
 
-    st.write("")
+    st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("""
     <div class="disclaimer">
-    <b>Medical disclaimer:</b> This application is for educational use.
-    It cannot diagnose medical conditions or replace professional advice.
+        <b>Medical safety notice</b><br>
+        MediLens is an educational student project, not a diagnostic service.
+        Extraction and result classification can be inaccurate or incomplete.
+        Verify values with the original report and consult a qualified
+        healthcare professional about medical concerns.
     </div>
     """, unsafe_allow_html=True)
 
 
-# ============== ANALYSIS PAGE ==============
+# =========================================================
+# ANALYSIS WORKSPACE
+# =========================================================
 
-elif st.session_state.page == "Analyze":
+elif st.session_state.ml_page == "Workspace":
 
-    st.header("🔬 Analyze Your Medical Report")
-    st.write("Upload one report at a time.")
+    st.markdown('<div class="eyebrow">YOUR PRIVATE WORKSPACE</div>',
+                unsafe_allow_html=True)
 
-    uploaded_file = st.file_uploader(
-        "Choose your report",
-        type=["pdf", "png", "jpg", "jpeg"],
-        help="Maximum size: 10 MB",
-        key="medical_report",
+    st.title("Report analysis")
+    st.write(
+        "Upload a report, extract its text, and explore the results "
+        "detected by your existing analyzer."
     )
 
+    uploaded_file = st.file_uploader(
+        "Choose a medical report",
+        type=["pdf", "png", "jpg", "jpeg"],
+        help="PDF, PNG, JPG or JPEG. Maximum 10 MB.",
+        key="ml_report_upload",
+    )
+
+    current_hash = None
+
     if uploaded_file is not None:
-
         if uploaded_file.size > 10 * 1024 * 1024:
-            st.error("File exceeds 10 MB. Please choose a smaller file.")
-
+            st.error("This file exceeds the 10 MB upload limit.")
         else:
-            st.success(f"Selected file: {uploaded_file.name}")
+            file_bytes = uploaded_file.getvalue()
+            current_hash = hashlib.sha256(file_bytes).hexdigest()
 
-            if st.button("🔍 Analyze Report", type="primary"):
+            st.markdown(
+                f'<div class="status-note">📎 Selected file: '
+                f'<b>{uploaded_file.name}</b></div>',
+                unsafe_allow_html=True,
+            )
 
-                # Remove old results so another report cannot display stale data.
-                st.session_state.analysis = None
-                st.session_state.explanation = None
+            # Never display the previous report's results for a new upload.
+            if (
+                st.session_state.ml_file_hash is not None
+                and current_hash != st.session_state.ml_file_hash
+            ):
+                clear_analysis()
+
+            if st.button(
+                "✦  Analyze Selected Report",
+                type="primary",
+                use_container_width=True,
+            ):
+                clear_analysis()
 
                 try:
-                    with st.spinner("Extracting your report..."):
-                        report_text = extract_uploaded_report(uploaded_file)
+                    with st.spinner("Extracting text from your report..."):
+                        uploaded_file.seek(0)
+                        report_text = extract_report_text(uploaded_file)
 
                     if not report_text or len(report_text.strip()) < 10:
                         st.error(
-                            "No readable text found. Try a clearer image "
-                            "or a text-based PDF."
+                            "Readable text was not detected. Try a clearer "
+                            "image or a text-based PDF."
                         )
-
                     else:
                         with st.spinner("Organizing detected results..."):
-                            results_df = analyze_report(report_text)
-                            patient_fields = extract_patient_fields(report_text)
+                            results = analyze_report(report_text)
+                            patient = extract_patient_fields(report_text)
 
-                        st.session_state.analysis = {
+                        st.session_state.ml_analysis = {
                             "filename": uploaded_file.name,
                             "text": report_text,
-                            "results": results_df,
-                            "patient": patient_fields,
+                            "results": results,
+                            "patient": patient,
                         }
 
+                        st.session_state.ml_file_hash = current_hash
                         st.rerun()
 
                 except Exception as error:
-                    st.error("Could not process this report.")
+                    st.error("The selected report could not be processed.")
                     st.code(str(error))
 
-    # Display the current analysis only.
-    analysis = st.session_state.analysis
+    analysis = st.session_state.ml_analysis
 
-    if analysis is not None:
-
+    # Only display results when the selected file matches the analyzed file.
+    if (
+        analysis is not None
+        and current_hash is not None
+        and current_hash == st.session_state.ml_file_hash
+    ):
         report_text = analysis["text"]
-        results_df = analysis["results"]
-        patient_fields = analysis["patient"]
+        results = analysis["results"]
+        patient = analysis["patient"]
         filename = analysis["filename"]
 
         st.divider()
-        st.subheader("📋 Report Overview")
-        st.caption(f"Uploaded file: {filename}")
 
-        if patient_fields:
-            st.write("**Details detected in the report**")
-            st.json(patient_fields, expanded=False)
+        st.markdown('<div class="eyebrow">ANALYSIS RESULTS</div>',
+                    unsafe_allow_html=True)
 
-        low, normal, high = get_status_counts(results_df)
+        st.subheader("Report overview")
+        st.caption(f"Source file: {filename}")
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Below range", low)
-        m2.metric("Within range", normal)
-        m3.metric("Above range", high)
+        if patient:
+            with st.expander("View details detected in the report"):
+                st.json(patient, expanded=False)
 
-        st.subheader("🧪 Detected Test Results")
+        below, within, above = status_counts(results)
 
-        if results_df is not None and not results_df.empty:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Below range", below)
+        c2.metric("Within range", within)
+        c3.metric("Above range", above)
 
+        st.markdown("### Detected laboratory results")
+
+        if results is not None and not results.empty:
             st.dataframe(
-                results_df,
+                results,
                 use_container_width=True,
                 hide_index=True,
             )
 
             st.download_button(
-                "⬇️ Download Results CSV",
-                data=results_df.to_csv(index=False).encode("utf-8"),
+                "↓ Download CSV",
+                data=results.to_csv(index=False).encode("utf-8"),
                 file_name="medilens_results.csv",
                 mime="text/csv",
+                use_container_width=True,
             )
 
-            if "Result" in results_df.columns and "Test" in results_df.columns:
+            chart = numeric_chart_data(results)
 
-                chart = results_df[["Test", "Result"]].copy()
-
-                chart["Result"] = pd.to_numeric(
-                    chart["Result"].astype(str).str.replace(",", ""),
-                    errors="coerce",
+            if not chart.empty:
+                st.markdown("### Result visualization")
+                st.caption(
+                    "This chart displays numeric values only. Different "
+                    "tests may use different units, so compare each result "
+                    "with its own reference range."
                 )
 
-                chart = chart.dropna(subset=["Result"])
-
-                if not chart.empty:
-                    st.subheader("📊 Result Visualization")
-                    st.caption(
-                        "Different tests may use different units. "
-                        "Compare each value with its own reference range."
-                    )
-                    st.bar_chart(chart.set_index("Test"))
+                st.bar_chart(chart.set_index("Test"))
 
         else:
             st.info(
-                "No structured test results were detected. "
-                "Check the extracted text and original report."
+                "No structured test results were detected. You can inspect "
+                "the extracted text below."
             )
 
-        st.subheader("🤖 Educational Explanation")
+        st.divider()
+        st.markdown("### Educational explanation")
 
-        if st.button("Generate Explanation"):
+        if st.button("✧ Generate explanation", use_container_width=True):
             try:
-                with st.spinner("Preparing explanation..."):
-                    st.session_state.explanation = explain_report(
+                with st.spinner("Preparing an explanation..."):
+                    explanation = explain_report(
                         report_text,
-                        results_df,
-                        patient_fields,
+                        results,
+                        patient,
                     )
+                    st.session_state.ml_explanation = explanation
+
             except Exception as error:
-                st.error("Could not generate an explanation.")
+                st.error("The explanation could not be generated.")
                 st.code(str(error))
 
-        explanation = st.session_state.explanation
+        explanation = st.session_state.ml_explanation
 
         if explanation:
             if isinstance(explanation, str):
@@ -390,90 +658,99 @@ elif st.session_state.page == "Analyze":
             else:
                 st.write(explanation)
 
-        with st.expander("📄 View Extracted Text"):
+        with st.expander("Inspect extracted text"):
             st.text_area(
-                "Extracted report text",
+                "Text extracted from the selected report",
                 value=report_text,
-                height=250,
+                height=280,
                 disabled=True,
             )
 
-        st.subheader("📥 Download PDF Summary")
+        st.markdown("### Export your summary")
 
         try:
             summary = (
-                f"Detected result rows: {len(results_df)}. "
-                f"Below range: {low}; within range: {normal}; "
-                f"above range: {high}."
+                f"Detected rows: {len(results)}. "
+                f"Below range: {below}; within range: {within}; "
+                f"above range: {above}."
             )
 
             pdf_data = generate_pdf_report(
                 filename,
-                patient_fields,
-                results_df,
+                patient,
+                results,
                 summary,
             )
 
             if pdf_data:
                 st.download_button(
-                    "⬇️ Download PDF",
+                    "↓ Download PDF summary",
                     data=pdf_data,
                     file_name="medilens_summary.pdf",
                     mime="application/pdf",
+                    use_container_width=True,
                 )
 
         except Exception as error:
-            st.warning("PDF summary generation failed.")
+            st.warning("The PDF summary could not be created.")
             st.code(str(error))
 
         st.markdown("""
         <div class="disclaimer">
-        <b>Important:</b> Extraction and classification can be inaccurate.
-        Always verify results against the original report and consult a
-        qualified healthcare professional.
+        <b>Important:</b> The counts represent classifications produced by
+        the existing analyzer, not a medical diagnosis. Verify extracted
+        values and reference ranges against the original document.
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("🗑️ Clear Current Analysis"):
-            st.session_state.analysis = None
-            st.session_state.explanation = None
+        if st.button("Clear current analysis"):
+            clear_analysis()
             st.rerun()
 
+    elif analysis is not None and uploaded_file is None:
+        st.info("Upload the report again to view its analysis.")
 
-# ============== ABOUT PAGE ==============
 
-elif st.session_state.page == "About":
+# =========================================================
+# ABOUT PAGE
+# =========================================================
 
-    st.header("About MediLens")
+elif st.session_state.ml_page == "About":
 
-    st.write("""
-    MediLens is an educational application designed to make medical
-    report information easier to explore.
+    st.markdown('<div class="eyebrow">ABOUT THE PROJECT</div>',
+                unsafe_allow_html=True)
 
-    **Features**
-    - PDF and image text extraction
-    - Laboratory result organization
-    - Status summaries and charts
-    - Educational explanations
-    - CSV and PDF downloads
-
-    **Limitations**
-
-    Text extraction, test identification, and reference-range comparisons
-    may be incorrect or incomplete. MediLens is not a diagnostic system.
-    """)
-
-    st.info(
-        "Use fictional sample reports for testing whenever possible. "
-        "Be careful with identifiable medical information."
+    st.title("About MediLens")
+    st.write(
+        "MediLens is an educational application designed to make "
+        "medical report information easier to explore."
     )
 
+    st.markdown("### Project features")
 
-# ============== FOOTER ==============
+    st.markdown("""
+    - PDF and image text extraction
+    - Structured laboratory result display
+    - Status summaries and numeric charts
+    - Educational explanations
+    - CSV and PDF downloads
+    """)
 
-st.markdown("""
-<div class="footer">
-    🩺 MediLens | AI Medical Report Explainer<br>
-    Educational use only • Not a substitute for professional care
-</div>
-""", unsafe_allow_html=True)
+    st.markdown("### Limitations")
+
+    st.markdown("""
+    Text extraction may miss values. The analyzer may incorrectly identify
+    tests or reference ranges. An explanation is only as reliable as the
+    extracted text and underlying analysis rules.
+    """)
+
+    st.markdown("""
+    <div class="disclaimer">
+    MediLens cannot diagnose a condition, recommend treatment, or replace
+    professional medical advice. Use fictional sample reports when testing
+    the app, and take care with sensitive health information.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ================
