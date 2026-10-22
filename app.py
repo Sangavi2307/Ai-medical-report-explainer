@@ -614,66 +614,127 @@ else:
     else:
         st.dataframe(results, use_container_width=True, hide_index=True)
 
-
 # =========================================================
 # CLINICAL INSIGHTS
 # =========================================================
 
 section(
     "04  Clinical insights",
-    "Generate an interpretation from the actual uploaded report.",
+    "Review explanations generated from this uploaded report.",
 )
 
 st.markdown("""
 <div class="panel">
-    <div class="panel-title">Potential condition assessment</div>
+    <div class="panel-title">Report interpretation</div>
     <div class="panel-description">
-        The interpretation engine should explain relevant abnormalities,
-        associated possible conditions, limitations, and appropriate
-        follow-up. A possible condition is not a confirmed diagnosis.
+        Explanations describe laboratory findings and possible reasons
+        for abnormal values. They do not confirm a medical condition.
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 if st.button("Generate clinical insights", use_container_width=True):
     try:
-        with st.spinner("Generating report interpretation..."):
-            insights = explain_report(report_text, results, patient)
+        with st.spinner("Preparing test explanations..."):
+            insights = explain_report(
+                report_text=report_text,
+                results_df=results,
+                patient_fields=patient,
+            )
 
-        st.session_state["report_insights"] = {
-            "hash": file_hash,
-            "text": insights,
-        }
-
-        st.session_state.pop("report_pdf", None)
+        if not isinstance(insights, dict):
+            st.error("The explanation function returned an unexpected format.")
+        else:
+            st.session_state["report_insights"] = {
+                "hash": file_hash,
+                "text": insights,
+            }
+            st.session_state.pop("report_pdf", None)
 
     except Exception as error:
         st.error("Unable to generate clinical insights.")
+        st.caption("Check the function definition in ai_explainer.py.")
         st.exception(error)
 
 insights_data = st.session_state.get("report_insights")
 
 if insights_data and insights_data.get("hash") == file_hash:
-    insights = insights_data["text"]
+    insights = insights_data.get("text", {})
 
-    st.markdown("<div class='panel'>", unsafe_allow_html=True)
-    if isinstance(insights, dict):
-        for heading, content in insights.items():
-            st.markdown(f"**{safe_text(heading)}**")
-            st.write(content)
-    elif isinstance(insights, list):
-        for item in insights:
-            st.write(item)
+    # Overall summary
+    section("Overall summary")
+
+    summary_text = insights.get(
+        "summary",
+        "No summary was returned.",
+    )
+
+    st.markdown(
+        f'<div class="status-box">{safe_text(summary_text)}</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Individual test explanations
+    section("Test-by-test interpretation")
+
+    detailed_results = insights.get("results", [])
+
+    if isinstance(detailed_results, list) and detailed_results:
+        for index, item in enumerate(detailed_results, start=1):
+            if not isinstance(item, dict):
+                continue
+
+            test_name = item.get("Test", f"Test {index}")
+
+            with st.expander(str(test_name), expanded=(index == 1)):
+                st.markdown(f"**Result:** {safe_text(item.get('Result', 'Not available'))}")
+                st.markdown(f"**Reference range:** {safe_text(item.get('Reference Range', 'Not available'))}")
+                st.markdown(f"**Status:** {safe_text(item.get('Status', 'Unknown'))}")
+
+                st.markdown("**Meaning**")
+                st.write(item.get("Meaning", "Not available"))
+
+                st.markdown("**Why this test matters**")
+                st.write(item.get("Importance", "Not available"))
+
+                st.markdown("**Interpretation**")
+                st.write(item.get("Interpretation", "Not available"))
+
+                st.markdown("**Possible causes**")
+                st.write(item.get("Possible Causes", "Not available"))
+
+                st.markdown("**Suggested follow-up**")
+                st.write(item.get("Follow-up", "Discuss with a healthcare professional."))
     else:
-        st.markdown(str(insights))
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.info(
+            "No individual test explanations were returned. "
+            "Verify the extracted values and reference ranges."
+        )
+
+    # General safety notes
+    section("Important notes")
+
+    general_notes = insights.get("general_notes", [])
+
+    if isinstance(general_notes, list) and general_notes:
+        for note in general_notes:
+            st.markdown(f"- {safe_text(note)}")
+    else:
+        st.markdown(
+            "- Possible causes are not confirmed diagnoses.\n"
+            "- Verify all values against the original laboratory report.\n"
+            "- Consult a qualified healthcare professional."
+        )
 
     st.markdown("""
     <div class="warning-box">
-        AI-generated condition assessments require clinical interpretation.
-        Do not use this result alone to start, stop, or change medication.
+        <b>Important:</b> Do not use this interpretation alone to diagnose
+        a condition or start, stop, or change medication.
     </div>
     """, unsafe_allow_html=True)
+else:
+    st.info("Generate clinical insights to view the explanation for this report.")
+                    
 
 
 # =========================================================
