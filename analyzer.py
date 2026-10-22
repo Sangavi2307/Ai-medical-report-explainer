@@ -54,15 +54,15 @@ RANGE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+
 UNIT_PATTERN = re.compile(
-    r"\b(?:g\s*/\s*d[l1]|g\s*/\s*l|mg\s*/\s*d[l1]|mg\s*/\s*l|"
-    r"mmol\s*/\s*l|umol\s*/\s*l|µmol\s*/\s*l|"
+    r"(?:g\s*/\s*d[l1]|g\s*/\s*l|mg\s*/\s*d[l1]|mg\s*/\s*l|"
+    r"mmol\s*/\s*l|µmol\s*/\s*l|umol\s*/\s*l|"
     r"ng\s*/\s*ml|pg\s*/\s*ml|u\s*/\s*l|iu\s*/\s*l|"
-    r"miu\s*/\s*l|fl|pg|bpm|mm\s*/\s*hr?|"
-    r"lakh\s*/\s*[µu]l|/\s*[µu]l|%)\b?",
+    r"miu\s*/\s*l|fl|pg|ml|bpm|mm\s*/\s*h[r]?|"
+    r"/\s*µl|/\s*ul|%|lakh\s*/\s*µl|lakh\s*/\s*ul)",
     re.IGNORECASE,
 )
-
 
 def clean_line(value):
     value = str(value).replace("\u00a0", " ")
