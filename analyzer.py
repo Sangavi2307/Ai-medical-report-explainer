@@ -4,13 +4,27 @@ import pandas as pd
 
 
 TEST_ALIASES = {
-    "Fasting Blood Sugar": ["fasting blood sugar", "fasting glucose", "fbs"],
-    "Random Blood Sugar": ["random blood sugar", "random glucose", "rbs"],
     "Hemoglobin": ["hemoglobin", "haemoglobin", "hb"],
-    "WBC Count": ["wbc count", "white blood cell count", "white blood cells", "wbc"],
+    "WBC Count": [
+        "wbc count",
+        "white blood cell count",
+        "white blood cells",
+        "wbc",
+    ],
     "Platelets": ["platelet count", "platelets", "thrombocyte count"],
+    "Fasting Blood Sugar": [
+        "fasting blood sugar",
+        "fasting glucose",
+        "fbs",
+    ],
+    "Random Blood Sugar": ["random blood sugar", "random glucose", "rbs"],
     "RBC Count": ["rbc count", "red blood cell count", "rbc"],
-    "HbA1c": ["hba1c", "hb a1c", "glycated hemoglobin", "glycosylated hemoglobin"],
+    "HbA1c": [
+        "hba1c",
+        "hb a1c",
+        "glycated hemoglobin",
+        "glycosylated hemoglobin",
+    ],
     "Creatinine": ["serum creatinine", "creatinine"],
     "Urea": ["blood urea", "serum urea", "urea"],
     "Total Cholesterol": ["total cholesterol", "cholesterol"],
@@ -37,6 +51,7 @@ TEST_ALIASES = {
     "Hematocrit": ["hematocrit", "packed cell volume", "pcv"],
 }
 
+
 NUMBER_PATTERN = re.compile(
     r"(?<![A-Za-z])[-+]?\d[\d,]*(?:\.\d+)?"
 )
@@ -51,8 +66,11 @@ RANGE_PATTERN = re.compile(
 )
 
 UNIT_PATTERN = re.compile(
-    r"(%|g/dl|g/l|mg/dl|mg/l|mmol/l|µmol/l|umol/l|"
-    r"ng/ml|pg/ml|u/l|iu/l|miu/l|fl|pg|ml|bpm|mm/hr|mm/h)",
+    r"(?:g\s*/\s*d[l1]|g\s*/\s*l|mg\s*/\s*d[l1]|mg\s*/\s*l|"
+    r"mmol\s*/\s*l|µmol\s*/\s*l|umol\s*/\s*l|"
+    r"ng\s*/\s*ml|pg\s*/\s*ml|u\s*/\s*l|iu\s*/\s*l|"
+    r"miu\s*/\s*l|fl|pg|ml|bpm|mm\s*/\s*h[r]?|"
+    r"/\s*µl|/\s*ul|%|lakh\s*/\s*µl|lakh\s*/\s*ul)",
     re.IGNORECASE,
 )
 
@@ -65,15 +83,15 @@ def to_number(value):
 
 
 def extract_numbers(text):
-    numbers = []
+    values = []
 
     for match in NUMBER_PATTERN.finditer(str(text)):
-        value = to_number(match.group())
+        number = to_number(match.group())
 
-        if value is not None:
-            numbers.append((value, match.start(), match.end()))
+        if number is not None:
+            values.append((number, match.start(), match.end()))
 
-    return numbers
+    return values
 
 
 def parse_range(text):
@@ -91,19 +109,34 @@ def parse_range(text):
     return low, high, match.group(0)
 
 
+def normalize_line(line):
+    line = str(line).replace("\u00a0", " ")
+    line = re.sub(r"\s+", " ", line)
+    return line.strip()
+
+
 def find_test(line):
+    normalized = normalize_line(line).lower()
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized).strip()
+
     aliases = []
 
     for canonical, names in TEST_ALIASES.items():
         for alias in names:
             aliases.append((canonical, alias))
 
+    # Match longer test names before short names such as "hb" or "ldl".
     aliases.sort(key=lambda item: len(item[1]), reverse=True)
 
     for canonical, alias in aliases:
-        pattern = r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])"
+        alias_normalized = re.sub(
+            r"[^a-z0-9]+", " ", alias.lower()
+        ).strip()
 
-        if re.search(pattern, line, re.IGNORECASE):
+        if re.search(
+            r"(?<!\w)" + re.escape(alias_normalized) + r"(?!\w)",
+            normalized,
+        ):
             return canonical, alias
 
     return None, None
@@ -111,11 +144,11 @@ def find_test(line):
 
 def extract_unit(text):
     match = UNIT_PATTERN.search(str(text))
-    return match.group(0) if match else ""
+    return normalize_line(match.group(0)) if match else ""
 
 
 def classify_result(test_name, result, reference_range, unit=""):
-    if result is None:
+    if result is None or reference_range is None:
         return "Needs review"
 
     value = to_number(result)
@@ -123,134 +156,151 @@ def classify_result(test_name, result, reference_range, unit=""):
     if value is None:
         return "Needs review"
 
-    if reference_range:
-        if isinstance(reference_range, (tuple, list)):
-            if len(reference_range) < 2:
-                return "Needs review"
+    try:
+        low = to_number(reference_range[0])
+        high = to_number(reference_range[1])
+    except (TypeError, IndexError):
+        return "Needs review"
 
-            low = to_number(reference_range[0])
-            high = to_number(reference_range[1])
-        else:
-            parsed = parse_range(reference_range)
+    if low is None or high is None or low > high:
+        return "Needs review"
 
-            if not parsed:
-                return "Needs review"
+    if value < low:
+        return "Below range"
 
-            low, high, _ = parsed
+    if value > high:
+        return "Above range"
 
-        if low is None or high is None or low > high:
-            return "Needs review"
-
-        if value < low:
-            return "Below range"
-
-        if value > high:
-            return "Above range"
-
-        return "Within range"
-
-    if str(test_name).strip().lower() == "hba1c" and "%" in str(unit):
-        if value < 5.7:
-            return "Below diabetes screening threshold"
-        elif value < 6.5:
-            return "Prediabetes screening range"
-        else:
-            return "Above diabetes screening threshold"
-
-    return "Needs review"
+    return "Within range"
 
 
-def parse_test_line(line, extra_line=""):
-    canonical, alias = find_test(line)
-
-    if not canonical:
-        return None
-
-    alias_match = re.search(
-        r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])",
-        line,
-        re.IGNORECASE,
-    )
-
-    remainder = line[alias_match.end():] if alias_match else line
-    combined = remainder + (" " + extra_line if extra_line else "")
-
-    range_info = parse_range(combined)
-
-    if range_info:
-        low, high, range_text = range_info
-        range_match = RANGE_PATTERN.search(combined)
-
-        before_range = combined[:range_match.start()]
-        numbers_before = extract_numbers(before_range)
-
-        if numbers_before:
-            result_value = numbers_before[0][0]
-        else:
-            after_range = combined[range_match.end():]
-            numbers_after = extract_numbers(after_range)
-            result_value = numbers_after[0][0] if numbers_after else None
-
-        reference_range = (low, high, range_text)
-    else:
-        range_text = ""
-        reference_range = None
-        numbers = extract_numbers(remainder)
-
-        if not numbers and extra_line:
-            numbers = extract_numbers(extra_line)
-
-        result_value = numbers[0][0] if numbers else None
-
-    if result_value is None:
-        return None
-
-    unit = extract_unit(combined)
-
-    status = classify_result(
-        canonical,
-        result_value,
-        reference_range,
-        unit,
-    )
-
-    return {
-        "Test": canonical,
-        "Result": result_value,
-        "Unit": unit,
-        "Reference Range": range_text,
-        "Status": status,
+def is_header_or_metadata(line):
+    text = normalize_line(line).lower().rstrip(":")
+    ignored = {
+        "test",
+        "result",
+        "reference range",
+        "normal range",
+        "laboratory results",
+        "laboratory result",
+        "patient information",
+        "clinical details",
+        "assessment",
+        "advice",
+        "units",
+        "unit",
     }
+    return text in ignored
+
+
+def looks_like_result_line(line):
+    text = normalize_line(line)
+
+    if not text or is_header_or_metadata(text):
+        return False
+
+    # A range-only line must not be mistaken for the result.
+    if parse_range(text):
+        return False
+
+    numbers = extract_numbers(text)
+    return len(numbers) == 1
 
 
 def analyze_report(report_text):
-    columns = ["Test", "Result", "Unit", "Reference Range", "Status"]
+    columns = [
+        "Test",
+        "Result",
+        "Unit",
+        "Reference Range",
+        "Status",
+    ]
 
     if not report_text or not str(report_text).strip():
         return pd.DataFrame(columns=columns)
 
     lines = [
-        re.sub(r"\s+", " ", line).strip()
+        normalize_line(line)
         for line in str(report_text).splitlines()
-        if line.strip()
+        if normalize_line(line)
     ]
 
     results = []
     seen_tests = set()
 
     for index, line in enumerate(lines):
-        next_line = lines[index + 1] if index + 1 < len(lines) else ""
+        test_name, _ = find_test(line)
 
-        parsed = parse_test_line(line, next_line)
-
-        if not parsed:
+        if not test_name or test_name in seen_tests:
             continue
 
-        if parsed["Test"] in seen_tests:
+        # This sample format places the result and reference range
+        # on separate lines after the test name.
+        result_index = None
+        result_value = None
+        result_line = ""
+
+        for j in range(index + 1, min(index + 5, len(lines))):
+            candidate = lines[j]
+
+            # Stop if the next test starts before we find this result.
+            next_test, _ = find_test(candidate)
+            if next_test:
+                break
+
+            if is_header_or_metadata(candidate):
+                continue
+
+            if looks_like_result_line(candidate):
+                nums = extract_numbers(candidate)
+                result_value = nums[0][0]
+                result_index = j
+                result_line = candidate
+                break
+
+        if result_index is None:
             continue
 
-        seen_tests.add(parsed["Test"])
-        results.append(parsed)
+        # Search after the result for its range, stopping at another test.
+        range_text = ""
+        reference_range = None
+
+        for j in range(result_index + 1, min(result_index + 4, len(lines))):
+            candidate = lines[j]
+
+            next_test, _ = find_test(candidate)
+            if next_test:
+                break
+
+            parsed_range = parse_range(candidate)
+
+            if parsed_range:
+                low, high, range_text = parsed_range
+                reference_range = (low, high)
+                break
+
+        combined_text = result_line
+        if range_text:
+            combined_text += " " + range_text
+
+        unit = extract_unit(combined_text)
+
+        status = classify_result(
+            test_name,
+            result_value,
+            reference_range,
+            unit,
+        )
+
+        results.append({
+            "Test": test_name,
+            "Result": result_value,
+            "Unit": unit,
+            "Reference Range": range_text,
+            "Status": status,
+        })
+
+        seen_tests.add(test_name)
 
     return pd.DataFrame(results, columns=columns)
 
@@ -265,21 +315,24 @@ def extract_patient_fields(report_text):
 
     patterns = {
         "patient_name": [
-            r"(?:patient\s*name|name)\s*[:\-]\s*([^\n\r]+)",
+            r"Patient\s*Name\s*[:\-]?\s*\n?\s*([^\n\r]+)",
+            r"\bName\s*[:\-]\s*([^\n\r]+)",
         ],
         "age": [
-            r"\bage\s*[:\-]\s*(\d{1,3})\s*(?:years?|yrs?)?\b",
+            r"\bAge\s*[/:\-]?\s*(\d{1,3})\s*(?:years?|yrs?)?\b",
         ],
         "gender": [
-            r"\b(?:gender|sex)\s*[:\-]\s*(male|female|other)\b",
+            r"\b(?:gender|sex)\s*[:/\-]?\s*(?:\d{1,3}\s*years?\s*/\s*)?"
+            r"(male|female|other)\b",
         ],
         "report_date": [
-            r"(?:report\s*date|collection\s*date|date)\s*[:\-]\s*"
-            r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
+            r"(?:report\s*date|collection\s*date|date\s*of\s*visit|date)"
+            r"\s*[:\-]?\s*\n?\s*"
+            r"(\d{1,2}\s+[A-Za-z]+\s+\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
         ],
         "patient_id": [
             r"(?:patient\s*id|patient\s*no|mrn|registration\s*no)"
-            r"\s*[:\-]\s*([A-Za-z0-9\-\/]+)",
+            r"\s*[:\-]?\s*\n?\s*([A-Za-z0-9\-\/]+)",
         ],
     }
 
