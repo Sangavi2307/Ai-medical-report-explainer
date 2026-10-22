@@ -3,9 +3,9 @@ import re
 import pandas as pd
 
 
-# --------------------------------------------------
+# ==================================================
 # TEST ALIASES
-# --------------------------------------------------
+# ==================================================
 
 TEST_ALIASES = {
     "Fasting Blood Sugar": ["fasting blood sugar", "fasting glucose", "fbs"],
@@ -14,7 +14,7 @@ TEST_ALIASES = {
     "WBC Count": ["wbc count", "white blood cell count", "white blood cells", "wbc"],
     "Platelets": ["platelet count", "platelets", "thrombocyte count"],
     "RBC Count": ["rbc count", "red blood cell count", "rbc"],
-    "HbA1c": ["hba1c", "glycated hemoglobin"],
+    "HbA1c": ["hba1c", "hb a1c", "glycated hemoglobin", "glycosylated hemoglobin"],
     "Creatinine": ["serum creatinine", "creatinine"],
     "Urea": ["blood urea", "serum urea", "urea"],
     "Total Cholesterol": ["total cholesterol", "cholesterol"],
@@ -42,58 +42,55 @@ TEST_ALIASES = {
 }
 
 
-# --------------------------------------------------
-# DETAILED TEST INFORMATION
-# --------------------------------------------------
+# ==================================================
+# BUILT-IN TEST EXPLANATIONS
+# ==================================================
 
 TEST_INFO = {
     "Hemoglobin": {
         "meaning": "Measures the oxygen-carrying protein in red blood cells.",
         "importance": (
-            "Hemoglobin carries oxygen from the lungs to body tissues. "
-            "It supports normal energy production and organ function."
+            "Hemoglobin carries oxygen from the lungs to body tissues."
         ),
         "low": [
             "Iron deficiency",
             "Vitamin B12 or folate deficiency",
             "Blood loss",
-            "Some chronic illnesses"
+            "Some chronic illnesses",
         ],
         "high": [
             "Dehydration",
             "Living at high altitude",
-            "Some lung or blood conditions"
+            "Some lung or blood conditions",
         ],
         "follow_up": (
-            "A clinician may review RBC count, hematocrit, MCV, iron studies, "
-            "symptoms, and medical history."
+            "A clinician may review the RBC count, hematocrit, MCV, iron "
+            "studies, symptoms, and medical history."
         ),
     },
-
     "WBC Count": {
         "meaning": "Measures white blood cells that help defend the body.",
         "importance": (
-            "White blood cells are part of the immune system. They help "
+            "White blood cells are part of the immune system and help "
             "the body respond to infections and other immune challenges."
         ),
         "low": [
             "Some viral infections",
             "Certain medicines",
-            "Some nutritional or bone marrow conditions"
+            "Some nutritional or bone marrow conditions",
         ],
         "high": [
             "Infections",
             "Inflammation",
-            "Physical stress or certain medicines"
+            "Physical stress or certain medicines",
         ],
         "follow_up": (
             "The WBC differential, symptoms, medicines, and previous blood "
             "results may help explain an abnormal result."
         ),
     },
-
     "Platelets": {
-        "meaning": "Measures the blood cells that help blood clot.",
+        "meaning": "Measures blood cells that help blood clot.",
         "importance": (
             "Platelets help form clots that reduce bleeding when a blood "
             "vessel is injured."
@@ -102,65 +99,63 @@ TEST_INFO = {
             "Some infections",
             "Certain medicines",
             "Immune-related conditions",
-            "Reduced platelet production"
+            "Reduced platelet production",
         ],
         "high": [
             "Recent infection or inflammation",
             "Iron deficiency",
-            "Other reactive or blood-related conditions"
+            "Other reactive or blood-related conditions",
         ],
         "follow_up": (
             "Review the platelet count, previous results, bleeding or bruising "
             "symptoms, and other blood count findings with a clinician."
         ),
     },
-
     "Fasting Blood Sugar": {
         "meaning": "Measures blood glucose after fasting.",
         "importance": (
-            "Glucose is an important energy source. This test helps assess "
-            "blood sugar regulation when the fasting conditions are correct."
+            "This test helps assess blood sugar regulation when fasting "
+            "conditions are correct."
         ),
         "low": [
             "Some diabetes medicines",
             "Prolonged fasting",
-            "Some hormonal or other medical conditions"
+            "Some hormonal or other medical conditions",
         ],
         "high": [
             "Diabetes or prediabetes",
             "Recent illness or stress",
-            "Some medicines"
+            "Some medicines",
         ],
         "follow_up": (
-            "Confirm fasting duration. A clinician may recommend repeat testing "
-            "or HbA1c where appropriate."
+            "Confirm fasting duration. A clinician may recommend repeat "
+            "testing or HbA1c where appropriate."
         ),
     },
-
     "Random Blood Sugar": {
         "meaning": "Measures blood glucose at the time the sample is taken.",
         "importance": (
-            "This test does not require fasting. Results can be affected by "
-            "meals, timing, illness, and medicines."
+            "Results can be affected by meals, timing, illness, and medicines."
         ),
         "low": [
             "Some glucose-lowering medicines",
             "Long periods without food",
-            "Other medical conditions"
+            "Other medical conditions",
         ],
         "high": [
             "A recent meal",
             "Illness or physical stress",
-            "Diabetes or other causes of elevated glucose"
+            "Diabetes or other causes of elevated glucose",
         ],
         "follow_up": (
             "Consider meal timing, symptoms, and whether confirmatory glucose "
             "or HbA1c testing is appropriate."
         ),
     },
-
     "HbA1c": {
-        "meaning": "Estimates average blood glucose over roughly two to three months.",
+        "meaning": (
+            "Estimates average blood glucose over roughly two to three months."
+        ),
         "importance": (
             "HbA1c measures glucose attached to hemoglobin and is used to "
             "assess longer-term blood sugar levels."
@@ -168,39 +163,38 @@ TEST_INFO = {
         "low": [
             "Some conditions that shorten red blood cell lifespan",
             "Certain types of anemia or recent blood loss",
-            "Low average glucose in some circumstances"
         ],
         "high": [
             "Persistently elevated blood glucose",
-            "Diabetes or inadequate glucose control"
+            "Diabetes or inadequate glucose control",
         ],
         "follow_up": (
-            "Discuss diagnostic criteria with a clinician. Anemia and some "
-            "other conditions can affect HbA1c accuracy."
+            "Discuss the result with a clinician. Anemia and some other "
+            "conditions can affect HbA1c accuracy."
         ),
     },
-
     "Creatinine": {
-        "meaning": "Measures a waste product commonly used to assess kidney function.",
+        "meaning": (
+            "Measures a waste product commonly used to assess kidney function."
+        ),
         "importance": (
-            "Creatinine is produced by muscles and removed mainly by the kidneys. "
-            "It is often considered together with estimated GFR (eGFR)."
+            "Creatinine is produced by muscles and removed mainly by the "
+            "kidneys. It is often considered with estimated GFR (eGFR)."
         ),
         "low": [
             "Lower muscle mass",
-            "Pregnancy or other physiological factors"
+            "Pregnancy or other physiological factors",
         ],
         "high": [
             "Reduced kidney filtration",
             "Dehydration",
-            "Some medicines or recent intense exercise"
+            "Some medicines or recent intense exercise",
         ],
         "follow_up": (
             "Review eGFR, urine tests, hydration, medicines, previous results, "
             "and clinical history with a healthcare professional."
         ),
     },
-
     "TSH": {
         "meaning": "Measures thyroid-stimulating hormone.",
         "importance": (
@@ -210,61 +204,62 @@ TEST_INFO = {
         "low": [
             "An overactive thyroid",
             "Some thyroid medicines",
-            "Other medical conditions"
+            "Other medical conditions",
         ],
         "high": [
             "An underactive thyroid",
-            "Some medicines or temporary thyroid changes"
+            "Some medicines or temporary thyroid changes",
         ],
         "follow_up": (
-            "Review free T4, symptoms, medicines, relevant pregnancy status, "
-            "and the laboratory reference range."
+            "Review free T4, symptoms, medicines, and the laboratory "
+            "reference range with a clinician."
         ),
     },
-
     "Vitamin D": {
-        "meaning": "Usually measures 25-hydroxyvitamin D to assess vitamin D status.",
+        "meaning": (
+            "Usually measures 25-hydroxyvitamin D to assess vitamin D status."
+        ),
         "importance": (
             "Vitamin D supports calcium absorption and bone and muscle health."
         ),
         "low": [
             "Limited sun exposure",
             "Low dietary intake",
-            "Reduced absorption or some medical conditions"
+            "Reduced absorption or some medical conditions",
         ],
         "high": [
             "Excessive vitamin D supplementation",
-            "Some less common medical conditions"
+            "Some less common medical conditions",
         ],
         "follow_up": (
             "Review the exact value, unit, calcium result, supplement use, "
             "and medical history before changing supplements."
         ),
     },
-
     "Total Cholesterol": {
         "meaning": "Measures the total cholesterol in the blood.",
         "importance": (
-            "Cholesterol is needed by the body, but lipid levels help assess "
-            "cardiovascular risk when considered together."
+            "Lipid levels help assess cardiovascular risk when considered "
+            "together with other health information."
         ),
         "low": [
             "Some nutritional or medical conditions",
-            "Certain medicines"
+            "Certain medicines",
         ],
         "high": [
             "Dietary and genetic factors",
             "Some medical conditions",
-            "Other cardiovascular risk factors"
+            "Other cardiovascular risk factors",
         ],
         "follow_up": (
             "Review LDL, HDL, triglycerides, blood pressure, diabetes status, "
             "and family history with a healthcare professional."
         ),
     },
-
     "Vitamin B12": {
-        "meaning": "Measures vitamin B12, which supports nerves and red blood cells.",
+        "meaning": (
+            "Measures vitamin B12, which supports nerves and red blood cells."
+        ),
         "importance": (
             "Vitamin B12 is needed for normal nerve function and blood cell "
             "production."
@@ -272,11 +267,11 @@ TEST_INFO = {
         "low": [
             "Low dietary intake",
             "Reduced absorption",
-            "Some medicines or digestive conditions"
+            "Some medicines or digestive conditions",
         ],
         "high": [
             "Vitamin B12 supplements",
-            "Some liver or other medical conditions"
+            "Some liver or other medical conditions",
         ],
         "follow_up": (
             "A clinician may consider symptoms, blood counts, diet, supplements, "
@@ -286,20 +281,20 @@ TEST_INFO = {
 }
 
 
-# --------------------------------------------------
-# TEST IDENTIFICATION
-# --------------------------------------------------
+# ==================================================
+# HELPER FUNCTIONS
+# ==================================================
 
 def identify_test(test_name):
     text = str(test_name or "").strip().lower()
 
-    for canonical in TEST_ALIASES:
+    for canonical, aliases in TEST_ALIASES.items():
         if text == canonical.lower():
             return canonical
 
     aliases = sorted(
         [
-            (alias, canonical)
+            (alias.lower(), canonical)
             for canonical, names in TEST_ALIASES.items()
             for alias in names
         ],
@@ -316,42 +311,54 @@ def identify_test(test_name):
 
 
 def normalize_status(status):
-    status = str(status or "").strip().lower()
+    text = str(status or "").strip().lower()
 
-    if status in {"within range", "normal", "within normal range"}:
+    if text in {"within range", "normal", "within normal range"}:
         return "normal"
 
-    if status in {"below range", "low", "below normal"}:
+    if text in {"below range", "low", "below normal"}:
         return "low"
 
-    if status in {"above range", "high", "above normal"}:
+    if text in {"above range", "high", "above normal"}:
         return "high"
 
     return "unknown"
 
 
-# --------------------------------------------------
-# DETAILED EXPLANATION FOR ONE TEST
-# --------------------------------------------------
+def readable_causes(causes):
+    """Convert a causes list to a readable string."""
+    if isinstance(causes, (list, tuple)):
+        valid = [str(item).strip() for item in causes if str(item).strip()]
+        return "; ".join(valid) if valid else "No specific causes listed for this result."
+
+    if isinstance(causes, str) and causes.strip():
+        return causes.strip()
+
+    return "No specific causes listed for this result."
+
+
+# ==================================================
+# EXPLAIN ONE TEST
+# ==================================================
 
 def explain_test(
     test_name,
     result,
     unit="",
     reference_range="",
-    status=""
+    status="",
 ):
     canonical = identify_test(test_name)
     info = TEST_INFO.get(canonical, {})
 
     meaning = info.get(
         "meaning",
-        "This test does not yet have a detailed entry in the built-in library."
+        "This test does not yet have a detailed entry in the built-in library.",
     )
 
     importance = info.get(
         "importance",
-        "Interpret this test using its laboratory reference range and clinical context."
+        "Interpret this test using its laboratory reference range and clinical context.",
     )
 
     normalized = normalize_status(status)
@@ -361,30 +368,37 @@ def explain_test(
             "The report marks this result within its reference range. "
             "This does not rule out every medical condition."
         )
-        causes = []
+        causes = (
+            "No specific causes are listed because this result is marked "
+            "within the supplied reference range."
+        )
 
     elif normalized == "low":
         interpretation = (
             "The report marks this result below its reference range. "
-            "The significance depends on the actual value and clinical context."
+            "Its significance depends on the value and clinical context."
         )
-        causes = info.get("low", [])
+        causes = readable_causes(info.get("low", []))
 
     elif normalized == "high":
         interpretation = (
             "The report marks this result above its reference range. "
-            "The significance depends on the actual value and clinical context."
+            "Its significance depends on the value and clinical context."
         )
-        causes = info.get("high", [])
+        causes = readable_causes(info.get("high", []))
 
     else:
         interpretation = (
-            "The result could not be classified reliably. Check the original "
-            "report and reference range."
+            "This result could not be classified reliably. Verify the "
+            "extracted value, unit, and reference range against the original report."
         )
-        causes = []
+        causes = (
+            "No specific causes are listed because the result has not "
+            "been reliably classified."
+        )
 
-    result_text = str(result if result is not None else "")
+    result_text = str(result if result is not None else "Not available").strip()
+
     if unit and str(unit).strip():
         result_text += " " + str(unit).strip()
 
@@ -399,17 +413,18 @@ def explain_test(
         "Possible Causes": causes,
         "Follow-up": info.get(
             "follow_up",
-            "Discuss unexpected results with a qualified healthcare professional."
+            "Discuss unexpected results with a qualified healthcare professional.",
         ),
     }
 
 
-# --------------------------------------------------
-# DETAILED EXPLANATION FOR THE WHOLE REPORT
-# --------------------------------------------------
+# ==================================================
+# EXPLAIN WHOLE REPORT
+# ==================================================
 
 def explain_report(report_text="", results_df=None, patient_fields=None):
-    patient_fields = patient_fields or {}
+    if not isinstance(patient_fields, dict):
+        patient_fields = {}
 
     if not isinstance(results_df, pd.DataFrame):
         results_df = pd.DataFrame()
@@ -432,20 +447,25 @@ def explain_report(report_text="", results_df=None, patient_fields=None):
             )
         )
 
-    counts = {"normal": 0, "low": 0, "high": 0, "unknown": 0}
+    counts = {
+        "normal": 0,
+        "low": 0,
+        "high": 0,
+        "unknown": 0,
+    }
 
     for item in detailed_results:
         counts[normalize_status(item["Status"])] += 1
 
-    summary = (
-        f"Reviewed {len(detailed_results)} extracted result(s): "
-        f"{counts['normal']} within range, "
-        f"{counts['low']} below range, "
-        f"{counts['high']} above range, and "
-        f"{counts['unknown']} needing review."
-    )
-
-    if not detailed_results:
+    if detailed_results:
+        summary = (
+            f"Reviewed {len(detailed_results)} extracted result(s): "
+            f"{counts['normal']} within range, "
+            f"{counts['low']} below range, "
+            f"{counts['high']} above range, and "
+            f"{counts['unknown']} needing review."
+        )
+    else:
         summary = (
             "No laboratory results were extracted. Check the uploaded report "
             "and the analyzer output."
@@ -458,7 +478,7 @@ def explain_report(report_text="", results_df=None, patient_fields=None):
         "general_notes": [
             "These explanations use a built-in information library, not a generative AI model.",
             "Possible causes are not a diagnosis.",
-            "Reference ranges can vary between laboratories and patient groups.",
+            "Reference ranges vary between laboratories and patient groups.",
             "Verify extracted values against the original report.",
             "Consult a qualified healthcare professional about medical results.",
         ],
