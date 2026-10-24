@@ -1,365 +1,485 @@
 
+"""
+analyzer.py
+Conservative laboratory report analyzer for the
+AI Medical Report Explainer application.
+
+Important:
+- Does not diagnose diseases.
+- Does not invent missing values or reference ranges.
+- Does not automatically correct decimal/OCR errors.
+- Marks ambiguous results for manual review.
+"""
+
 import re
-import pandas as pd
+from typing import Any
 
 
+# Common names and abbreviations found in laboratory reports.
 TEST_ALIASES = {
-    "Hemoglobin": ["hemoglobin", "haemoglobin", "hb"],
-    "WBC Count": [
-        "white blood cell count", "white blood cells",
-        "wbc count", "total leukocyte count",
-        "total leucocyte count", "tlc", "wbc"
+    "Hemoglobin": [
+        "hemoglobin", "haemoglobin", "hb", "hgb"
+    ],
+    "WBC": [
+        "wbc", "white blood cell count", "white blood cells",
+        "total leukocyte count", "total leucocyte count", "tlc"
+    ],
+    "RBC": [
+        "rbc", "red blood cell count", "red blood cells",
+        "erythrocyte count"
     ],
     "Platelets": [
-        "platelet count", "platelets", "thrombocyte count"
+        "platelet count", "platelets", "plt"
     ],
-    "Fasting Blood Sugar": [
-        "fasting blood sugar", "fasting blood glucose",
-        "fasting glucose", "fbs"
+    "Hematocrit": [
+        "hematocrit", "haematocrit", "hct", "pcv",
+        "packed cell volume"
     ],
-    "Random Blood Sugar": [
-        "random blood sugar", "random blood glucose",
-        "random glucose", "rbs"
+    "MCV": [
+        "mcv", "mean corpuscular volume"
     ],
-    "RBC Count": [
-        "red blood cell count", "rbc count", "rbc"
+    "MCH": [
+        "mch", "mean corpuscular hemoglobin",
+        "mean corpuscular haemoglobin"
+    ],
+    "MCHC": [
+        "mchc", "mean corpuscular hemoglobin concentration",
+        "mean corpuscular haemoglobin concentration"
+    ],
+    "RDW": [
+        "rdw", "red cell distribution width"
+    ],
+    "Neutrophils": [
+        "neutrophils", "neutrophil"
+    ],
+    "Lymphocytes": [
+        "lymphocytes", "lymphocyte"
+    ],
+    "Eosinophils": [
+        "eosinophils", "eosinophil"
+    ],
+    "Monocytes": [
+        "monocytes", "monocyte"
+    ],
+    "Basophils": [
+        "basophils", "basophil"
+    ],
+    "Fasting Glucose": [
+        "fasting blood glucose", "fasting glucose",
+        "fasting blood sugar", "fbs"
+    ],
+    "Random Glucose": [
+        "random blood glucose", "random glucose",
+        "random blood sugar", "rbs"
     ],
     "HbA1c": [
-        "hba1c", "hb a1c", "glycated hemoglobin",
+        "hba1c", "glycated hemoglobin",
         "glycosylated hemoglobin"
     ],
-    "Creatinine": ["serum creatinine", "creatinine"],
-    "Urea": ["blood urea", "serum urea", "urea"],
-    "Total Cholesterol": ["total cholesterol", "cholesterol"],
-    "LDL Cholesterol": ["ldl cholesterol", "ldl"],
-    "HDL Cholesterol": ["hdl cholesterol", "hdl"],
-    "Triglycerides": ["triglycerides", "triglyceride"],
-    "Sodium": ["serum sodium", "sodium"],
-    "Potassium": ["serum potassium", "potassium"],
-    "Calcium": ["serum calcium", "calcium"],
-    "Bilirubin": ["total bilirubin", "bilirubin"],
-    "ALT": ["alanine aminotransferase", "sgpt", "alt"],
-    "AST": ["aspartate aminotransferase", "sgot", "ast"],
-    "TSH": ["thyroid stimulating hormone", "tsh"],
-    "Vitamin D": ["25-oh vitamin d", "vitamin d"],
-    "Vitamin B12": ["vitamin b12", "b12"],
-    "ESR": ["erythrocyte sedimentation rate", "esr"],
-    "CRP": ["c-reactive protein", "c reactive protein", "crp"],
-    "Uric Acid": ["serum uric acid", "uric acid"],
-    "Albumin": ["serum albumin", "albumin"],
-    "Total Protein": ["total protein"],
-    "MCV": ["mean corpuscular volume", "mcv"],
-    "MCH": ["mean corpuscular hemoglobin", "mch"],
-    "MCHC": [
-        "mean corpuscular hemoglobin concentration", "mchc"
+    "Creatinine": [
+        "creatinine", "serum creatinine"
     ],
-    "Hematocrit": ["hematocrit", "packed cell volume", "pcv"],
+    "Urea": [
+        "blood urea", "serum urea", "urea"
+    ],
+    "BUN": [
+        "bun", "blood urea nitrogen"
+    ],
+    "Uric Acid": [
+        "uric acid", "serum uric acid"
+    ],
+    "Total Cholesterol": [
+        "total cholesterol", "cholesterol total"
+    ],
+    "HDL Cholesterol": [
+        "hdl cholesterol", "hdl-c", "hdl"
+    ],
+    "LDL Cholesterol": [
+        "ldl cholesterol", "ldl-c", "ldl"
+    ],
+    "Triglycerides": [
+        "triglycerides", "triglyceride", "tg"
+    ],
+    "Total Bilirubin": [
+        "total bilirubin", "bilirubin total"
+    ],
+    "Direct Bilirubin": [
+        "direct bilirubin", "bilirubin direct"
+    ],
+    "AST": [
+        "ast", "sgot", "aspartate aminotransferase"
+    ],
+    "ALT": [
+        "alt", "sgpt", "alanine aminotransferase"
+    ],
+    "ALP": [
+        "alp", "alkaline phosphatase"
+    ],
+    "Total Protein": [
+        "total protein", "serum total protein"
+    ],
+    "Albumin": [
+        "albumin", "serum albumin"
+    ],
+    "Globulin": [
+        "globulin", "serum globulin"
+    ],
+    "Calcium": [
+        "calcium", "serum calcium"
+    ],
+    "Sodium": [
+        "sodium", "serum sodium", "na"
+    ],
+    "Potassium": [
+        "potassium", "serum potassium", "k"
+    ],
+    "Chloride": [
+        "chloride", "serum chloride"
+    ],
+    "TSH": [
+        "tsh", "thyroid stimulating hormone",
+        "thyroid-stimulating hormone"
+    ],
+    "T3": [
+        "total t3", "free t3", "triiodothyronine"
+    ],
+    "T4": [
+        "total t4", "free t4", "thyroxine"
+    ],
+    "Vitamin D": [
+        "25-oh vitamin d", "25 oh vitamin d",
+        "vitamin d", "25-hydroxy vitamin d"
+    ],
+    "Vitamin B12": [
+        "vitamin b12", "vit b12", "cobalamin"
+    ],
+    "Ferritin": [
+        "ferritin", "serum ferritin"
+    ],
+    "CRP": [
+        "crp", "c-reactive protein", "c reactive protein"
+    ],
+    "ESR": [
+        "esr", "erythrocyte sedimentation rate"
+    ],
+    "Iron": [
+        "serum iron", "iron"
+    ],
 }
 
-COLUMNS = [
-    "Test", "Result", "Unit", "Reference Range", "Status"
-]
 
-NUMBER = r"[-+]?\d[\d,]*(?:\.\d+)?"
+# A conservative numeric pattern. Commas are allowed in numbers.
+NUMBER = r"[<>≤≥]?\s*-?\d[\d,]*(?:\.\d+)?"
 
-RANGE_PATTERN = re.compile(
-    rf"(?<![\w.])({NUMBER})\s*(?:-|–|—|to)\s*({NUMBER})(?![\d.])",
+# Examples: 12-16, 12.0 - 15.5, < 200, >= 40
+RANGE_RE = re.compile(
+    rf"(?<!\w)(?:"
+    rf"{NUMBER}\s*(?:-|–|—|to)\s*{NUMBER}"
+    rf"|[<>≤≥]\s*\d[\d,]*(?:\.\d+)?"
+    rf"|(?:less than|greater than|up to|at least)\s*"
+    rf"\d[\d,]*(?:\.\d+)?"
+    rf")",
     re.IGNORECASE,
 )
 
-UNIT_PATTERN = re.compile(
-    r"(?:"
-    r"g\s*/\s*d[l1]|g\s*/\s*l|"
-    r"mg\s*/\s*d[l1]|mg\s*/\s*l|"
-    r"mmol\s*/\s*l|µmol\s*/\s*l|umol\s*/\s*l|"
-    r"ng\s*/\s*ml|pg\s*/\s*ml|"
-    r"u\s*/\s*l|iu\s*/\s*l|miu\s*/\s*l|"
-    r"cells?\s*/\s*(?:cumm|mm3|mm\^?3|µl|ul)|"
-    r"lakh\s*/\s*(?:cumm|mm3|µl|ul)|"
-    r"fl|pg|bpm|mm\s*/\s*hr?|%"
-    r")",
+VALUE_RE = re.compile(
+    rf"(?<![\w/])({NUMBER})(?![\w/])",
+    re.IGNORECASE,
+)
+
+UNIT_RE = re.compile(
+    r"\b("
+    r"mg/dl|mg/l|g/dl|g/l|mmol/l|umol/l|µmol/l|"
+    r"iu/l|u/l|miu/l|uiu/ml|ng/ml|ng/dl|pg/ml|pg/dl|"
+    r"pmol/l|nmol/l|mmol/mol|%"
+    r"|fl|pg|cells/cumm|cells/mm3|cells/µl|cells/ul|"
+    r"million/cumm|million/µl|million/ul|"
+    r"lakh/cumm|lakhs/cumm|"
+    r"10\^?\s*\d+\s*/\s*[a-zµ0-9]+"
+    r")\b",
     re.IGNORECASE,
 )
 
 
-def clean_line(value):
-    value = str(value).replace("\u00a0", " ")
-    value = value.replace("−", "-").replace("：", ":")
-    return re.sub(r"\s+", " ", value).strip()
+def _clean_number(value: str) -> str:
+    """Normalize only digit-grouping commas, never decimal points."""
+    value = value.strip().replace(" ", "")
+    value = value.replace(",", "")
+    return value
 
 
-def number_value(value):
+def _to_float(value: str):
+    """Convert an ordinary numeric result to float; limits stay as text."""
+    cleaned = _clean_number(value)
+    if cleaned.startswith(("<", ">", "≤", "≥")):
+        return None
     try:
-        return float(str(value).replace(",", "").strip())
+        return float(cleaned)
     except (TypeError, ValueError):
         return None
 
 
-def normalize_text(value):
-    return re.sub(
-        r"[^a-z0-9]+", " ", clean_line(value).lower()
-    ).strip()
+def _normalize_text(text: str) -> str:
+    """Normalize common OCR spacing while preserving decimal points."""
+    text = str(text or "")
+    text = text.replace("\x00", " ")
+    text = text.replace("\u00a0", " ")
+    text = text.replace("≤", "<=")
+    text = text.replace("≥", ">=")
+    text = text.replace("−", "-")
+    text = text.replace("–", "-")
+    text = text.replace("—", "-")
+    text = re.sub(r"[ \t]+", " ", text)
+    return text
 
 
-def find_test(line):
-    normalized = normalize_text(line)
+def _find_test(line: str):
+    """Return the best matching test name and matched alias."""
+    lowered = line.lower()
+
     matches = []
 
-    for test_name, aliases in TEST_ALIASES.items():
+    for canonical, aliases in TEST_ALIASES.items():
         for alias in aliases:
-            alias_normalized = normalize_text(alias)
-
-            if re.search(
-                r"(?<!\w)" + re.escape(alias_normalized) + r"(?!\w)",
-                normalized,
-            ):
-                matches.append((test_name, len(alias_normalized)))
+            # Require word boundaries so, for example, "na" does not
+            # match arbitrary letters inside another word.
+            pattern = r"(?<!\w)" + re.escape(alias) + r"(?!\w)"
+            match = re.search(pattern, lowered, re.IGNORECASE)
+            if match:
+                matches.append(
+                    (len(alias), match.start(), canonical, alias, match)
+                )
 
     if not matches:
         return None
 
-    longest = max(length for _, length in matches)
-    best = {
-        name for name, length in matches if length == longest
-    }
-
-    return next(iter(best)) if len(best) == 1 else None
+    # Prefer the longest alias, avoiding short aliases taking precedence.
+    matches.sort(key=lambda item: (-item[0], item[1]))
+    _, _, canonical, alias, match = matches[0]
+    return canonical, alias, match
 
 
-def find_test_match(line, test_name):
-    matches = []
+def _extract_range(line: str, test_match):
+    """Extract a reference range only from the current row."""
+    candidates = []
 
-    for alias in TEST_ALIASES.get(test_name, []):
-        pattern = re.compile(
-            r"(?<![A-Za-z0-9])"
-            + re.escape(alias)
-            + r"(?![A-Za-z0-9])",
-            re.IGNORECASE,
-        )
-        match = pattern.search(line)
+    for match in RANGE_RE.finditer(line):
+        # Do not treat the result value itself as a reference range.
+        candidates.append((match.start(), match.end(), match.group(0).strip()))
 
-        if match:
-            matches.append(match)
-
-    return max(matches, key=lambda m: len(m.group(0))) if matches else None
-
-
-def parse_range(text):
-    match = RANGE_PATTERN.search(clean_line(text))
-
-    if not match:
+    if not candidates:
         return None
 
-    low = number_value(match.group(1))
-    high = number_value(match.group(2))
+    # Prefer a range appearing after the test name.
+    after = [item for item in candidates if item[0] >= test_match.end()]
+    if after:
+        return after[0][2]
 
-    if low is None or high is None or low > high:
-        return None
-
-    return low, high, match.group(0)
-
-
-def extract_unit(text):
-    match = UNIT_PATTERN.search(clean_line(text))
-    return clean_line(match.group(0)) if match else ""
+    # A range before the test name can be a table-layout artifact.
+    # Do not guess which test it belongs to.
+    return None
 
 
-def classify_result(test_name, result, reference_range, unit=""):
-    value = number_value(result)
+def _extract_value(line: str, test_match, reference_range):
+    """
+    Extract a result from the same line as the test.
 
-    if value is None or reference_range is None:
+    A value that is indistinguishable from the reference range is not
+    guessed. Range numbers are excluded from candidate result numbers.
+    """
+    ranges = list(RANGE_RE.finditer(line))
+    excluded_spans = [(m.start(), m.end()) for m in ranges]
+
+    candidates = []
+
+    for match in VALUE_RE.finditer(line):
+        start, end = match.span()
+
+        # Skip numbers inside a detected reference range.
+        if any(start < r_end and end > r_start
+               for r_start, r_end in excluded_spans):
+            continue
+
+        # Skip numbers that occur before the test label.
+        if start < test_match.end():
+            continue
+
+        raw = match.group(1).strip()
+        candidates.append((start, end, raw))
+
+    if not candidates:
+        return None, "Result not confidently detected"
+
+    # The first numeric item after the test label is often the result,
+    # but dates/IDs can also occur. Require a reasonable position.
+    start, end, raw = candidates[0]
+
+    between = line[test_match.end():start].strip(" :|=\t")
+    if len(between) > 35:
+        return None, "Result position is ambiguous"
+
+    # If the result is followed by a recognized unit, keep the raw value.
+    # Do not scale or "repair" it.
+    return raw, None
+
+
+def _status(value_text, reference_range):
+    """Compare a numeric result with a clearly numeric two-sided range."""
+    if not value_text:
         return "Needs review"
 
-    low, high = reference_range
+    value = _to_float(value_text)
+    if value is None:
+        # Results such as <5 or >100 are preserved, not guessed.
+        return "Needs review"
+
+    if not reference_range:
+        return "Reference range unavailable"
+
+    range_match = re.fullmatch(
+        rf"\s*({NUMBER})\s*(?:-|to)\s*({NUMBER})\s*",
+        reference_range,
+        re.IGNORECASE,
+    )
+
+    if not range_match:
+        return "Needs review"
+
+    low = _to_float(range_match.group(1))
+    high = _to_float(range_match.group(2))
 
     if low is None or high is None or low > high:
         return "Needs review"
 
     if value < low:
         return "Below range"
-
     if value > high:
         return "Above range"
-
     return "Within range"
 
 
-def is_header(line):
-    return clean_line(line).lower().strip(":") in {
-        "test", "test name", "result", "results",
-        "reference range", "normal range", "units", "unit",
-        "laboratory results", "laboratory result",
-        "patient information", "clinical details"
-    }
+def _unit_for_line(line: str, value_text: str):
+    """Find a unit in the current test row only."""
+    if not value_text:
+        return ""
+
+    match = UNIT_RE.search(line)
+    return match.group(0) if match else ""
 
 
-def parse_candidate(text):
-    text = clean_line(text)
+def analyze_report(extracted_text: str) -> list[dict[str, Any]]:
+    """
+    Analyze extracted PDF/OCR text.
 
-    if not text or is_header(text):
-        return None
+    Returns a list of dictionaries for display in Streamlit.
+    Unknown tests are not invented. Ambiguous rows are skipped rather
+    than assigned incorrect values.
+    """
+    if not extracted_text or not str(extracted_text).strip():
+        return []
 
-    range_match = RANGE_PATTERN.search(text)
-    reference_range = None
-    range_text = ""
-    result_text = text
-
-    if range_match:
-        low = number_value(range_match.group(1))
-        high = number_value(range_match.group(2))
-
-        if low is not None and high is not None and low <= high:
-            reference_range = (low, high)
-            range_text = range_match.group(0)
-
-        result_text = (
-            text[:range_match.start()]
-            + " "
-            + text[range_match.end():]
-        )
-
-    unit = extract_unit(text)
-    result_text = UNIT_PATTERN.sub(" ", result_text)
-
-    result_text = re.sub(
-        r"\b(?:result|value|observed value)\b\s*[:=]?",
-        " ",
-        result_text,
-        flags=re.IGNORECASE,
-    )
-
-    numbers = re.findall(NUMBER, result_text)
-    result = number_value(numbers[0]) if len(numbers) == 1 else None
-
-    return {
-        "result": result,
-        "unit": unit,
-        "reference_range": reference_range,
-        "range_text": range_text,
-    }
-
-
-def analyze_report(report_text):
-    if not report_text or not str(report_text).strip():
-        return pd.DataFrame(columns=COLUMNS)
-
-    lines = [
-        clean_line(line)
-        for line in str(report_text).splitlines()
-        if clean_line(line)
-    ]
+    text = _normalize_text(extracted_text)
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
     results = []
     seen = set()
 
-    for index, line in enumerate(lines):
-        test_name = find_test(line)
-
-        if not test_name or test_name in seen:
+    for line in lines:
+        found = _find_test(line)
+        if not found:
             continue
 
-        match = find_test_match(line, test_name)
+        canonical, alias, test_match = found
 
-        if match:
-            own_line = (
-                line[:match.start()] + " " + line[match.end():]
-            ).strip(" :-|")
-        else:
-            own_line = line
-
-        parsed = parse_candidate(own_line)
-
-        if parsed is None:
+        # Do not parse a test when the label appears inside a long
+        # paragraph. Lab rows are usually short and structured.
+        if len(line) > 300:
             continue
 
-        # Only consider a continuation when the test's own line
-        # does not contain an unambiguous result.
-        if parsed["result"] is None:
-            continuations = []
+        reference_range = _extract_range(line, test_match)
+        value_text, value_error = _extract_value(
+            line, test_match, reference_range
+        )
 
-            for j in range(index + 1, min(index + 3, len(lines))):
-                next_line = lines[j]
+        # Avoid creating false test results from a test name alone.
+        if value_text is None:
+            continue
 
-                # Never take data from the next test.
-                if find_test(next_line):
-                    break
+        unit = _unit_for_line(line, value_text)
+        status = _status(value_text, reference_range)
 
-                if is_header(next_line):
-                    continue
-
-                item = parse_candidate(next_line)
-
-                if item and item["result"] is not None:
-                    continuations.append(item)
-
-            if len(continuations) == 1:
-                item = continuations[0]
-                parsed["result"] = item["result"]
-
-                if not parsed["unit"]:
-                    parsed["unit"] = item["unit"]
-
-                if parsed["reference_range"] is None:
-                    parsed["reference_range"] = item["reference_range"]
-                    parsed["range_text"] = item["range_text"]
-
-        result = parsed["result"]
-        unit = parsed["unit"]
-        reference_range = parsed["reference_range"]
+        key = (canonical.lower(), value_text, reference_range or "", unit.lower())
+        if key in seen:
+            continue
+        seen.add(key)
 
         results.append({
-            "Test": test_name,
-            "Result": result if result is not None else "Needs review",
-            "Unit": unit,
-            "Reference Range": parsed["range_text"],
-            "Status": classify_result(
-                test_name, result, reference_range, unit
+            "test": canonical,
+            "result": value_text,
+            "unit": unit,
+            "reference_range": reference_range or "Not provided",
+            "status": status,
+            "meaning": (
+                f"{canonical} is a laboratory measurement. "
+                "Its meaning depends on the laboratory method and clinical context."
+            ),
+            "interpretation": (
+                "This result was compared only with the reference range "
+                "detected on the same extracted line. It is not a diagnosis."
+                if status in ("Below range", "Above range", "Within range")
+                else
+                "The value or reference range could not be safely interpreted "
+                "from the extracted text. Check the original report."
+            ),
+            "source_line": line,
+            "needs_review": status in (
+                "Needs review",
+                "Reference range unavailable",
             ),
         })
 
-        seen.add(test_name)
-
-    return pd.DataFrame(results, columns=COLUMNS)
+    return results
 
 
-def extract_patient_fields(report_text):
-    fields = {}
+def extract_patient_fields(extracted_text: str) -> dict[str, str]:
+    """Extract a few common patient fields without guessing."""
+    text = _normalize_text(extracted_text)
 
-    if not report_text:
-        return fields
-
-    text = str(report_text)
-
-    patterns = {
-        "patient_name": [
-            r"Patient\s*Name\s*[:\-]?\s*\n?\s*([^\n\r]+)",
-            r"\bName\s*[:\-]\s*([^\n\r]+)",
-        ],
-        "age": [
-            r"\bAge\s*[/:\-]?\s*(\d{1,3})\s*(?:years?|yrs?)?\b",
-        ],
-        "gender": [
-            r"\b(?:gender|sex)\s*[:/\-]?\s*(male|female|other)\b",
-        ],
-        "report_date": [
-            r"(?:report\s*date|collection\s*date|date\s*of\s*visit|date)"
-            r"\s*[:\-]?\s*\n?\s*"
-            r"(\d{1,2}\s+[A-Za-z]+\s+\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
-        ],
-        "patient_id": [
-            r"(?:patient\s*id|patient\s*no|mrn|registration\s*no)"
-            r"\s*[:\-]?\s*\n?\s*([A-Za-z0-9\-\/]+)",
-        ],
+    fields = {
+        "patient_name": "",
+        "age": "",
+        "gender": "",
+        "report_date": "",
     }
 
-    for field_name, expressions in patterns.items():
-        for pattern in expressions:
-            match = re.search(
-                pattern, text, re.IGNORECASE | re.MULTILINE
-            )
+    name_match = re.search(
+        r"(?im)^\s*(?:patient\s*name|name\s*of\s*patient|patient)\s*"
+        r"[:\-]\s*([A-Za-z][A-Za-z .'-]{1,80})\s*$",
+        text,
+    )
+    if name_match:
+        fields["patient_name"] = name_match.group(1).strip()
 
-            if match:
-                fields[field_name] = match.group(1).strip()[:100]
-                break
+    age_match = re.search(
+        r"(?i)\b(?:age)\s*[:\-]?\s*(\d{1,3})\s*(?:years?|yrs?)?\b",
+        text,
+    )
+    if age_match:
+        fields["age"] = age_match.group(1)
+
+    gender_match = re.search(
+        r"(?i)\b(?:gender|sex)\s*[:\-]\s*(male|female|other)\b",
+        text,
+    )
+    if gender_match:
+        fields["gender"] = gender_match.group(1).capitalize()
+
+    date_match = re.search(
+        r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|"
+        r"\d{4}-\d{2}-\d{2})\b",
+        text,
+    )
+    if date_match:
+        fields["report_date"] = date_match.group(1)
 
     return fields
