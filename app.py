@@ -756,7 +756,7 @@ section(
     "Information extracted from the uploaded report.",
 )
 
-if patient:
+if patient and isinstance(patient, dict):
     fields = list(patient.items())[:6]
     cols = st.columns(min(3, max(1, len(fields))))
 
@@ -766,25 +766,44 @@ if patient:
                 f"""
                 <div class="panel">
                     <div class="kpi-label">
-                        {safe_text(str(key).replace('_', ' ').title())}
-                    </div>
-                    <div style="
-                        font-size:17px;
-                        font-weight:800;
-                        color:#eaf8ff;
-                        margin-top:10px;">
-                        {safe_text(value)[:120]}
+                        {safe_text(str(key).replace("_", " ").title())}
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+
+            # Render the value separately to avoid HTML closing-tag issues.
+            display_value = str(value).strip() if value is not None else ""
+
+            if not display_value or display_value.lower() in {
+                "none", "nan", "null"
+            }:
+                display_value = "Not found in report"
+
+            st.markdown(
+                f"""
+                <div style="
+                    font-size:17px;
+                    font-weight:800;
+                    color:#eaf8ff;
+                    margin-top:-12px;
+                    margin-bottom:12px;
+                    padding:0 16px 16px 16px;
+                    background:#10232e;
+                    border-radius:0 0 12px 12px;
+                    overflow-wrap:anywhere;">
+                    {safe_text(display_value)[:120]}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
 else:
     st.info(
         "Patient details could not be confidently extracted. "
         "Review the original report before interpreting the results."
     )
-
 
 # =========================================================
 # LABORATORY FINDINGS
