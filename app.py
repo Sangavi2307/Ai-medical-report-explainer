@@ -768,32 +768,67 @@ with st.expander("Debug patient information", expanded=False):
 # PATIENT OVERVIEW
 # =========================================================
 
+# =========================================================
+# PATIENT OVERVIEW
+# =========================================================
+
 section(
     "02  Patient overview",
     "Information extracted from the uploaded report.",
 )
 
-if patient and isinstance(patient, dict):
-    fields = [
-        (key, value)
-        for key, value in patient.items()
-        if value is not None
-        and str(value).strip()
-        and str(value).strip().lower() not in {
-            "none", "nan", "null", "not found in report"
-        }
+def get_patient_value(patient_data, possible_names):
+    if not isinstance(patient_data, dict):
+        return None
+
+    normalized = {
+        str(key).strip().lower().replace(" ", "_"): value
+        for key, value in patient_data.items()
+    }
+
+    for name in possible_names:
+        value = normalized.get(name)
+
+        if value is None:
+            continue
+
+        value = str(value).strip()
+
+        if value and value.lower() not in {
+            "none", "nan", "null", "not found",
+            "not found in report", "unknown"
+        }:
+            return value
+
+    return None
+
+
+if isinstance(patient, dict) and patient:
+    patient_fields_to_display = [
+        ("Patient Name", ["patient_name", "name", "patient"]),
+        ("Age", ["age", "patient_age"]),
+        ("Gender", ["gender", "sex"]),
+        ("Report Date", ["report_date", "date", "collection_date"]),
     ]
 
-    if fields:
-        cols = st.columns(min(3, len(fields)))
+    found_fields = []
 
-        for index, (key, value) in enumerate(fields[:6]):
-            with cols[index % len(cols)]:
+    for label, possible_names in patient_fields_to_display:
+        value = get_patient_value(patient, possible_names)
+
+        if value:
+            found_fields.append((label, value))
+
+    if found_fields:
+        columns = st.columns(min(4, len(found_fields)))
+
+        for index, (label, value) in enumerate(found_fields):
+            with columns[index % len(columns)]:
                 st.markdown(
                     f"""
                     <div class="panel">
                         <div class="kpi-label">
-                            {safe_text(str(key).replace("_", " ").title())}
+                            {html.escape(label)}
                         </div>
                         <div style="
                             font-size:17px;
@@ -801,96 +836,23 @@ if patient and isinstance(patient, dict):
                             color:#eaf8ff;
                             margin-top:10px;
                             overflow-wrap:anywhere;">
-                            {safe_text(value)[:120]}
+                            {html.escape(value)}
                         </div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
     else:
-        st.info(
+        st.warning(
             "Patient details could not be confidently extracted. "
-            "Check the Debug patient information section and verify "
-            "the original report."
+            "Open Debug patient information to inspect the extracted text."
         )
 else:
-    st.info(
-        "Patient details could not be confidently extracted. "
-        "Review the original report before interpreting the results."
-    )
-
-
-# =========================================================
-# LABORATORY FINDINGS
-# =========================================================
-
-section(
-    "03  Laboratory findings",
-    "Structured results extracted from this report.",
-)
-
-if results.empty:
     st.warning(
-        "No structured laboratory values were detected. "
-        "The analyzer may need additional test-pattern support."
+        "Patient details could not be confidently extracted. "
+        "Open Debug patient information to inspect the extracted text."
     )
-else:
-    low_count, high_count, normal_count = get_counts(results)
 
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-        kpi_card("Tests identified", len(results), "Extracted records")
-
-    with c2:
-        kpi_card("Below range", low_count, "Flagged by analyzer")
-
-    with c3:
-        kpi_card("Above range", high_count, "Flagged by analyzer")
-
-    with c4:
-        kpi_card("Within range", normal_count, "Flagged by analyzer")
-
-    status_col = get_status_column(results)
-
-    if status_col:
-        statuses = results[status_col].fillna("").astype(str).str.lower()
-
-        selected_filter = st.selectbox(
-            "Filter laboratory findings",
-            [
-                "All findings",
-                "Below range",
-                "Above range",
-                "Within range",
-            ],
-        )
-
-        if selected_filter == "Below range":
-            view = results[
-                statuses.str.contains(
-                    r"\b(below|low|decreased)\b", regex=True
-                )
-            ]
-        elif selected_filter == "Above range":
-            view = results[
-                statuses.str.contains(
-                    r"\b(above|high|elevated|increased)\b", regex=True
-                )
-            ]
-        elif selected_filter == "Within range":
-            view = results[
-                statuses.str.contains(
-                    r"\b(within range|normal|normal range)\b",
-                    regex=True,
-                )
-            ]
-        else:
-            view = results
-
-        st.dataframe(view, use_container_width=True, hide_index=True)
-    else:
-        st.dataframe(results, use_container_width=True, hide_index=True)
 
 
 # =========================================================
