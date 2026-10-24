@@ -261,11 +261,6 @@ html, body, [class*="css"] {
     padding: 16px;
     min-height: 105px;
     box-shadow: 5px 7px 17px #0003;
-    transition: transform .25s ease;
-}
-
-.kpi:hover {
-    transform: translateY(-4px);
 }
 
 .kpi-label {
@@ -415,55 +410,6 @@ def section(title, caption=""):
         )
 
 
-def safe_text(value):
-    if value is None:
-        return "Not available"
-    return html.escape(str(value))
-
-
-def kpi_card(label, value, note):
-    st.markdown(
-        f"""
-        <div class="kpi">
-            <div class="kpi-label">{html.escape(str(label))}</div>
-            <div class="kpi-value">{html.escape(str(value))}</div>
-            <div class="kpi-note">{html.escape(str(note))}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def get_status_column(df):
-    for col in df.columns:
-        if str(col).strip().lower() == "status":
-            return col
-    return None
-
-
-def get_counts(df):
-    status_col = get_status_column(df)
-
-    if status_col is None:
-        return 0, 0, 0
-
-    status = df[status_col].fillna("").astype(str).str.lower()
-
-    low = status.str.contains(
-        r"\b(below|low|decreased)\b", regex=True
-    ).sum()
-
-    high = status.str.contains(
-        r"\b(above|high|elevated|increased)\b", regex=True
-    ).sum()
-
-    normal = status.str.contains(
-        r"\b(within range|normal|normal range)\b", regex=True
-    ).sum()
-
-    return int(low), int(high), int(normal)
-
-
 def find_column_by_names(df, names):
     normalized = {
         str(col).strip().lower().replace("_", " "): col
@@ -478,6 +424,43 @@ def find_column_by_names(df, names):
     return None
 
 
+def get_patient_value(patient_data, possible_names):
+    if not isinstance(patient_data, dict):
+        return None
+
+    normalized = {
+        str(key).strip().lower().replace(" ", "_"): value
+        for key, value in patient_data.items()
+    }
+
+    for name in possible_names:
+        value = normalized.get(name)
+        if value is None:
+            continue
+
+        value = str(value).strip()
+        if value and value.lower() not in {
+            "none", "nan", "null", "not found", "unknown",
+        }:
+            return value
+
+    return None
+
+
+def normalize_results(results):
+    """Convert analyzer output to a DataFrame safely."""
+    if results is None:
+        return pd.DataFrame()
+
+    if isinstance(results, pd.DataFrame):
+        return results.copy()
+
+    try:
+        return pd.DataFrame(results)
+    except (TypeError, ValueError):
+        return pd.DataFrame()
+
+
 # =========================================================
 # SIDEBAR
 # =========================================================
@@ -486,30 +469,18 @@ with st.sidebar:
     st.markdown("""
     <div style="padding:8px 0 20px;">
         <div style="
-            display:flex;
-            align-items:center;
-            gap:10px;
-            font-size:26px;
-            font-weight:800;
-            color:white;">
+            display:flex;align-items:center;gap:10px;
+            font-size:26px;font-weight:800;color:white;">
             <span style="
-                display:inline-flex;
-                align-items:center;
-                justify-content:center;
-                width:42px;
-                height:42px;
-                border-radius:12px;
-                color:#071321;
-                background:linear-gradient(145deg,#35f1df,#087e9b);
-                box-shadow:0 0 16px #19d8c533;">
+                display:inline-flex;align-items:center;justify-content:center;
+                width:42px;height:42px;border-radius:12px;color:#071321;
+                background:linear-gradient(145deg,#35f1df,#087e9b);">
                 +
             </span>
             MediLens
         </div>
         <div style="
-            font-size:10px;
-            color:#B8C8D9;
-            letter-spacing:1.5px;
+            font-size:10px;color:#B8C8D9;letter-spacing:1.5px;
             margin-top:8px;">
             CLINICAL INTELLIGENCE
         </div>
@@ -688,32 +659,25 @@ if st.button(
                 "Not enough text was extracted. Upload a clearer report "
                 "or check the OCR configuration."
             )
-            st.stop()
+        else:
+            with st.spinner("Structuring laboratory results..."):
+                results = normalize_results(analyze_report(report_text))
+                patient = extract_patient_fields(report_text)
 
-        with st.spinner("Structuring medical test results..."):
-            results = analyze_report(report_text)
-            patient = extract_patient_fields(report_text)
+            st.session_state["report_data"] = {
+                "hash": file_hash,
+                "filename": uploaded_file.name,
+                "text": report_text,
+                "results": results,
+                "patient": patient if isinstance(patient, dict) else {},
+            }
 
-        # Ensure results are consistently represented as a DataFrame.
-        if results is None:
-            results = pd.DataFrame()
-        elif not isinstance(results, pd.DataFrame):
-            results = pd.DataFrame(results)
+            st.session_state.pop("report_insights", None)
+            st.session_state.pop("report_pdf", None)
 
-        # Save report information in Streamlit session state.
-        st.session_state["report_data"] = {
-            "hash": file_hash,
-            "filename": uploaded_file.name,
-            "text": report_text,
-            "results": results,
-            "patient": patient if isinstance(patient, dict) else {},
-        }
-
-        # Clear stale insights and PDF when a new analysis is run.
-        st.session_state.pop("report_insights", None)
-        st.session_state.pop("report_pdf", None)
-
-        st.success("Report extraction completed.")
+            st.success(
+                f"Extraction completed. Laboratory rows detected: {len(results)}"
+            )
 
     except Exception as error:
         st.error("Report analysis failed.")
@@ -730,43 +694,30 @@ if not data or data.get("hash") != file_hash:
     st.stop()
 
 report_text = data["text"]
-results = data["results"]
+results = normalize_results(data["results"])
 patient = data["patient"]
 
 
 # =========================================================
-# TEMPORARY PATIENT DEBUGGING
+# DEBUGGING
 # =========================================================
 
-with st.expander("Debug patient information", expanded=False):
-    st.write("Patient fields returned by analyzer.py:")
+with st.expander("Debug patient information and extracted text"):
+    st.write("Patient fields:")
+    st.json(patient if isinstance(patient, dict) else {})
 
-    if isinstance(patient, dict):
-        st.json(patient)
-    else:
-        st.warning("Patient fields are not returned as a dictionary.")
-
-    st.write("Extracted report text:")
+    st.write("Number of laboratory rows:", len(results))
+    st.write("Laboratory result data:")
+    st.dataframe(results, use_container_width=True, hide_index=True)
 
     st.text_area(
-        "Check the original extracted text",
+        "Extracted report text",
         value=report_text,
         height=300,
         disabled=True,
-        key=f"debug_report_text_{file_hash[:12]}",
+        key=f"debug_text_{file_hash[:12]}",
     )
 
-    if not patient:
-        st.warning(
-            "No patient fields were detected. If the details are visible "
-            "in the text above, the extraction patterns in analyzer.py "
-            "need to be adjusted to match the report format."
-        )
-
-
-# =========================================================
-# PATIENT OVERVIEW
-# =========================================================
 
 # =========================================================
 # PATIENT OVERVIEW
@@ -777,82 +728,136 @@ section(
     "Information extracted from the uploaded report.",
 )
 
-def get_patient_value(patient_data, possible_names):
-    if not isinstance(patient_data, dict):
-        return None
+patient_fields_to_display = [
+    ("Patient Name", ["patient_name", "name", "patient"]),
+    ("Patient ID", ["patient_id", "patient_number", "id"]),
+    ("Age", ["age", "patient_age"]),
+    ("Gender", ["gender", "sex"]),
+    ("Collection Date", ["collection_date"]),
+    ("Report Date", ["report_date", "reporting_date", "date"]),
+]
 
-    normalized = {
-        str(key).strip().lower().replace(" ", "_"): value
-        for key, value in patient_data.items()
-    }
+found_fields = []
 
-    for name in possible_names:
-        value = normalized.get(name)
+for label, names in patient_fields_to_display:
+    value = get_patient_value(patient, names)
+    if value:
+        found_fields.append((label, value))
 
-        if value is None:
-            continue
+if found_fields:
+    for start in range(0, len(found_fields), 3):
+        group = found_fields[start:start + 3]
+        columns = st.columns(len(group))
 
-        value = str(value).strip()
-
-        if value and value.lower() not in {
-            "none", "nan", "null", "not found",
-            "not found in report", "unknown"
-        }:
-            return value
-
-    return None
-
-
-if isinstance(patient, dict) and patient:
-    patient_fields_to_display = [
-        ("Patient Name", ["patient_name", "name", "patient"]),
-        ("Age", ["age", "patient_age"]),
-        ("Gender", ["gender", "sex"]),
-        ("Report Date", ["report_date", "date", "collection_date"]),
-    ]
-
-    found_fields = []
-
-    for label, possible_names in patient_fields_to_display:
-        value = get_patient_value(patient, possible_names)
-
-        if value:
-            found_fields.append((label, value))
-
-    if found_fields:
-        columns = st.columns(min(4, len(found_fields)))
-
-        for index, (label, value) in enumerate(found_fields):
-            with columns[index % len(columns)]:
+        for col, (label, value) in zip(columns, group):
+            with col:
                 st.markdown(
                     f"""
                     <div class="panel">
-                        <div class="kpi-label">
-                            {html.escape(label)}
-                        </div>
+                        <div class="kpi-label">{html.escape(label)}</div>
                         <div style="
-                            font-size:17px;
-                            font-weight:800;
-                            color:#eaf8ff;
-                            margin-top:10px;
-                            overflow-wrap:anywhere;">
+                            font-size:17px;font-weight:800;color:#eaf8ff;
+                            margin-top:10px;overflow-wrap:anywhere;">
                             {html.escape(value)}
                         </div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
-    else:
-        st.warning(
-            "Patient details could not be confidently extracted. "
-            "Open Debug patient information to inspect the extracted text."
-        )
 else:
     st.warning(
-        "Patient details could not be confidently extracted. "
-        "Open Debug patient information to inspect the extracted text."
+        "Patient information was not confidently detected. "
+        "Check the extracted text in the debug section."
     )
 
+
+# =========================================================
+# LABORATORY RESULTS TABLE
+# =========================================================
+
+section(
+    "03  Laboratory results",
+    "Extracted test values, units, reference ranges, and reported status.",
+)
+
+if not results.empty:
+    test_col = find_column_by_names(
+        results,
+        ["test", "test name", "parameter", "investigation", "name"],
+    )
+    result_col = find_column_by_names(
+        results,
+        ["result", "value", "test result", "numeric value", "observed value"],
+    )
+    unit_col = find_column_by_names(
+        results,
+        ["unit", "units"],
+    )
+    range_col = find_column_by_names(
+        results,
+        ["reference_range", "reference range", "normal range", "range"],
+    )
+    status_col = find_column_by_names(
+        results,
+        ["status", "flag", "result status"],
+    )
+
+    display_mapping = [
+        ("Test", test_col),
+        ("Result", result_col),
+        ("Unit", unit_col),
+        ("Reference Range", range_col),
+        ("Status", status_col),
+    ]
+
+    available_mapping = [
+        (label, column)
+        for label, column in display_mapping
+        if column is not None
+    ]
+
+    if available_mapping:
+        table_df = results[
+            [column for _, column in available_mapping]
+        ].copy()
+
+        table_df.columns = [
+            label for label, _ in available_mapping
+        ]
+
+        st.dataframe(
+            table_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.download_button(
+            "Download laboratory results (CSV)",
+            data=table_df.to_csv(index=False).encode("utf-8"),
+            file_name="MediLens_Laboratory_Results.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+        st.caption(
+            "Check every extracted value against the original report. "
+            "An extracted flag is not a diagnosis."
+        )
+    else:
+        st.warning(
+            "Rows were returned, but expected laboratory columns "
+            "were not found."
+        )
+        st.write("Columns returned:", list(results.columns))
+else:
+    st.warning(
+        "No laboratory results were detected. "
+        "The analyzer did not return any rows for this report."
+    )
+    st.info(
+        "Open the debug section above to check the extracted text. "
+        "The laboratory parser in analyzer.py may need adjustment."
+    )
 
 
 # =========================================================
@@ -869,7 +874,6 @@ if not results.empty:
         results,
         ["test", "test name", "parameter", "investigation", "name"],
     )
-
     value_col = find_column_by_names(
         results,
         ["result", "value", "test result", "numeric value", "observed value"],
@@ -896,27 +900,21 @@ if not results.empty:
                 height=400,
                 use_container_width=True,
             )
-
             st.caption(
                 "Tests may use different units and reference ranges. "
                 "Bar heights do not indicate relative medical severity."
             )
-
-            with st.expander("View graph source values"):
-                st.dataframe(
-                    chart_df[["Test", "Original value"]],
-                    use_container_width=True,
-                    hide_index=True,
-                )
         else:
-            st.info("No numeric values were recognized for the graph.")
+            st.info(
+                "The table contains no numeric results suitable for graphing."
+            )
     else:
         st.info(
-            "The graph could not identify the test and result columns. "
-            "Check the column names returned by analyzer.py."
+            "The graph could not identify test and result columns. "
+            "Check the analyzer's returned column names."
         )
 else:
-    st.info("Analyze a report to visualize laboratory results.")
+    st.info("No graph is available because no laboratory rows were extracted.")
 
 
 # =========================================================
@@ -1051,8 +1049,8 @@ else:
 
 with st.expander("Verify extracted source text"):
     st.write(
-        "Compare the extracted text with the original file to check "
-        "for OCR errors, missing values, units, and reference ranges."
+        "Compare extracted text with the original file to check for "
+        "OCR errors, missing values, units, and reference ranges."
     )
 
     st.text_area(
@@ -1060,7 +1058,7 @@ with st.expander("Verify extracted source text"):
         value=report_text,
         height=260,
         disabled=True,
-        key=f"source_report_text_{file_hash[:12]}",
+        key=f"source_text_{file_hash[:12]}",
     )
 
 
@@ -1126,11 +1124,8 @@ st.markdown("""
 </div>
 
 <div style="
-    text-align:center;
-    color:#8faabd;
-    font-size:11px;
-    padding:22px;
-    letter-spacing:1px;">
+    text-align:center;color:#8faabd;font-size:11px;
+    padding:22px;letter-spacing:1px;">
     + MEDILENS · CLINICAL INTELLIGENCE
 </div>
 """, unsafe_allow_html=True)
