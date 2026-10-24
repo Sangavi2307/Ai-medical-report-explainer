@@ -5,12 +5,29 @@ import pandas as pd
 
 TEST_ALIASES = {
     "Hemoglobin": ["hemoglobin", "haemoglobin", "hb"],
-    "WBC Count": ["wbc count", "white blood cell count", "white blood cells", "wbc"],
-    "Platelets": ["platelet count", "platelets", "thrombocyte count"],
-    "Fasting Blood Sugar": ["fasting blood sugar", "fasting glucose", "fbs"],
-    "Random Blood Sugar": ["random blood sugar", "random glucose", "rbs"],
-    "RBC Count": ["rbc count", "red blood cell count", "rbc"],
-    "HbA1c": ["hba1c", "hb a1c", "glycated hemoglobin", "glycosylated hemoglobin"],
+    "WBC Count": [
+        "white blood cell count", "white blood cells",
+        "wbc count", "total leukocyte count",
+        "total leucocyte count", "tlc", "wbc"
+    ],
+    "Platelets": [
+        "platelet count", "platelets", "thrombocyte count"
+    ],
+    "Fasting Blood Sugar": [
+        "fasting blood sugar", "fasting blood glucose",
+        "fasting glucose", "fbs"
+    ],
+    "Random Blood Sugar": [
+        "random blood sugar", "random blood glucose",
+        "random glucose", "rbs"
+    ],
+    "RBC Count": [
+        "red blood cell count", "rbc count", "rbc"
+    ],
+    "HbA1c": [
+        "hba1c", "hb a1c", "glycated hemoglobin",
+        "glycosylated hemoglobin"
+    ],
     "Creatinine": ["serum creatinine", "creatinine"],
     "Urea": ["blood urea", "serum urea", "urea"],
     "Total Cholesterol": ["total cholesterol", "cholesterol"],
@@ -21,31 +38,27 @@ TEST_ALIASES = {
     "Potassium": ["serum potassium", "potassium"],
     "Calcium": ["serum calcium", "calcium"],
     "Bilirubin": ["total bilirubin", "bilirubin"],
-    "ALT": ["sgpt", "alanine aminotransferase", "alt"],
-    "AST": ["sgot", "aspartate aminotransferase", "ast"],
+    "ALT": ["alanine aminotransferase", "sgpt", "alt"],
+    "AST": ["aspartate aminotransferase", "sgot", "ast"],
     "TSH": ["thyroid stimulating hormone", "tsh"],
     "Vitamin D": ["25-oh vitamin d", "vitamin d"],
     "Vitamin B12": ["vitamin b12", "b12"],
     "ESR": ["erythrocyte sedimentation rate", "esr"],
-    "CRP": ["c-reactive protein", "crp"],
+    "CRP": ["c-reactive protein", "c reactive protein", "crp"],
     "Uric Acid": ["serum uric acid", "uric acid"],
     "Albumin": ["serum albumin", "albumin"],
     "Total Protein": ["total protein"],
     "MCV": ["mean corpuscular volume", "mcv"],
     "MCH": ["mean corpuscular hemoglobin", "mch"],
-    "MCHC": ["mean corpuscular hemoglobin concentration", "mchc"],
+    "MCHC": [
+        "mean corpuscular hemoglobin concentration", "mchc"
+    ],
     "Hematocrit": ["hematocrit", "packed cell volume", "pcv"],
 }
 
-
 COLUMNS = [
-    "Test",
-    "Result",
-    "Unit",
-    "Reference Range",
-    "Status",
+    "Test", "Result", "Unit", "Reference Range", "Status"
 ]
-
 
 NUMBER = r"[-+]?\d[\d,]*(?:\.\d+)?"
 
@@ -54,19 +67,24 @@ RANGE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-
 UNIT_PATTERN = re.compile(
-    r"(?:g\s*/\s*d[l1]|g\s*/\s*l|mg\s*/\s*d[l1]|mg\s*/\s*l|"
+    r"(?:"
+    r"g\s*/\s*d[l1]|g\s*/\s*l|"
+    r"mg\s*/\s*d[l1]|mg\s*/\s*l|"
     r"mmol\s*/\s*l|µmol\s*/\s*l|umol\s*/\s*l|"
-    r"ng\s*/\s*ml|pg\s*/\s*ml|u\s*/\s*l|iu\s*/\s*l|"
-    r"miu\s*/\s*l|fl|pg|ml|bpm|mm\s*/\s*h[r]?|"
-    r"/\s*µl|/\s*ul|%|lakh\s*/\s*µl|lakh\s*/\s*ul)",
+    r"ng\s*/\s*ml|pg\s*/\s*ml|"
+    r"u\s*/\s*l|iu\s*/\s*l|miu\s*/\s*l|"
+    r"cells?\s*/\s*(?:cumm|mm3|mm\^?3|µl|ul)|"
+    r"lakh\s*/\s*(?:cumm|mm3|µl|ul)|"
+    r"fl|pg|bpm|mm\s*/\s*hr?|%"
+    r")",
     re.IGNORECASE,
 )
 
+
 def clean_line(value):
     value = str(value).replace("\u00a0", " ")
-    value = value.replace("−", "-")
+    value = value.replace("−", "-").replace("：", ":")
     return re.sub(r"\s+", " ", value).strip()
 
 
@@ -77,30 +95,53 @@ def number_value(value):
         return None
 
 
-def find_test(line):
-    normalized = re.sub(
-        r"[^a-z0-9]+", " ", clean_line(line).lower()
+def normalize_text(value):
+    return re.sub(
+        r"[^a-z0-9]+", " ", clean_line(value).lower()
     ).strip()
 
-    aliases = []
 
-    for canonical, names in TEST_ALIASES.items():
-        for alias in names:
-            alias_clean = re.sub(
-                r"[^a-z0-9]+", " ", alias.lower()
-            ).strip()
-            aliases.append((canonical, alias_clean))
+def find_test(line):
+    normalized = normalize_text(line)
+    matches = []
 
-    aliases.sort(key=lambda item: len(item[1]), reverse=True)
+    for test_name, aliases in TEST_ALIASES.items():
+        for alias in aliases:
+            alias_normalized = normalize_text(alias)
 
-    for canonical, alias in aliases:
-        if re.search(
-            r"(?<!\w)" + re.escape(alias) + r"(?!\w)",
-            normalized,
-        ):
-            return canonical
+            if re.search(
+                r"(?<!\w)" + re.escape(alias_normalized) + r"(?!\w)",
+                normalized,
+            ):
+                matches.append((test_name, len(alias_normalized)))
 
-    return None
+    if not matches:
+        return None
+
+    longest = max(length for _, length in matches)
+    best = {
+        name for name, length in matches if length == longest
+    }
+
+    return next(iter(best)) if len(best) == 1 else None
+
+
+def find_test_match(line, test_name):
+    matches = []
+
+    for alias in TEST_ALIASES.get(test_name, []):
+        pattern = re.compile(
+            r"(?<![A-Za-z0-9])"
+            + re.escape(alias)
+            + r"(?![A-Za-z0-9])",
+            re.IGNORECASE,
+        )
+        match = pattern.search(line)
+
+        if match:
+            matches.append(match)
+
+    return max(matches, key=lambda m: len(m.group(0))) if matches else None
 
 
 def parse_range(text):
@@ -144,12 +185,57 @@ def classify_result(test_name, result, reference_range, unit=""):
 
 
 def is_header(line):
-    normalized = clean_line(line).lower().strip(":")
-    return normalized in {
+    return clean_line(line).lower().strip(":") in {
         "test", "test name", "result", "results",
         "reference range", "normal range", "units", "unit",
         "laboratory results", "laboratory result",
-        "patient information", "clinical details",
+        "patient information", "clinical details"
+    }
+
+
+def parse_candidate(text):
+    text = clean_line(text)
+
+    if not text or is_header(text):
+        return None
+
+    range_match = RANGE_PATTERN.search(text)
+    reference_range = None
+    range_text = ""
+    result_text = text
+
+    if range_match:
+        low = number_value(range_match.group(1))
+        high = number_value(range_match.group(2))
+
+        if low is not None and high is not None and low <= high:
+            reference_range = (low, high)
+            range_text = range_match.group(0)
+
+        result_text = (
+            text[:range_match.start()]
+            + " "
+            + text[range_match.end():]
+        )
+
+    unit = extract_unit(text)
+    result_text = UNIT_PATTERN.sub(" ", result_text)
+
+    result_text = re.sub(
+        r"\b(?:result|value|observed value)\b\s*[:=]?",
+        " ",
+        result_text,
+        flags=re.IGNORECASE,
+    )
+
+    numbers = re.findall(NUMBER, result_text)
+    result = number_value(numbers[0]) if len(numbers) == 1 else None
+
+    return {
+        "result": result,
+        "unit": unit,
+        "reference_range": reference_range,
+        "range_text": range_text,
     }
 
 
@@ -172,92 +258,66 @@ def analyze_report(report_text):
         if not test_name or test_name in seen:
             continue
 
-        # First look at the same line after the test name.
-        alias_match = None
-        normalized_line = clean_line(line)
+        match = find_test_match(line, test_name)
 
-        for alias in sorted(
-            TEST_ALIASES[test_name],
-            key=len,
-            reverse=True,
-        ):
-            alias_match = re.search(
-                re.escape(alias),
-                normalized_line,
-                re.IGNORECASE,
-            )
-            if alias_match:
-                break
+        if match:
+            own_line = (
+                line[:match.start()] + " " + line[match.end():]
+            ).strip(" :-|")
+        else:
+            own_line = line
 
-        same_line_remainder = (
-            normalized_line[alias_match.end():]
-            if alias_match else ""
-        )
+        parsed = parse_candidate(own_line)
 
-        # Look at the test line and the next few lines.
-        # Stop before crossing into the next identified test.
-        candidates = [same_line_remainder]
+        if parsed is None:
+            continue
 
-        for j in range(index + 1, min(index + 5, len(lines))):
-            if find_test(lines[j]):
-                break
-            candidates.append(lines[j])
+        # Only consider a continuation when the test's own line
+        # does not contain an unambiguous result.
+        if parsed["result"] is None:
+            continuations = []
 
-        result = None
-        unit = ""
-        reference_range = None
-        range_text = ""
+            for j in range(index + 1, min(index + 3, len(lines))):
+                next_line = lines[j]
 
-        for candidate in candidates:
-            if not candidate or is_header(candidate):
-                continue
+                # Never take data from the next test.
+                if find_test(next_line):
+                    break
 
-            # Remove the reference range before looking for the result.
-            parsed = parse_range(candidate)
-            candidate_without_range = candidate
+                if is_header(next_line):
+                    continue
 
-            if parsed:
-                low, high, range_text = parsed
-                reference_range = (low, high)
-                candidate_without_range = (
-                    candidate[:RANGE_PATTERN.search(candidate).start()]
-                    + candidate[RANGE_PATTERN.search(candidate).end():]
-                )
+                item = parse_candidate(next_line)
 
-            found_unit = extract_unit(candidate)
-            if found_unit and not unit:
-                unit = found_unit
+                if item and item["result"] is not None:
+                    continuations.append(item)
 
-            numbers = re.findall(NUMBER, candidate_without_range)
+            if len(continuations) == 1:
+                item = continuations[0]
+                parsed["result"] = item["result"]
 
-            # Do not treat a range-only line as a result.
-            if len(numbers) == 1 and result is None:
-                result = number_value(numbers[0])
+                if not parsed["unit"]:
+                    parsed["unit"] = item["unit"]
 
-            # A line may contain result and range together.
-            # If the range was found, the remaining single number is the result.
-            if parsed and result is None:
-                remaining = re.findall(NUMBER, candidate_without_range)
-                if len(remaining) == 1:
-                    result = number_value(remaining[0])
+                if parsed["reference_range"] is None:
+                    parsed["reference_range"] = item["reference_range"]
+                    parsed["range_text"] = item["range_text"]
 
-        # Some reports print result, unit and range on one line.
-        status = classify_result(
-            test_name,
-            result,
-            reference_range,
-            unit,
-        )
+        result = parsed["result"]
+        unit = parsed["unit"]
+        reference_range = parsed["reference_range"]
 
-        if result is not None:
-            results.append({
-                "Test": test_name,
-                "Result": result,
-                "Unit": unit,
-                "Reference Range": range_text,
-                "Status": status,
-            })
-            seen.add(test_name)
+        results.append({
+            "Test": test_name,
+            "Result": result if result is not None else "Needs review",
+            "Unit": unit,
+            "Reference Range": parsed["range_text"],
+            "Status": classify_result(
+                test_name, result, reference_range, unit
+            ),
+        })
+
+        seen.add(test_name)
 
     return pd.DataFrame(results, columns=COLUMNS)
 
@@ -295,9 +355,7 @@ def extract_patient_fields(report_text):
     for field_name, expressions in patterns.items():
         for pattern in expressions:
             match = re.search(
-                pattern,
-                text,
-                re.IGNORECASE | re.MULTILINE,
+                pattern, text, re.IGNORECASE | re.MULTILINE
             )
 
             if match:
