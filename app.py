@@ -28,7 +28,7 @@ st.set_page_config(
 
 
 # =========================================================
-# PROFESSIONAL MEDICAL THEME
+# PROFESSIONAL DARK MEDICAL THEME
 # =========================================================
 
 st.markdown("""
@@ -36,16 +36,13 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --navy: #102A43;
-    --navy-light: #183F5C;
-    --teal: #078B91;
-    --teal-dark: #066B73;
-    --mint: #E6F8F5;
-    --background: #F3F7FC;
-    --border: #DCE7F1;
-    --muted: #71849A;
-    --ink: #19334D;
-    --white: #FFFFFF;
+    --navy: #0B1728;
+    --panel: #112238;
+    --teal: #12CFC3;
+    --blue: #4AA8FF;
+    --border: #263D53;
+    --muted: #A0B3C8;
+    --ink: #EDF5FF;
 }
 
 html, body, [class*="css"] {
@@ -54,474 +51,261 @@ html, body, [class*="css"] {
 
 .stApp {
     background:
-        radial-gradient(circle at 90% 5%, #E4F5FC 0, transparent 25%),
-        var(--background);
+        radial-gradient(ellipse at 80% 0%, #16344A 0%, transparent 40%),
+        #07111F;
     color: var(--ink);
 }
 
 .block-container {
     max-width: 1450px;
-    padding-top: 1.4rem;
+    padding-top: 1.5rem;
     padding-bottom: 3rem;
 }
 
-h1, h2, h3 {
-    font-family: 'Manrope', sans-serif;
-    color: var(--navy);
+h1, h2, h3, p, label {
+    color: var(--ink);
 }
 
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #102A43, #123D58 75%, #08283F);
-    border-right: 1px solid #294D68;
+    background: linear-gradient(180deg, #102238, #091421);
+    border-right: 1px solid #263D53;
 }
 
 [data-testid="stSidebar"] * {
-    color: #EDF7FF;
-}
-
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-    color: #C1D6E7;
+    color: #EAF2FA;
 }
 
 [data-testid="stSidebar"] hr {
-    border-color: #36556D;
+    border-color: #33475D;
 }
-
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
-    color: #B9D1E4;
-}
-
-/* Logo */
-
-.medilens-logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 0 18px;
-}
-
-.medilens-logo-mark {
-    width: 49px;
-    height: 49px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 16px;
-    color: white;
-    font-size: 29px;
-    font-weight: 800;
-    background: linear-gradient(145deg, #32DDD0, #078B91);
-    box-shadow: 0 9px 20px rgba(4, 196, 190, .23);
-}
-
-.medilens-logo-name {
-    font-family: 'Manrope', sans-serif;
-    font-size: 25px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    color: white;
-}
-
-.medilens-logo-subtitle {
-    color: #B9D7E8;
-    font-size: 9px;
-    letter-spacing: 1.2px;
-}
-
-/* Welcome */
-
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 18px;
-    padding: 0 3px;
-}
-
-.topbar-label {
-    color: #648099;
-    font-size: 12px;
-}
-
-.topbar-title {
-    color: var(--navy);
-    font-family: 'Manrope', sans-serif;
-    font-weight: 800;
-    font-size: 23px;
-}
-
-/* Hero */
 
 .hero {
     position: relative;
     overflow: hidden;
-    padding: 32px;
-    border: 1px solid #C6EAF6;
+    padding: 36px;
     border-radius: 24px;
-    color: white;
-    background: linear-gradient(115deg, #E3F8FF, #D8F0FF 53%, #EDF9FF);
-    box-shadow: 0 16px 35px rgba(24, 89, 125, .11);
-    margin-bottom: 25px;
-}
-
-.hero::before {
-    content: "";
-    position: absolute;
-    width: 240px;
-    height: 240px;
-    right: 20%;
-    top: -130px;
-    border-radius: 50%;
-    background: rgba(255,255,255,.48);
-}
-
-.hero-content {
-    position: relative;
-    z-index: 2;
-    max-width: 690px;
-}
-
-.hero-badge {
-    display: inline-block;
-    background: #C6F1F0;
-    color: #086B73;
-    border-radius: 100px;
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: .3px;
+    border: 1px solid #28606F;
+    background: linear-gradient(120deg, #102238, #104B59 65%, #087F83);
+    box-shadow: 0 18px 45px rgba(0,0,0,.3);
+    margin-bottom: 30px;
 }
 
 .hero h1 {
-    color: #103B62;
+    color: #FFFFFF;
     font-family: 'Manrope', sans-serif;
-    font-size: clamp(28px, 3vw, 42px);
+    font-size: clamp(30px, 4vw, 45px);
     font-weight: 800;
-    line-height: 1.15;
     letter-spacing: -1.2px;
-    margin: 15px 0 12px;
+    margin: 12px 0;
 }
 
 .hero p {
-    color: #476C8D;
-    font-size: 14px;
+    color: #D4E8F2;
+    max-width: 760px;
     line-height: 1.8;
-    max-width: 650px;
+    font-size: 15px;
 }
 
-.hero-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 17px;
+.eyebrow {
+    color: #7DF5E5;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
 }
 
 .hero-pill {
     display: inline-block;
-    border: 1px solid #B7DDEB;
-    background: rgba(255,255,255,.68);
-    color: #1B5C7C;
-    padding: 7px 11px;
-    border-radius: 100px;
-    font-size: 10px;
-    font-weight: 700;
+    border: 1px solid #5598A6;
+    color: #E0FFFA;
+    padding: 7px 12px;
+    border-radius: 30px;
+    font-size: 11px;
+    margin: 5px 4px 0 0;
 }
 
-/* 3D Medical illustration */
-
-.medical-art {
-    position: relative;
-    min-height: 225px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    perspective: 900px;
-    border: 1px solid #CDEBF7;
-    border-radius: 22px;
-    overflow: hidden;
-    margin-bottom: 23px;
-    background:
-        radial-gradient(circle at 50% 45%, #FFFFFF 0, #D8F5FF 38%, #C4E9F8 72%, #E6F4FF 100%);
-}
-
-.medical-art::before,
-.medical-art::after {
-    content: "";
-    position: absolute;
-    border-radius: 50%;
-    border: 1px solid rgba(21, 144, 174, .16);
-}
-
-.medical-art::before {
-    width: 250px;
-    height: 250px;
-}
-
-.medical-art::after {
-    width: 190px;
-    height: 190px;
-}
-
-.medical-art-card {
-    position: relative;
-    z-index: 2;
-    width: 130px;
-    height: 164px;
-    border: 1px solid white;
+.medical-logo {
+    width: 64px;
+    height: 64px;
     border-radius: 19px;
-    background: linear-gradient(145deg, #FFFFFF, #E9F7FF);
-    box-shadow: 13px 19px 30px rgba(22, 91, 130, .22);
-    transform: rotateY(-12deg) rotateX(5deg);
+    background: linear-gradient(145deg, #20E1D0, #087F8C);
+    color: #06202D;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    animation: medilensFloat 4s ease-in-out infinite;
-}
-
-.medical-art-cross {
-    width: 60px;
-    height: 60px;
-    display: grid;
-    place-items: center;
-    border-radius: 18px;
-    color: white;
     font-size: 36px;
     font-weight: 800;
-    background: linear-gradient(145deg, #23D1CE, #078B91);
-    box-shadow: 0 10px 20px rgba(8, 127, 140, .28);
+    box-shadow: 0 10px 25px rgba(18,207,195,.25);
+    border: 1px solid #75F7E9;
 }
-
-.medical-art-line {
-    height: 7px;
-    width: 78px;
-    border-radius: 20px;
-    background: #C7E5F3;
-}
-
-.medical-art-shield {
-    position: absolute;
-    z-index: 3;
-    right: 17%;
-    bottom: 18%;
-    font-size: 49px;
-    filter: drop-shadow(0 10px 8px rgba(8, 100, 130, .23));
-    animation: shieldFloat 5s ease-in-out infinite;
-}
-
-.medical-art-plus {
-    position: absolute;
-    z-index: 1;
-    left: 17%;
-    top: 15%;
-    font-size: 38px;
-    font-weight: 800;
-    color: #078DAD;
-    text-shadow: 0 8px 12px rgba(8, 100, 130, .15);
-}
-
-@keyframes medilensFloat {
-    0%, 100% {
-        transform: translateY(0) rotateY(-12deg) rotateX(5deg);
-    }
-    50% {
-        transform: translateY(-8px) rotateY(-8deg) rotateX(5deg);
-    }
-}
-
-@keyframes shieldFloat {
-    0%, 100% { transform: translateY(0) rotate(4deg); }
-    50% { transform: translateY(-7px) rotate(-4deg); }
-}
-
-/* Section headings */
 
 .section-heading {
     font-family: 'Manrope', sans-serif;
     font-size: 22px;
     font-weight: 800;
-    color: var(--navy);
-    margin-top: 22px;
-    margin-bottom: 4px;
+    color: #EDF5FF;
+    margin-top: 25px;
+    margin-bottom: 5px;
 }
 
 .section-caption {
     color: var(--muted);
     font-size: 13px;
-    margin-bottom: 17px;
+    margin-bottom: 18px;
 }
 
-/* Cards */
-
 .panel {
-    background: rgba(255,255,255,.96);
+    background: linear-gradient(145deg, #142840, #0D1B2D);
     border: 1px solid var(--border);
-    border-radius: 17px;
-    padding: 21px;
-    margin-bottom: 15px;
-    box-shadow: 0 7px 22px rgba(23, 56, 86, .045);
-    transition: transform .25s ease, box-shadow .25s ease;
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 16px;
+    box-shadow: 0 12px 28px rgba(0,0,0,.22);
+    transition: transform .2s ease, border-color .2s ease;
 }
 
 .panel:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 14px 30px rgba(23, 56, 86, .10);
+    transform: translateY(-2px);
+    border-color: #168C91;
 }
 
 .panel-title {
-    color: var(--navy);
+    color: #F0F7FF;
     font-size: 16px;
     font-weight: 800;
-    margin-bottom: 7px;
+    margin-bottom: 8px;
 }
 
 .panel-description {
-    color: var(--muted);
+    color: #A0B3C8;
     font-size: 13px;
-    line-height: 1.75;
+    line-height: 1.8;
 }
 
 .kpi {
-    background: white;
-    border: 1px solid var(--border);
+    background: linear-gradient(145deg, #152A42, #0D1B2D);
+    border: 1px solid #263D53;
     border-radius: 16px;
-    padding: 17px;
-    min-height: 112px;
-    box-shadow: 0 7px 22px rgba(23, 56, 86, .045);
-    transition: transform .25s ease, box-shadow .25s ease;
+    padding: 18px;
+    min-height: 120px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.2);
+    transition: transform .2s ease, box-shadow .2s ease;
 }
 
 .kpi:hover {
     transform: translateY(-3px);
-    box-shadow: 0 14px 28px rgba(23, 56, 86, .10);
+    box-shadow: 0 14px 30px rgba(18,207,195,.12);
 }
 
 .kpi-label {
-    color: var(--muted);
+    color: #A0B3C8;
     font-size: 12px;
     font-weight: 600;
 }
 
 .kpi-value {
-    color: var(--navy);
+    color: #12CFC3;
     font-family: 'Manrope', sans-serif;
-    font-size: 29px;
+    font-size: 30px;
     font-weight: 800;
     margin-top: 8px;
 }
 
 .kpi-note {
-    color: var(--muted);
+    color: #8FA5BC;
     font-size: 11px;
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
-/* Status cards */
-
 .status-box {
-    background: #E8F8F5;
-    border: 1px solid #C6EAE4;
+    background: #102E32;
+    border: 1px solid #1B6564;
     border-radius: 13px;
     padding: 16px;
-    color: #17645D;
+    color: #A9F3E8;
     font-size: 13px;
     line-height: 1.8;
 }
 
 .warning-box {
-    background: #FFF7E8;
-    border: 1px solid #F2DDAE;
+    background: #332817;
+    border: 1px solid #745B2E;
     border-radius: 13px;
     padding: 16px;
-    color: #78591A;
+    color: #FFE4A9;
     font-size: 13px;
     line-height: 1.8;
 }
 
 .disclaimer {
-    background: #FFF8E8;
-    border: 1px solid #F3DDA9;
-    border-left: 4px solid #D9A441;
-    border-radius: 10px;
+    background: #292519;
+    border-left: 4px solid #E5B84F;
+    border-radius: 9px;
     padding: 17px;
-    color: #674D1B;
+    color: #FFE6AC;
     font-size: 12px;
     line-height: 1.8;
 }
 
-.insight-card {
-    border: 1px solid #CBE9F5;
-    border-radius: 15px;
-    padding: 19px;
-    background: linear-gradient(135deg, #F1FBFF, #FFFFFF);
-    margin-bottom: 14px;
-}
-
-/* Inputs */
-
 div[data-testid="stFileUploader"] {
-    background: white;
-    border: 1px dashed #9BC9DA;
+    background: #102238;
+    border: 1px dashed #347C91;
     border-radius: 14px;
     padding: 12px;
 }
 
 div[data-testid="stMetric"] {
-    background: white;
-    border: 1px solid var(--border);
+    background: #112238;
+    border: 1px solid #263D53;
     padding: 15px;
     border-radius: 14px;
+}
+
+div[data-testid="stExpander"] {
+    background: #102238;
+    border: 1px solid #263D53;
+    border-radius: 13px;
+}
+
+div[data-testid="stDataFrame"] {
+    border: 1px solid #263D53;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .stButton button, .stDownloadButton button {
     border-radius: 11px;
     font-weight: 700;
-    min-height: 43px;
-    transition: transform .2s ease, box-shadow .2s ease;
+    min-height: 44px;
+    border: 1px solid #247C83;
+    transition: all .2s ease;
 }
 
 .stButton button:hover, .stDownloadButton button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 7px 16px rgba(8, 127, 140, .13);
+    border-color: #12CFC3;
+    box-shadow: 0 5px 18px rgba(18,207,195,.15);
 }
 
-div[data-testid="stDataFrame"] {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
+div[data-baseweb="select"] > div {
+    background-color: #102238;
+    border-color: #344A61;
 }
 
-div[data-testid="stExpander"] {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 13px;
-    margin-bottom: 9px;
+input, textarea {
+    color: #EDF5FF !important;
+}
+
+hr {
+    border-color: #263D53;
 }
 
 footer {
     visibility: hidden;
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .medical-art-card, .medical-art-shield {
-        animation: none;
-    }
-
-    .panel, .kpi, .stButton button, .stDownloadButton button {
-        transition: none;
-    }
-}
-
 @media (max-width: 700px) {
-    .hero { padding: 22px; }
-    .panel { padding: 15px; }
-    .medical-art { min-height: 185px; }
-    .medical-art-shield { right: 8%; }
-    .medical-art-plus { left: 8%; }
-    .topbar-title { font-size: 19px; }
+    .hero { padding: 23px; }
+    .panel { padding: 16px; }
+    .kpi { padding: 13px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -533,12 +317,12 @@ footer {
 
 def section(title, caption=""):
     st.markdown(
-        f'<div class="section-heading">{html.escape(str(title))}</div>',
+        f'<div class="section-heading">{html.escape(title)}</div>',
         unsafe_allow_html=True,
     )
     if caption:
         st.markdown(
-            f'<div class="section-caption">{html.escape(str(caption))}</div>',
+            f'<div class="section-caption">{html.escape(caption)}</div>',
             unsafe_allow_html=True,
         )
 
@@ -562,11 +346,21 @@ def kpi_card(label, value, note):
     )
 
 
-def get_status_column(df):
-    for col in df.columns:
-        if str(col).strip().lower() == "status":
-            return col
+def find_column(df, candidates):
+    normalized_columns = {
+        str(col).strip().lower().replace("_", " "): col
+        for col in df.columns
+    }
+
+    for candidate in candidates:
+        if candidate in normalized_columns:
+            return normalized_columns[candidate]
+
     return None
+
+
+def get_status_column(df):
+    return find_column(df, ["status", "result status", "flag"])
 
 
 def get_counts(df):
@@ -576,6 +370,10 @@ def get_counts(df):
         return 0, 0, 0, 0
 
     status = df[status_col].fillna("").astype(str).str.lower()
+
+    urgent = status.str.contains(
+        r"urgent|critical", regex=True
+    ).sum()
 
     low = status.str.contains(
         r"\b(below|low|decreased)\b", regex=True
@@ -589,94 +387,7 @@ def get_counts(df):
         r"\b(within range|normal|normal range)\b", regex=True
     ).sum()
 
-    urgent = status.str.contains(
-        r"\b(urgent|critical)\b", regex=True
-    ).sum()
-
-    return int(low), int(high), int(normal), int(urgent)
-
-
-def find_column(df, candidates):
-    """Find a column by matching its normalized name."""
-    normalized = {
-        str(col).strip().lower().replace("_", " "): col
-        for col in df.columns
-    }
-
-    for candidate in candidates:
-        if candidate in normalized:
-            return normalized[candidate]
-
-    return None
-
-
-def make_numeric_chart_data(df):
-    """
-    Build chart data only from identifiable test and result columns.
-    The numeric chart is for visualization, not clinical classification.
-    """
-    name_col = find_column(
-        df,
-        [
-            "test",
-            "test name",
-            "parameter",
-            "lab test",
-            "investigation",
-            "test parameter",
-        ],
-    )
-
-    value_col = find_column(
-        df,
-        [
-            "result",
-            "value",
-            "test result",
-            "result value",
-            "observed value",
-        ],
-    )
-
-    if name_col is None or value_col is None:
-        return pd.DataFrame()
-
-    chart_data = df[[name_col, value_col]].copy()
-    chart_data.columns = ["Test", "Result"]
-
-    chart_data["Test"] = chart_data["Test"].astype(str)
-
-    # Extract the first numeric value from a result such as "7.8 %".
-    chart_data["Numeric value"] = pd.to_numeric(
-        chart_data["Result"]
-        .astype(str)
-        .str.replace(",", "", regex=False)
-        .str.extract(r"([-+]?\d*\.?\d+)")[0],
-        errors="coerce",
-    )
-
-    chart_data = chart_data.dropna(subset=["Numeric value"])
-    chart_data = chart_data.drop_duplicates(subset=["Test"])
-
-    return chart_data.head(20)
-
-
-def render_status_badge(status):
-    status_text = str(status or "Needs review").strip().lower()
-
-    if "urgent" in status_text or "critical" in status_text:
-        return "🔴 Needs urgent review"
-
-    if any(word in status_text for word in ["above", "high", "elevated"]):
-        return "🟠 Above range"
-
-    if any(word in status_text for word in ["below", "low", "decreased"]):
-        return "🔵 Below range"
-
-    if any(word in status_text for word in ["within", "normal"]):
-        return "🟢 Within range"
-
-    return "⚪ Needs review"
+    return int(urgent), int(low), int(high), int(normal)
 
 
 # =========================================================
@@ -685,109 +396,74 @@ def render_status_badge(status):
 
 with st.sidebar:
     st.markdown("""
-    <div class="medilens-logo">
-        <div class="medilens-logo-mark">✚</div>
-        <div>
-            <div class="medilens-logo-name">MediLens</div>
-            <div class="medilens-logo-subtitle">MEDICAL INTELLIGENCE</div>
+    <div style="padding:10px 0 22px;">
+        <div class="medical-logo">✚</div>
+        <div style="font-size:27px;font-weight:800;margin-top:13px;">
+            MediLens
+        </div>
+        <div style="font-size:10px;color:#A0B3C8;letter-spacing:1.5px;">
+            MEDICAL REPORT INTELLIGENCE
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.divider()
 
-    st.markdown("**WORKSPACE**")
-    st.markdown("◉  Report analysis")
-    st.markdown("◈  Clinical findings")
-    st.markdown("▤  Report export")
+    st.markdown("**YOUR WORKSPACE**")
+    st.caption("01  Report analysis")
+    st.caption("02  Laboratory dashboard")
+    st.caption("03  Clinical insights")
+    st.caption("04  PDF export")
 
     st.divider()
 
-    st.markdown("**SUPPORTED FORMATS**")
+    st.markdown("**SUPPORTED FILES**")
     st.caption("PDF · JPG · JPEG · PNG")
 
     st.divider()
 
-    st.markdown("**ANALYSIS PROCESS**")
-    st.caption("01  Extract report")
-    st.caption("02  Structure findings")
-    st.caption("03  Review explanations")
-    st.caption("04  Export report")
+    st.markdown("**WORKFLOW**")
+    st.caption("Extract → Structure → Review → Export")
 
     st.divider()
-
-    st.caption("MediLens · Clinical Intelligence")
+    st.caption("MediLens · Educational support only")
 
 
 # =========================================================
-# TOP BAR
+# HERO
 # =========================================================
 
 st.markdown("""
-<div class="topbar">
-    <div>
-        <div class="topbar-label">WELCOME TO MEDILENS</div>
-        <div class="topbar-title">Your Medical Report Workspace</div>
-        <div class="topbar-label">
-            Clearer explanations from your uploaded laboratory reports
+<div class="hero">
+    <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+        <div class="medical-logo">✚</div>
+        <div>
+            <div class="eyebrow">AI-ASSISTED HEALTHCARE TECHNOLOGY</div>
+            <h1>Medical Report Intelligence</h1>
         </div>
     </div>
-    <div style="font-size:32px;">🩺</div>
+    <p>
+        Understand laboratory reports through structured results,
+        a combined visual dashboard, and educational explanations.
+        Review every extracted value against the original report.
+    </p>
+    <span class="hero-pill">REPORT ANALYSIS</span>
+    <span class="hero-pill">VISUAL DASHBOARD</span>
+    <span class="hero-pill">EDUCATIONAL INSIGHTS</span>
 </div>
 """, unsafe_allow_html=True)
 
 
 # =========================================================
-# HERO SECTION
-# =========================================================
-
-hero_left, hero_right = st.columns([1.6, 1], gap="large")
-
-with hero_left:
-    st.markdown("""
-    <div class="hero">
-        <div class="hero-content">
-            <span class="hero-badge">TRUSTED · INFORMATIVE · PATIENT-FRIENDLY</span>
-            <h1>Turn Medical Reports<br>Into Clear Insights</h1>
-            <p>
-                Understand laboratory results through structured findings,
-                easy-to-read graphs, and educational explanations.
-                Keep your original report available for verification.
-            </p>
-            <div class="hero-pills">
-                <span class="hero-pill">REPORT ANALYSIS</span>
-                <span class="hero-pill">VISUAL GRAPHS</span>
-                <span class="hero-pill">PDF EXPORT</span>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with hero_right:
-    st.markdown("""
-    <div class="medical-art">
-        <div class="medical-art-plus">✚</div>
-        <div class="medical-art-card">
-            <div class="medical-art-cross">✚</div>
-            <div class="medical-art-line"></div>
-            <div class="medical-art-line" style="width:62px;"></div>
-            <div class="medical-art-line" style="width:72px;"></div>
-        </div>
-        <div class="medical-art-shield">🛡️</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# =========================================================
-# REPORT UPLOAD
+# UPLOAD WORKSPACE
 # =========================================================
 
 section(
     "01  Report workspace",
-    "Upload one patient's report to begin a new analysis.",
+    "Upload one patient's medical report to start a new analysis.",
 )
 
-left, right = st.columns([1.45, 1], gap="large")
+left, right = st.columns([1.5, 1], gap="large")
 
 with left:
     st.markdown("""
@@ -795,13 +471,13 @@ with left:
         <div class="panel-title">📄 Upload medical report</div>
         <div class="panel-description">
             Import a laboratory report as a PDF or image.
-            Clear, readable files generally provide better extraction results.
+            A clear, readable file generally improves text extraction.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
-        "Choose a medical report",
+        "Choose a report",
         type=["pdf", "jpg", "jpeg", "png"],
         key="medilens_upload",
     )
@@ -809,29 +485,25 @@ with left:
 with right:
     st.markdown("""
     <div class="panel">
-        <div class="panel-title">✨ Analysis capabilities</div>
+        <div class="panel-title">✦ Analysis features</div>
         <div class="panel-description">
-            🧾 Patient information extraction<br>
-            🧪 Laboratory result structuring<br>
-            📊 Visual result summaries<br>
-            🔎 Abnormal-value identification<br>
-            💡 Educational explanations<br>
-            📥 Downloadable PDF report
+            • Patient information extraction<br>
+            • Laboratory result structuring<br>
+            • Abnormal value identification<br>
+            • One combined results graph<br>
+            • Educational explanations<br>
+            • Downloadable PDF report
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 
-# =========================================================
-# EMPTY WORKSPACE
-# =========================================================
-
 if not uploaded_file:
     st.markdown("""
     <div class="status-box">
-        <b>✓ Your workspace is ready</b><br>
-        Upload a report above to display the patient overview,
-        laboratory findings, graphs, and educational explanations.
+        <b>✦ Your workspace is ready</b><br>
+        Upload a report to display the patient overview,
+        laboratory findings, graph, and educational explanations.
     </div>
     """, unsafe_allow_html=True)
 
@@ -840,9 +512,9 @@ if not uploaded_file:
     st.markdown("""
     <div class="disclaimer">
         <b>Medical disclaimer</b><br>
-        MediLens supports understanding medical reports. Its findings
-        may be incomplete or inaccurate and do not establish a diagnosis.
-        Consult a qualified healthcare professional for clinical decisions.
+        MediLens can make extraction and interpretation errors.
+        It does not establish a confirmed diagnosis or replace
+        professional medical care.
     </div>
     """, unsafe_allow_html=True)
 
@@ -850,32 +522,27 @@ if not uploaded_file:
 
 
 # =========================================================
-# FILE HASH AND SESSION STATE
+# FILE PROCESSING
 # =========================================================
 
-file_hash = hashlib.sha256(
-    uploaded_file.getvalue()
-).hexdigest()
+file_hash = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
 
 if st.session_state.get("report_hash") != file_hash:
     st.session_state["report_hash"] = file_hash
-
     st.session_state.pop("report_data", None)
     st.session_state.pop("report_insights", None)
     st.session_state.pop("report_pdf", None)
 
 
-# =========================================================
-# FILE PROCESSING
-# =========================================================
+st.markdown("<br>", unsafe_allow_html=True)
 
 if st.button(
-    "🔍  Run medical report analysis",
+    "✦ Run medical report analysis",
     type="primary",
     use_container_width=True,
 ):
     try:
-        with st.spinner("Extracting text from the uploaded report..."):
+        with st.spinner("Extracting text from your report..."):
             if uploaded_file.type == "application/pdf":
                 uploaded_file.seek(0)
                 report_text = extract_text_from_pdf(uploaded_file)
@@ -891,8 +558,8 @@ if st.button(
 
         if not report_text or len(report_text.strip()) < 20:
             st.error(
-                "Not enough text was extracted. Try a clearer report "
-                "or check your OCR configuration."
+                "Not enough text could be extracted. "
+                "Upload a clearer report or check OCR configuration."
             )
             st.stop()
 
@@ -905,39 +572,26 @@ if st.button(
         elif not isinstance(results, pd.DataFrame):
             results = pd.DataFrame(results)
 
-        if not isinstance(patient, dict):
-            patient = {}
-
         st.session_state["report_data"] = {
             "hash": file_hash,
             "filename": uploaded_file.name,
             "text": report_text,
             "results": results,
-            "patient": patient,
+            "patient": patient if isinstance(patient, dict) else {},
         }
-
-        st.session_state.pop("report_insights", None)
-        st.session_state.pop("report_pdf", None)
-
-        st.success("Report extraction and analysis completed.")
 
     except Exception as error:
         st.error("Report analysis failed.")
         st.caption(
-            "Check the function names in extractor.py, ocr_service.py, "
+            "Check function names in extractor.py, ocr_service.py, "
             "and analyzer.py."
         )
         st.exception(error)
 
 
-# =========================================================
-# LOAD PROCESSED REPORT
-# =========================================================
-
 data = st.session_state.get("report_data")
 
 if not data or data.get("hash") != file_hash:
-    st.info("Run the analysis to view the report dashboard.")
     st.stop()
 
 report_text = data["text"]
@@ -956,22 +610,18 @@ section(
 
 if patient:
     fields = list(patient.items())[:6]
-    columns = st.columns(min(3, len(fields)))
+    cols = st.columns(min(3, len(fields)))
 
     for index, (key, value) in enumerate(fields):
-        with columns[index % len(columns)]:
+        with cols[index % len(cols)]:
             st.markdown(
                 f"""
                 <div class="panel">
                     <div class="kpi-label">
-                        {safe_text(str(key).replace('_', ' ').title())}
+                        {safe_text(str(key).replace("_", " ").title())}
                     </div>
-                    <div style="
-                        font-size:17px;
-                        font-weight:800;
-                        color:#102A43;
-                        margin-top:10px;
-                        overflow-wrap:anywhere;">
+                    <div style="font-size:17px;font-weight:800;
+                                color:#EDF5FF;margin-top:10px;">
                         {safe_text(value)[:120]}
                     </div>
                 </div>
@@ -981,218 +631,179 @@ if patient:
 else:
     st.info(
         "Patient details could not be confidently extracted. "
-        "Review the original report before interpreting results."
+        "Verify the original report."
     )
 
 
 # =========================================================
-# LABORATORY FINDINGS
+# LABORATORY DASHBOARD
 # =========================================================
 
 section(
-    "03  Laboratory findings",
-    "Review the structured values extracted from this report.",
+    "03  Laboratory dashboard",
+    "Review extracted results and their analyzer status.",
 )
 
 if results.empty:
     st.warning(
         "No structured laboratory values were detected. "
-        "The analyzer may need additional test-pattern support."
+        "Check the test patterns in analyzer.py."
     )
-
 else:
-    low_count, high_count, normal_count, urgent_count = get_counts(results)
+    urgent_count, low_count, high_count, normal_count = get_counts(results)
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
     with c1:
-        kpi_card(
-            "Tests identified",
-            len(results),
-            "Extracted records",
-        )
+        kpi_card("Tests identified", len(results), "Extracted records")
 
     with c2:
-        kpi_card(
-            "Below range",
-            low_count,
-            "Analyzer classification",
-        )
+        kpi_card("Urgent review", urgent_count, "Check promptly")
 
     with c3:
-        kpi_card(
-            "Above range",
-            high_count,
-            "Analyzer classification",
-        )
+        kpi_card("Below range", low_count, "Analyzer flags")
 
     with c4:
-        kpi_card(
-            "Within range",
-            normal_count,
-            "Analyzer classification",
-        )
+        kpi_card("Above range", high_count, "Analyzer flags")
 
-    if urgent_count:
-        st.error(
-            f"{urgent_count} result(s) were marked for urgent review "
-            "by the analyzer. Verify the original report and seek "
-            "appropriate medical advice promptly."
-        )
+    with c5:
+        kpi_card("Within range", normal_count, "Analyzer flags")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     status_col = get_status_column(results)
 
     if status_col:
-        status_values = results[status_col].fillna("").astype(str).str.lower()
+        statuses = results[status_col].fillna("").astype(str).str.lower()
 
         selected_filter = st.selectbox(
-            "Filter laboratory findings",
+            "Filter findings",
             [
                 "All findings",
+                "Urgent review",
                 "Below range",
                 "Above range",
                 "Within range",
-                "Needs review",
             ],
         )
 
-        if selected_filter == "Below range":
-            mask = status_values.str.contains(
-                r"\b(below|low|decreased)\b", regex=True
-            )
-            view = results[mask]
-
+        if selected_filter == "Urgent review":
+            view = results[
+                statuses.str.contains(r"urgent|critical", regex=True)
+            ]
+        elif selected_filter == "Below range":
+            view = results[
+                statuses.str.contains(
+                    r"\b(below|low|decreased)\b", regex=True
+                )
+            ]
         elif selected_filter == "Above range":
-            mask = status_values.str.contains(
-                r"\b(above|high|elevated|increased)\b", regex=True
-            )
-            view = results[mask]
-
+            view = results[
+                statuses.str.contains(
+                    r"\b(above|high|elevated|increased)\b", regex=True
+                )
+            ]
         elif selected_filter == "Within range":
-            mask = status_values.str.contains(
-                r"\b(within range|normal|normal range)\b", regex=True
-            )
-            view = results[mask]
-
-        elif selected_filter == "Needs review":
-            mask = status_values.str.contains(
-                r"\b(needs review|urgent|critical|unknown)\b",
-                regex=True,
-            )
-            view = results[mask]
-
+            view = results[
+                statuses.str.contains(
+                    r"\b(within range|normal|normal range)\b", regex=True
+                )
+            ]
         else:
             view = results
 
+        st.dataframe(
+            view,
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
-        view = results
-
-    st.dataframe(
-        view,
-        use_container_width=True,
-        hide_index=True,
-    )
+        st.dataframe(
+            results,
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 # =========================================================
-# INTERACTIVE LABORATORY GRAPH
+# ONE COMBINED NUMERICAL GRAPH
 # =========================================================
 
 section(
-    "Visual laboratory dashboard",
-    "Explore the numerical results extracted from the uploaded report.",
+    "04  Visual laboratory analysis",
+    "All detected numeric results appear together in one graph.",
 )
 
-chart_data = make_numeric_chart_data(results)
+name_col = find_column(
+    results,
+    [
+        "test", "test name", "parameter", "lab test",
+        "investigation", "test parameter",
+    ],
+) if not results.empty else None
 
-if not chart_data.empty:
-    test_options = chart_data["Test"].tolist()
+value_col = find_column(
+    results,
+    [
+        "result", "value", "test result",
+        "result value", "observed value",
+    ],
+) if not results.empty else None
 
-    selected_test = st.selectbox(
-        "Select a laboratory test",
-        test_options,
-        key="medilens_chart_test",
+if not results.empty and name_col is not None and value_col is not None:
+    graph_df = results[[name_col, value_col]].copy()
+    graph_df.columns = ["Test", "Original result"]
+
+    graph_df["Numeric value"] = pd.to_numeric(
+        graph_df["Original result"]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .str.extract(r"([-+]?\d*\.?\d+)")[0],
+        errors="coerce",
     )
 
-    selected_row = chart_data[
-        chart_data["Test"] == selected_test
-    ].iloc[0]
+    graph_df = graph_df.dropna(subset=["Numeric value"])
+    graph_df = graph_df.drop_duplicates(subset=["Test"]).head(30)
 
-    result_col = find_column(
-        results,
-        [
-            "result",
-            "value",
-            "test result",
-            "result value",
-            "observed value",
-        ],
-    )
-
-    unit_text = ""
-
-    if result_col:
-        raw_result = str(selected_row["Result"])
-        unit_match = re.search(
-            r"^\s*[-+]?\d*\.?\d+\s*(.*)$",
-            raw_result,
-        )
-
-        if unit_match:
-            unit_text = unit_match.group(1).strip()
-
-    chart_left, chart_right = st.columns([1.6, 1], gap="large")
-
-    with chart_left:
-        st.markdown(
-            '<div class="panel-title">Selected test result</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.metric(
-            label=selected_test,
-            value=f"{selected_row['Numeric value']:g} {unit_text}".strip(),
-        )
-
-        # A single-test graph avoids comparing unlike units together.
-        st.bar_chart(
-            pd.DataFrame(
-                {
-                    "Result": [
-                        float(selected_row["Numeric value"])
-                    ]
-                },
-                index=[selected_test],
-            ),
-            y="Result",
-            use_container_width=True,
-        )
-
-    with chart_right:
+    if not graph_df.empty:
         st.markdown("""
         <div class="panel">
-            <div class="panel-title">How to read this graph</div>
+            <div class="panel-title">📊 Combined laboratory results</div>
             <div class="panel-description">
-                • The bar represents the extracted numerical result.<br><br>
-                • Check the result's unit and reference range in the table.<br><br>
-                • Each laboratory test may use a different scale.<br><br>
-                • The graph alone cannot determine whether a result is healthy.
+                Each bar shows one numeric result extracted from the report.
+                The graph is intended for visual exploration.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-    st.caption(
-        "This graph visualizes the extracted value only. "
-        "It does not calculate a clinical reference interval or diagnosis."
-    )
+        chart_data = graph_df.set_index("Test")[["Numeric value"]]
 
+        st.bar_chart(
+            chart_data,
+            y="Numeric value",
+            color="#12CFC3",
+            height=440,
+            use_container_width=True,
+        )
+
+        with st.expander("View the values used in the graph"):
+            st.dataframe(
+                graph_df,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        st.caption(
+            "Clinical note: different tests may use different units and "
+            "scales. Bar height alone does not indicate normality or severity. "
+            "Use the reference range for each individual test."
+        )
+    else:
+        st.info("No numeric results were detected for the graph.")
 else:
     st.info(
-        "A graph could not be created because recognizable test-name "
-        "and numerical-result columns were not found. Review the table "
-        "and your analyzer's output column names."
+        "A graph requires identifiable test-name and result columns. "
+        "Check the column names returned by analyzer.py."
     )
 
 
@@ -1201,22 +812,22 @@ else:
 # =========================================================
 
 section(
-    "04  Clinical insights",
-    "Read educational explanations for each detected laboratory result.",
+    "05  Educational clinical insights",
+    "Review the explanation for each extracted result.",
 )
 
 st.markdown("""
 <div class="panel">
-    <div class="panel-title">💡 Report interpretation</div>
+    <div class="panel-title">✦ Report interpretation</div>
     <div class="panel-description">
-        Generate an overall summary and individual test explanations.
-        Always verify extracted results against the original report.
+        These explanations support understanding of the report.
+        They are not a diagnosis and must be checked against the original report.
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 if st.button(
-    "✨  Generate clinical insights",
+    "Generate clinical insights",
     key="generate_clinical_insights",
     use_container_width=True,
 ):
@@ -1234,48 +845,32 @@ if st.button(
                 "text": insights,
             }
             st.session_state.pop("report_pdf", None)
-
-            st.success("Clinical explanations are ready.")
-
         else:
-            st.error(
-                "The explanation function returned an unexpected format."
-            )
+            st.error("The explanation function returned an unexpected format.")
 
     except Exception as error:
         st.error("Unable to generate clinical insights.")
         st.exception(error)
 
 
-# =========================================================
-# DISPLAY INSIGHTS
-# =========================================================
-
 insights_data = st.session_state.get("report_insights")
 
 if insights_data and insights_data.get("hash") == file_hash:
     insights = insights_data.get("text", {})
 
-    if not isinstance(insights, dict):
-        insights = {}
-
-    # Overall summary
     section("Overall summary")
-
     summary = insights.get("summary", "No summary is available.")
 
     if isinstance(summary, dict):
         for key, value in summary.items():
-            st.write(f"**{key}:**", value)
+            st.markdown(
+                f"**{safe_text(str(key).replace('_', ' ').title())}:** "
+                f"{safe_text(value)}"
+            )
     else:
-        st.markdown(
-            f'<div class="insight-card">{safe_text(summary)}</div>',
-            unsafe_allow_html=True,
-        )
+        st.write(summary)
 
-    # Individual test explanations
     section("Individual test explanations")
-
     explanations = insights.get("results", [])
 
     if explanations:
@@ -1283,99 +878,86 @@ if insights_data and insights_data.get("hash") == file_hash:
             if not isinstance(item, dict):
                 continue
 
-            test_name = item.get("Test", f"Test {index}")
-            result_value = item.get("Result", "Not available")
-            reference_range = item.get("Reference Range", "Not available")
-            status = item.get("Status", "Needs review")
+            test_name = str(item.get("Test", f"Test {index}"))
 
             with st.expander(
-                f"{render_status_badge(status)}  |  {test_name}",
+                f"🧪 {test_name}",
                 expanded=(index == 1),
             ):
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.markdown("**Result**")
-                    st.write(result_value)
-
-                with col2:
-                    st.markdown("**Reference range**")
-                    st.write(reference_range)
-
-                st.markdown("**Meaning**")
-                st.write(item.get("Meaning", "Not available"))
-
-                st.markdown("**Importance**")
-                st.write(item.get("Importance", "Not available"))
-
-                st.markdown("**Interpretation**")
-                st.write(item.get("Interpretation", "Not available"))
-
-                st.markdown("**Possible causes**")
-                possible_causes = item.get(
-                    "Possible Causes",
-                    "Not available",
+                st.write("**Result:**", item.get("Result", "Not available"))
+                st.write(
+                    "**Reference range:**",
+                    item.get("Reference Range", "Not available"),
+                )
+                st.write("**Status:**", item.get("Status", "Needs review"))
+                st.write("**Meaning:**", item.get("Meaning", "Not available"))
+                st.write(
+                    "**Importance:**",
+                    item.get("Importance", "Not available"),
+                )
+                st.write(
+                    "**Interpretation:**",
+                    item.get("Interpretation", "Not available"),
                 )
 
-                if isinstance(possible_causes, (list, tuple)):
-                    if possible_causes:
-                        for cause in possible_causes:
+                causes = item.get("Possible Causes", [])
+                st.write("**Possible causes:**")
+                if isinstance(causes, list):
+                    if causes:
+                        for cause in causes:
                             st.markdown(f"- {cause}")
                     else:
                         st.write(
-                            "No cause information was returned for this test."
+                            "No cause list is available. This does not mean "
+                            "the result has no possible causes."
                         )
                 else:
-                    st.write(possible_causes)
+                    st.write(causes or "Not available")
 
-                st.markdown("**Follow-up**")
                 st.write(
+                    "**Follow-up:**",
                     item.get(
                         "Follow-up",
                         "Discuss the result with a healthcare professional.",
-                    )
+                    ),
                 )
-
     else:
         st.warning(
             "No individual explanations were returned. "
             "Check ai_explainer.py and the extracted results."
         )
 
-    # General notes
     section("Important notes")
-
     notes = insights.get("general_notes", [])
 
-    if isinstance(notes, (list, tuple)) and notes:
+    if notes:
         for note in notes:
             st.markdown(f"- {note}")
     else:
         st.markdown(
             "- Verify extracted values against the original report.\n"
-            "- Reference ranges can vary between laboratories.\n"
-            "- Consult a qualified healthcare professional."
+            "- Reference ranges vary between laboratories.\n"
+            "- Discuss uncertain results with a healthcare professional."
         )
 
     st.warning(
         "Do not use these explanations alone to diagnose a condition "
         "or change medication."
     )
-
 else:
     st.info(
-        "Select 'Generate clinical insights' to display the report explanation."
+        "Select 'Generate clinical insights' to display the explanations."
     )
 
 
 # =========================================================
-# SOURCE VERIFICATION
+# VERIFY SOURCE TEXT
 # =========================================================
 
-with st.expander("🔎 Verify extracted source text"):
+with st.expander("Verify extracted source text"):
     st.write(
-        "Compare this text with the original file to identify possible "
-        "OCR errors, missing values, units, and reference ranges."
+        "Compare extracted text against the original report to identify "
+        "OCR errors, missing values, units, or reference ranges."
     )
 
     st.text_area(
@@ -1391,14 +973,11 @@ with st.expander("🔎 Verify extracted source text"):
 # =========================================================
 
 section(
-    "05  Export report",
-    "Create a downloadable copy of the analysis.",
+    "06  Export report",
+    "Create a downloadable PDF copy of the analysis.",
 )
 
-if st.button(
-    "📄  Generate PDF report",
-    use_container_width=True,
-):
+if st.button("Generate PDF report", use_container_width=True):
     try:
         summary = "Clinical insights have not been generated."
 
@@ -1417,22 +996,16 @@ if st.button(
             "bytes": pdf_bytes,
         }
 
-        st.success("PDF report generated.")
-
     except Exception as error:
         st.error("PDF generation failed.")
         st.exception(error)
 
 
-# =========================================================
-# DOWNLOAD
-# =========================================================
-
 pdf_data = st.session_state.get("report_pdf")
 
 if pdf_data and pdf_data.get("hash") == file_hash:
     st.download_button(
-        "⬇️  Download MediLens analysis",
+        "Download MediLens report",
         data=pdf_data["bytes"],
         file_name="MediLens_Clinical_Report.pdf",
         mime="application/pdf",
@@ -1449,25 +1022,15 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
 <div class="disclaimer">
     <b>Medical disclaimer</b><br>
-    MediLens provides educational medical report analysis.
-    Extracted values and explanations may be incomplete or inaccurate
-    and do not constitute a confirmed diagnosis. Verify all findings
-    against the original report and consult a qualified healthcare
+    MediLens provides educational support for understanding medical reports.
+    Extracted values and explanations can be incomplete or inaccurate and
+    do not constitute a confirmed diagnosis. Consult a qualified healthcare
     professional for interpretation and treatment decisions.
-    Seek urgent medical care for potentially serious symptoms.
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
-<div style="
-    text-align:center;
-    color:#718096;
-    font-size:11px;
-    padding:24px 10px 10px;
-">
-    <span style="color:#078B91;font-size:18px;">✚</span>
-    <b> MEDILENS </b> · MEDICAL REPORT INTELLIGENCE
-    <br><br>
-    Educational support for understanding medical reports
+<div style="text-align:center;color:#8FA5BC;font-size:11px;padding:24px;">
+    ✚ MEDILENS · MEDICAL REPORT INTELLIGENCE
 </div>
 """, unsafe_allow_html=True)
