@@ -1,5 +1,4 @@
 
-
 import streamlit as st
 import pandas as pd
 import hashlib
@@ -78,8 +77,6 @@ html, body, [class*="css"] {
     border-color: var(--border);
 }
 
-/* ANIMATIONS */
-
 @keyframes logoFloat {
     0%, 100% { transform: translateY(0) rotateY(-5deg); }
     50% { transform: translateY(-5px) rotateY(5deg); }
@@ -94,8 +91,6 @@ html, body, [class*="css"] {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
 }
-
-/* BRAND HEADER */
 
 .brand-header {
     display: flex;
@@ -147,8 +142,6 @@ html, body, [class*="css"] {
     letter-spacing: 2px;
     margin-bottom: 7px;
 }
-
-/* PROFESSIONAL MEDICAL BANNER */
 
 .professional-banner {
     position: relative;
@@ -217,8 +210,6 @@ html, body, [class*="css"] {
     max-width: 460px;
 }
 
-/* SECTION HEADINGS */
-
 .section-heading {
     font-family: 'Manrope', sans-serif;
     font-size: 22px;
@@ -233,8 +224,6 @@ html, body, [class*="css"] {
     font-size: 13px;
     margin-bottom: 17px;
 }
-
-/* PANELS */
 
 .panel {
     background: linear-gradient(145deg, #132b42, #0a1929);
@@ -264,8 +253,6 @@ html, body, [class*="css"] {
     font-size: 13px;
     line-height: 1.8;
 }
-
-/* KPI CARDS */
 
 .kpi {
     background: linear-gradient(145deg, #142e46, #0a1928);
@@ -301,8 +288,6 @@ html, body, [class*="css"] {
     margin-top: 3px;
 }
 
-/* NOTICE BOXES */
-
 .status-box {
     background: #102f3c;
     border: 1px solid #24796f;
@@ -324,16 +309,12 @@ html, body, [class*="css"] {
     line-height: 1.8;
 }
 
-/* FILE UPLOADER */
-
 div[data-testid="stFileUploader"] {
     background: #0c2032;
     border: 1px dashed #258b96;
     border-radius: 14px;
     padding: 12px;
 }
-
-/* STREAMLIT METRICS */
 
 div[data-testid="stMetric"] {
     background: linear-gradient(145deg, #142e46, #0a1928);
@@ -349,8 +330,6 @@ div[data-testid="stMetric"] {
 [data-testid="stMetricValue"] {
     color: var(--teal);
 }
-
-/* BUTTONS */
 
 .stButton button,
 .stDownloadButton button {
@@ -369,8 +348,6 @@ div[data-testid="stMetric"] {
     box-shadow: 0 7px 18px #19d8c533;
     color: #ffffff;
 }
-
-/* TABLES AND EXPANDERS */
 
 div[data-testid="stDataFrame"] {
     border: 1px solid var(--border);
@@ -561,7 +538,7 @@ with st.sidebar:
 
 
 # =========================================================
-# PROFESSIONAL BRAND HEADER
+# BRAND HEADER
 # =========================================================
 
 st.markdown("""
@@ -580,7 +557,7 @@ st.markdown("""
 
 
 # =========================================================
-# PROFESSIONAL MEDICAL BANNER
+# MEDICAL BANNER
 # =========================================================
 
 st.markdown("""
@@ -670,7 +647,7 @@ if not uploaded_file:
 
 
 # =========================================================
-# PROCESS UPLOADED FILE
+# FILE STATE
 # =========================================================
 
 file_hash = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
@@ -681,6 +658,10 @@ if st.session_state.get("report_hash") != file_hash:
     st.session_state.pop("report_insights", None)
     st.session_state.pop("report_pdf", None)
 
+
+# =========================================================
+# PROCESS UPLOADED FILE
+# =========================================================
 
 if st.button(
     "Run medical report analysis",
@@ -713,11 +694,13 @@ if st.button(
             results = analyze_report(report_text)
             patient = extract_patient_fields(report_text)
 
+        # Ensure results are consistently represented as a DataFrame.
         if results is None:
             results = pd.DataFrame()
         elif not isinstance(results, pd.DataFrame):
             results = pd.DataFrame(results)
 
+        # Save report information in Streamlit session state.
         st.session_state["report_data"] = {
             "hash": file_hash,
             "filename": uploaded_file.name,
@@ -725,6 +708,10 @@ if st.button(
             "results": results,
             "patient": patient if isinstance(patient, dict) else {},
         }
+
+        # Clear stale insights and PDF when a new analysis is run.
+        st.session_state.pop("report_insights", None)
+        st.session_state.pop("report_pdf", None)
 
         st.success("Report extraction completed.")
 
@@ -748,6 +735,36 @@ patient = data["patient"]
 
 
 # =========================================================
+# TEMPORARY PATIENT DEBUGGING
+# =========================================================
+
+with st.expander("Debug patient information", expanded=False):
+    st.write("Patient fields returned by analyzer.py:")
+
+    if isinstance(patient, dict):
+        st.json(patient)
+    else:
+        st.warning("Patient fields are not returned as a dictionary.")
+
+    st.write("Extracted report text:")
+
+    st.text_area(
+        "Check the original extracted text",
+        value=report_text,
+        height=300,
+        disabled=True,
+        key=f"debug_report_text_{file_hash[:12]}",
+    )
+
+    if not patient:
+        st.warning(
+            "No patient fields were detected. If the details are visible "
+            "in the text above, the extraction patterns in analyzer.py "
+            "need to be adjusted to match the report format."
+        )
+
+
+# =========================================================
 # PATIENT OVERVIEW
 # =========================================================
 
@@ -757,53 +774,51 @@ section(
 )
 
 if patient and isinstance(patient, dict):
-    fields = list(patient.items())[:6]
-    cols = st.columns(min(3, max(1, len(fields))))
+    fields = [
+        (key, value)
+        for key, value in patient.items()
+        if value is not None
+        and str(value).strip()
+        and str(value).strip().lower() not in {
+            "none", "nan", "null", "not found in report"
+        }
+    ]
 
-    for index, (key, value) in enumerate(fields):
-        with cols[index % len(cols)]:
-            st.markdown(
-                f"""
-                <div class="panel">
-                    <div class="kpi-label">
-                        {safe_text(str(key).replace("_", " ").title())}
+    if fields:
+        cols = st.columns(min(3, len(fields)))
+
+        for index, (key, value) in enumerate(fields[:6]):
+            with cols[index % len(cols)]:
+                st.markdown(
+                    f"""
+                    <div class="panel">
+                        <div class="kpi-label">
+                            {safe_text(str(key).replace("_", " ").title())}
+                        </div>
+                        <div style="
+                            font-size:17px;
+                            font-weight:800;
+                            color:#eaf8ff;
+                            margin-top:10px;
+                            overflow-wrap:anywhere;">
+                            {safe_text(value)[:120]}
+                        </div>
                     </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            # Render the value separately to avoid HTML closing-tag issues.
-            display_value = str(value).strip() if value is not None else ""
-
-            if not display_value or display_value.lower() in {
-                "none", "nan", "null"
-            }:
-                display_value = "Not found in report"
-
-            st.markdown(
-                f"""
-                <div style="
-                    font-size:17px;
-                    font-weight:800;
-                    color:#eaf8ff;
-                    margin-top:-12px;
-                    margin-bottom:12px;
-                    padding:0 16px 16px 16px;
-                    background:#10232e;
-                    border-radius:0 0 12px 12px;
-                    overflow-wrap:anywhere;">
-                    {safe_text(display_value)[:120]}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
+                    """,
+                    unsafe_allow_html=True,
+                )
+    else:
+        st.info(
+            "Patient details could not be confidently extracted. "
+            "Check the Debug patient information section and verify "
+            "the original report."
+        )
 else:
     st.info(
         "Patient details could not be confidently extracted. "
         "Review the original report before interpreting the results."
     )
+
 
 # =========================================================
 # LABORATORY FINDINGS
@@ -1083,6 +1098,7 @@ with st.expander("Verify extracted source text"):
         value=report_text,
         height=260,
         disabled=True,
+        key=f"source_report_text_{file_hash[:12]}",
     )
 
 
