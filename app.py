@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 import pandas as pd
 import hashlib
@@ -15,7 +16,7 @@ from report_generator import generate_pdf_report
 
 
 # =========================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # =========================================================
 
 st.set_page_config(
@@ -27,7 +28,7 @@ st.set_page_config(
 
 
 # =========================================================
-# DARK 3D MEDICAL THEME + ANIMATIONS
+# PROFESSIONAL THEME
 # =========================================================
 
 st.markdown("""
@@ -35,14 +36,12 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --navy: #071321;
-    --panel: #10243a;
-    --teal: #19e0d0;
-    --mint: #b7fff5;
-    --bg: #07111f;
-    --border: #254258;
+    --background: #071321;
+    --surface: #10243a;
+    --teal: #19d8c5;
+    --text: #edf7ff;
     --muted: #a8bfd1;
-    --ink: #edf8ff;
+    --border: #254258;
 }
 
 html, body, [class*="css"] {
@@ -51,15 +50,14 @@ html, body, [class*="css"] {
 
 .stApp {
     background:
-        radial-gradient(ellipse at 85% 0%, #123b50 0%, transparent 36%),
-        radial-gradient(ellipse at 0% 55%, #0b263d 0%, transparent 45%),
-        linear-gradient(140deg, #050c17, #091827 60%, #07111f);
-    color: var(--ink);
+        radial-gradient(ellipse at 90% 0%, #12394d 0%, transparent 35%),
+        linear-gradient(145deg, #050d18, #091a2b 65%, #071321);
+    color: var(--text);
 }
 
 .block-container {
     max-width: 1320px;
-    padding-top: 1.7rem;
+    padding-top: 1.5rem;
     padding-bottom: 3rem;
 }
 
@@ -68,173 +66,158 @@ html, body, [class*="css"] {
 }
 
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0c2033, #07111f);
-    border-right: 1px solid #254258;
+    background: linear-gradient(180deg, #0d2033, #07111f);
+    border-right: 1px solid var(--border);
 }
 
 [data-testid="stSidebar"] * {
-    color: #eaf2fa;
-}
-
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-    color: #b8c8d9;
+    color: #edf7ff;
 }
 
 [data-testid="stSidebar"] hr {
-    border-color: #33475d;
+    border-color: var(--border);
 }
 
 /* ANIMATIONS */
 
-@keyframes medilensFloat {
-    0%, 100% {
-        transform: translateY(0) rotateY(-7deg);
-    }
-    50% {
-        transform: translateY(-9px) rotateY(7deg);
-    }
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0) rotateY(-5deg); }
+    50% { transform: translateY(-5px) rotateY(5deg); }
 }
 
-@keyframes medilensGlow {
-    0%, 100% {
-        box-shadow: 0 0 12px rgba(25,224,208,.18),
-                    7px 8px 16px rgba(0,0,0,.4);
-    }
-    50% {
-        box-shadow: 0 0 30px rgba(25,224,208,.48),
-                    7px 8px 16px rgba(0,0,0,.4);
-    }
+@keyframes logoGlow {
+    0%, 100% { box-shadow: 0 0 12px #19d8c522, 4px 5px 12px #0008; }
+    50% { box-shadow: 0 0 25px #19d8c555, 4px 5px 12px #0008; }
 }
 
-@keyframes medilensEntrance {
-    from {
-        opacity: 0;
-        transform: translateY(18px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+@keyframes appear {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* HERO */
+/* BRAND HEADER */
 
-.hero {
-    position: relative;
-    overflow: hidden;
+.brand-header {
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding: 34px;
-    border-radius: 24px;
-    color: white;
-    background: linear-gradient(
-        125deg, #102a42 0%, #10445a 58%, #087f8c 100%
-    );
-    border: 1px solid rgba(25,224,208,.3);
-    margin-bottom: 25px;
-    box-shadow: 0 20px 45px rgba(0,0,0,.34);
-    animation: medilensEntrance .8s ease-out;
+    gap: 18px;
+    padding: 8px 0 24px;
+    animation: appear .7s ease-out;
 }
 
-.hero::after {
-    content: "✚";
-    position: absolute;
-    right: 24px;
-    top: -35px;
-    font-size: 155px;
-    color: rgba(255,255,255,.06);
-    transform: rotate(12deg);
-    pointer-events: none;
-}
-
-.medical-logo {
+.brand-logo {
+    width: 66px;
+    height: 66px;
     flex-shrink: 0;
-    width: 82px;
-    height: 82px;
     display: flex;
-    justify-content: center;
     align-items: center;
-    border-radius: 24px;
-    color: white;
+    justify-content: center;
+    border-radius: 19px;
+    background: linear-gradient(145deg, #35f1df, #087e9b);
+    color: #071321;
     font-family: 'Manrope', sans-serif;
-    font-size: 53px;
+    font-size: 44px;
     font-weight: 800;
-    background: linear-gradient(145deg, #35f4e1, #087d99);
-    border: 1px solid rgba(255,255,255,.35);
-    box-shadow: inset 3px 3px 8px rgba(255,255,255,.35);
-    animation: medilensFloat 4s ease-in-out infinite,
-               medilensGlow 3s ease-in-out infinite;
+    border: 1px solid #8ff9ef;
+    animation: logoFloat 4s ease-in-out infinite,
+               logoGlow 3s ease-in-out infinite;
     transform-style: preserve-3d;
 }
 
-.hero h1 {
-    color: #fff;
+.brand-title {
+    color: #f3fbff;
     font-family: 'Manrope', sans-serif;
-    font-size: clamp(29px, 4vw, 44px);
+    font-size: clamp(27px, 3vw, 40px);
     font-weight: 800;
-    letter-spacing: -1.2px;
-    margin: 10px 0;
+    letter-spacing: -1px;
+    line-height: 1.2;
 }
 
-.hero p {
-    color: #dceef5;
-    max-width: 720px;
-    font-size: 15px;
-    line-height: 1.8;
+.brand-subtitle {
+    color: #b7cddd;
+    font-size: 14px;
+    margin-top: 8px;
+    line-height: 1.7;
 }
 
 .eyebrow {
-    font-size: 11px;
+    color: #67e8da;
+    font-size: 10px;
     font-weight: 800;
     letter-spacing: 2px;
-    color: #9ce9df;
+    margin-bottom: 7px;
 }
 
-.hero-pill {
-    display: inline-block;
-    border: 1px solid #5ea9b3;
-    color: #dff9f6;
-    padding: 6px 12px;
-    border-radius: 100px;
-    font-size: 11px;
-    margin-top: 8px;
-}
+/* PROFESSIONAL MEDICAL BANNER */
 
-/* MEDICAL IMAGE */
-
-.medical-visual {
+.professional-banner {
+    position: relative;
+    height: 320px;
     overflow: hidden;
-    border: 1px solid rgba(25,224,208,.25);
-    border-radius: 21px;
-    background: linear-gradient(135deg, #122b41, #081522);
-    margin-bottom: 28px;
-    box-shadow: 0 15px 35px rgba(0,0,0,.28);
-    animation: medilensEntrance 1s ease-out;
+    border-radius: 18px;
+    background: #0b1c2e;
+    border: 1px solid #29465b;
+    margin: 0 0 28px;
+    box-shadow: 0 15px 35px #0005;
+    animation: appear .8s ease-out;
 }
 
-.medical-visual img {
-    display: block;
+.professional-banner img {
     width: 100%;
-    height: 245px;
+    height: 100%;
     object-fit: cover;
-    opacity: .86;
-    transition: transform .5s ease, opacity .5s ease;
+    object-position: center 35%;
+    display: block;
+    opacity: .7;
+    transition: transform .5s ease;
 }
 
-.medical-visual img:hover {
-    transform: scale(1.035);
-    opacity: 1;
+.professional-banner:hover img {
+    transform: scale(1.025);
 }
 
-.image-caption {
-    color: #b8d0df;
-    font-size: 12px;
-    padding: 13px 18px;
-    letter-spacing: .5px;
+.professional-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 35px;
+    background: linear-gradient(
+        90deg,
+        rgba(5, 18, 32, .96) 0%,
+        rgba(5, 18, 32, .80) 47%,
+        rgba(5, 18, 32, .15) 100%
+    );
 }
 
-/* HEADINGS */
+.professional-label {
+    color: #70e7db;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+}
+
+.professional-overlay h2 {
+    color: #ffffff;
+    font-family: 'Manrope', sans-serif;
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 800;
+    line-height: 1.25;
+    max-width: 520px;
+    margin: 0 0 12px;
+}
+
+.professional-overlay p {
+    color: #d8e7f1;
+    font-size: 14px;
+    line-height: 1.7;
+    max-width: 460px;
+}
+
+/* SECTION HEADINGS */
 
 .section-heading {
     font-family: 'Manrope', sans-serif;
@@ -242,7 +225,7 @@ html, body, [class*="css"] {
     font-weight: 800;
     color: #eaf8ff;
     margin-top: 24px;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
 }
 
 .section-caption {
@@ -255,26 +238,25 @@ html, body, [class*="css"] {
 
 .panel {
     background: linear-gradient(145deg, #132b42, #0a1929);
-    border: 1px solid #254258;
-    border-radius: 17px;
-    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 21px;
     margin-bottom: 16px;
-    box-shadow: 6px 8px 18px rgba(0,0,0,.23);
-    transition: transform .3s ease, box-shadow .3s ease;
-    animation: medilensEntrance .8s ease-out;
+    box-shadow: 5px 7px 17px #0004;
+    transition: transform .25s ease, border-color .25s ease;
+    animation: appear .7s ease-out;
 }
 
 .panel:hover {
-    transform: translateY(-4px);
-    border-color: rgba(25,224,208,.45);
-    box-shadow: 0 14px 28px rgba(25,224,208,.10);
+    transform: translateY(-3px);
+    border-color: #258b8b;
 }
 
 .panel-title {
     color: #f0fbff;
     font-size: 16px;
     font-weight: 800;
-    margin-bottom: 7px;
+    margin-bottom: 8px;
 }
 
 .panel-description {
@@ -283,21 +265,20 @@ html, body, [class*="css"] {
     line-height: 1.8;
 }
 
-/* SUMMARY CARDS */
+/* KPI CARDS */
 
 .kpi {
     background: linear-gradient(145deg, #142e46, #0a1928);
-    border: 1px solid #254258;
-    border-radius: 15px;
-    padding: 17px;
-    min-height: 110px;
-    box-shadow: 5px 7px 17px rgba(0,0,0,.22);
-    transition: transform .3s ease, box-shadow .3s ease;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 105px;
+    box-shadow: 5px 7px 17px #0003;
+    transition: transform .25s ease;
 }
 
 .kpi:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 25px rgba(25,224,208,.14);
+    transform: translateY(-4px);
 }
 
 .kpi-label {
@@ -309,7 +290,7 @@ html, body, [class*="css"] {
 .kpi-value {
     color: var(--teal);
     font-family: 'Manrope', sans-serif;
-    font-size: 29px;
+    font-size: 28px;
     font-weight: 800;
     margin-top: 8px;
 }
@@ -317,10 +298,10 @@ html, body, [class*="css"] {
 .kpi-note {
     color: #a8bfd1;
     font-size: 11px;
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
-/* STATUS AND DISCLAIMER */
+/* NOTICE BOXES */
 
 .status-box {
     background: #102f3c;
@@ -332,8 +313,8 @@ html, body, [class*="css"] {
     line-height: 1.7;
 }
 
-.warning-box, .disclaimer {
-    background: #342a18;
+.disclaimer {
+    background: #302819;
     border: 1px solid #826632;
     border-left: 4px solid #d9a441;
     border-radius: 9px;
@@ -343,11 +324,11 @@ html, body, [class*="css"] {
     line-height: 1.8;
 }
 
-/* UPLOADER */
+/* FILE UPLOADER */
 
 div[data-testid="stFileUploader"] {
     background: #0c2032;
-    border: 1px dashed #19bcb7;
+    border: 1px dashed #258b96;
     border-radius: 14px;
     padding: 12px;
 }
@@ -356,7 +337,7 @@ div[data-testid="stFileUploader"] {
 
 div[data-testid="stMetric"] {
     background: linear-gradient(145deg, #142e46, #0a1928);
-    border: 1px solid #254258;
+    border: 1px solid var(--border);
     padding: 15px;
     border-radius: 14px;
 }
@@ -366,39 +347,41 @@ div[data-testid="stMetric"] {
 }
 
 [data-testid="stMetricValue"] {
-    color: #19e0d0;
+    color: var(--teal);
 }
 
 /* BUTTONS */
 
-.stButton button, .stDownloadButton button {
-    border-radius: 10px;
+.stButton button,
+.stDownloadButton button {
+    border-radius: 9px;
     font-weight: 700;
     min-height: 43px;
-    background: linear-gradient(110deg, #20e3d2, #128aa6);
-    color: #06131f;
+    background: linear-gradient(110deg, #20dfcf, #168ca6);
+    color: #071321;
     border: 0;
-    transition: transform .25s ease, box-shadow .25s ease;
+    transition: transform .2s ease, box-shadow .2s ease;
 }
 
-.stButton button:hover, .stDownloadButton button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(25,224,208,.25);
-    color: white;
+.stButton button:hover,
+.stDownloadButton button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 18px #19d8c533;
+    color: #ffffff;
 }
 
 /* TABLES AND EXPANDERS */
 
 div[data-testid="stDataFrame"] {
-    border: 1px solid #254258;
+    border: 1px solid var(--border);
     border-radius: 12px;
     overflow: hidden;
 }
 
 [data-testid="stExpander"] {
     background: #0d2031;
-    border: 1px solid #254258;
-    border-radius: 12px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
 }
 
 p, label, li {
@@ -409,20 +392,19 @@ footer {
     visibility: hidden;
 }
 
-@media (max-width: 700px) {
-    .hero {
-        padding: 22px;
-        gap: 15px;
+@media (max-width: 600px) {
+    .brand-logo {
+        width: 54px;
+        height: 54px;
+        font-size: 36px;
     }
 
-    .medical-logo {
-        width: 60px;
-        height: 60px;
-        font-size: 39px;
+    .professional-banner {
+        height: 280px;
     }
 
-    .medical-visual img {
-        height: 180px;
+    .professional-overlay {
+        padding: 20px;
     }
 
     .panel {
@@ -441,7 +423,7 @@ footer {
 
 
 # =========================================================
-# REUSABLE UI HELPERS
+# REUSABLE HELPERS
 # =========================================================
 
 def section(title, caption=""):
@@ -530,7 +512,7 @@ with st.sidebar:
             display:flex;
             align-items:center;
             gap:10px;
-            font-size:27px;
+            font-size:26px;
             font-weight:800;
             color:white;">
             <span style="
@@ -539,18 +521,18 @@ with st.sidebar:
                 justify-content:center;
                 width:42px;
                 height:42px;
-                border-radius:13px;
+                border-radius:12px;
                 color:#071321;
-                background:linear-gradient(145deg,#35f4e1,#087d99);
-                box-shadow:0 0 18px #19e0d055;">
+                background:linear-gradient(145deg,#35f1df,#087e9b);
+                box-shadow:0 0 16px #19d8c533;">
                 +
             </span>
             MediLens
         </div>
         <div style="
-            font-size:11px;
+            font-size:10px;
             color:#B8C8D9;
-            letter-spacing:1px;
+            letter-spacing:1.5px;
             margin-top:8px;">
             CLINICAL INTELLIGENCE
         </div>
@@ -559,9 +541,9 @@ with st.sidebar:
 
     st.divider()
     st.markdown("**WORKSPACE**")
-    st.markdown("◉  Report analysis")
-    st.markdown("◈  Clinical findings")
-    st.markdown("▤  Report export")
+    st.caption("Report analysis")
+    st.caption("Clinical findings")
+    st.caption("Report export")
 
     st.divider()
     st.markdown("**SUPPORTED FORMATS**")
@@ -570,44 +552,52 @@ with st.sidebar:
     st.divider()
     st.markdown("**ANALYSIS PROCESS**")
     st.caption("01  Extract report")
-    st.caption("02  Analyze findings")
+    st.caption("02  Structure findings")
     st.caption("03  Review interpretation")
     st.caption("04  Export report")
 
     st.divider()
-    st.caption("MediLens · Clinical Intelligence")
+    st.caption("MediLens Clinical Intelligence")
 
 
 # =========================================================
-# HERO HEADER + MEDICAL IMAGE
+# PROFESSIONAL BRAND HEADER
 # =========================================================
 
 st.markdown("""
-<div class="hero">
-    <div class="medical-logo">+</div>
+<div class="brand-header">
+    <div class="brand-logo">+</div>
     <div>
         <div class="eyebrow">AI-POWERED HEALTHCARE TECHNOLOGY</div>
-        <h1>MediLens Clinical Intelligence</h1>
-        <p>
-            Transform medical reports into structured laboratory findings,
-            educational explanations and visual insights.
-        </p>
-        <span class="hero-pill">REPORT ANALYSIS</span>
-        &nbsp;
-        <span class="hero-pill">LAB INSIGHTS</span>
-        &nbsp;
-        <span class="hero-pill">HEALTH EDUCATION</span>
+        <div class="brand-title">MediLens Clinical Intelligence</div>
+        <div class="brand-subtitle">
+            Medical report analysis, structured laboratory findings,
+            and AI-assisted educational insights.
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
+
+# =========================================================
+# PROFESSIONAL MEDICAL BANNER
+# =========================================================
+
 st.markdown("""
-<div class="medical-visual">
+<div class="professional-banner">
     <img
-        src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1400&q=85"
-        alt="Healthcare professionals reviewing medical information">
-    <div class="image-caption">
-        MEDICAL TECHNOLOGY • LABORATORY INSIGHTS • PATIENT EDUCATION
+        src="https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=1600&q=90"
+        alt="Doctor reviewing medical information"
+    >
+    <div class="professional-overlay">
+        <div class="professional-label">
+            CLINICAL INTELLIGENCE PLATFORM
+        </div>
+        <h2>Understand Your Health Reports</h2>
+        <p>
+            Structured laboratory findings and AI-assisted
+            educational insights in one workspace.
+        </p>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -666,14 +656,10 @@ if not uploaded_file:
         <b>Ready for report upload</b><br>
         Your analysis workspace will appear after a medical report is uploaded.
     </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown("""
+    <br>
     <div class="disclaimer">
         <b>Medical disclaimer</b><br>
-        MediLens findings may be incomplete or inaccurate.
+        MediLens provides educational information only.
         AI-assisted interpretation does not establish a confirmed diagnosis.
         Consult a qualified healthcare professional to confirm findings
         and determine appropriate treatment.
@@ -684,7 +670,7 @@ if not uploaded_file:
 
 
 # =========================================================
-# FILE PROCESSING
+# PROCESS UPLOADED FILE
 # =========================================================
 
 file_hash = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
@@ -695,7 +681,6 @@ if st.session_state.get("report_hash") != file_hash:
     st.session_state.pop("report_insights", None)
     st.session_state.pop("report_pdf", None)
 
-st.markdown("<br>", unsafe_allow_html=True)
 
 if st.button(
     "Run medical report analysis",
@@ -832,23 +817,19 @@ else:
     with c4:
         kpi_card("Within range", normal_count, "Flagged by analyzer")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
     status_col = get_status_column(results)
 
     if status_col:
         statuses = results[status_col].fillna("").astype(str).str.lower()
 
-        filter_options = [
-            "All findings",
-            "Below range",
-            "Above range",
-            "Within range",
-        ]
-
         selected_filter = st.selectbox(
             "Filter laboratory findings",
-            filter_options,
+            [
+                "All findings",
+                "Below range",
+                "Above range",
+                "Within range",
+            ],
         )
 
         if selected_filter == "Below range":
@@ -879,7 +860,7 @@ else:
 
 
 # =========================================================
-# COMBINED LAB RESULTS GRAPH
+# LABORATORY GRAPH
 # =========================================================
 
 section(
@@ -915,7 +896,7 @@ if not results.empty:
         if not chart_df.empty:
             st.bar_chart(
                 chart_df.set_index("Test")["Numeric value"],
-                color="#19e0d0",
+                color="#19d8c5",
                 height=400,
                 use_container_width=True,
             )
@@ -939,7 +920,7 @@ if not results.empty:
             "Check the column names returned by analyzer.py."
         )
 else:
-    st.info("Upload and analyze a report to visualize laboratory results.")
+    st.info("Analyze a report to visualize laboratory results.")
 
 
 # =========================================================
@@ -1064,7 +1045,7 @@ if insights_data and insights_data.get("hash") == file_hash:
     )
 else:
     st.info(
-        "Tap 'Generate clinical insights' to display the report explanation."
+        "Click 'Generate clinical insights' to display the report explanation."
     )
 
 
@@ -1074,8 +1055,8 @@ else:
 
 with st.expander("Verify extracted source text"):
     st.write(
-        "Compare the extracted text with the original file to check for "
-        "OCR errors, missing values, units, and reference ranges."
+        "Compare the extracted text with the original file to check "
+        "for OCR errors, missing values, units, and reference ranges."
     )
 
     st.text_area(
@@ -1146,15 +1127,13 @@ st.markdown("""
     original report and consult a qualified healthcare professional.
     Seek urgent medical care for potentially serious symptoms.
 </div>
-""", unsafe_allow_html=True)
 
-st.markdown("""
 <div style="
     text-align:center;
     color:#8faabd;
     font-size:11px;
     padding:22px;
     letter-spacing:1px;">
-    ✚ MEDILENS · AI-POWERED MEDICAL REPORT INTELLIGENCE
+    + MEDILENS · CLINICAL INTELLIGENCE
 </div>
 """, unsafe_allow_html=True)
