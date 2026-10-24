@@ -351,57 +351,316 @@ def analyze_report(extracted_text: str) -> list[dict[str, Any]]:
 
     return results
 
-
 def extract_patient_fields(extracted_text: str) -> dict[str, str]:
     """
-    Extract common patient fields from labels and simple report layouts.
-    Returns only fields found in the extracted text.
+    Extract patient details from medical reports.
+
+    Supports labels and values on separate lines, for example:
+        Patient Name
+        Ananya Sharma (fictional)
+
+        Age / Sex
+        45 years / Female
+
+        Report Date
+        22 October 2026
+
+    Also supports common same-line formats such as:
+        Patient Name: Ananya Sharma
+        Age: 45
+        Sex: Female
+        Report Date: 22 October 2026
     """
     text = _normalize_text(extracted_text)
-    fields = {}
+    lines = [line.strip() for line in text.splitlines()]
+    fields: dict[str, str] = {}
 
-    def first_match(patterns):
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-            if match:
-                value = re.sub(r"\s+", " ", match.group(1)).strip(" :-|")
-                if value:
-                    return value
+    def find_value(label_pattern: str) -> str:
+        # First, support labels and values on separate lines.
+        for index, line in enumerate(lines):
+            if re.fullmatch(
+                label_pattern + r"\s*:?\s*",
+                line,
+                flags=re.IGNORECASE,
+            ):
+                for candidate in lines[index + 1:index + 5]:
+                    candidate = candidate.strip()
+
+                    if not candidate:
+                        continue
+
+                    # Stop when another known label is encountered.
+                    if re.fullmatch(
+                        r"(?:patient\s+name|name|patient\s+id|"
+                        r"age\s*/\s*sex|age|gender|sex|"
+                        r"report\s+date|date|referring\s+doctor|"
+                        r"doctor|specimen|clinical\s+note|"
+                        r"report\s+status)\s*:?",
+                        candidate,
+                        flags=re.IGNORECASE,
+                    ):
+                        break
+
+                    return candidate
+
+        # Then support labels and values on the same line.
+        match = re.search(
+            r"^\s*(?:" + label_pattern + r")\s*:\s*(.+?)\s*$",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+
+        if match:
+            return match.group(1).strip()
+
         return ""
 
-    # Handles labels such as:
-    # Patient Name: Sangavi
-    # Name: Sangavi
-    # Patient: Sangavi
-    name = first_match([
-        r"^\s*(?:patient\s*name|name\s*of\s*patient|patient)\s*[:\-]\s*([^\n|]+)",
-        r"^\s*name\s*[:\-]\s*([^\n|]+)",
-    ])
-
-    # Handles Age: 22, Age: 22 years, Patient Age: 22
-    age = first_match([
-        r"^\s*(?:patient\s*)?age\s*[:\-]\s*(\d{1,3})(?:\s*(?:years?|yrs?))?\b",
-        r"\bAge\s*[:\-]\s*(\d{1,3})\s*(?:years?|yrs?)\b",
-    ])
-
-    gender = first_match([
-        r"^\s*(?:gender|sex)\s*[:\-]\s*(male|female|other)\b",
-    ])
-
-    report_date = first_match([
-        r"^\s*report\s*date\s*[:\-]\s*([^\n|]+)",
-        r"^\s*date\s*of\s*(?:visit|collection|report)\s*[:\-]\s*([^\n|]+)",
-        r"^\s*collection\s*date\s*[:\-]\s*([^\n|]+)",
-        r"^\s*date\s*[:\-]\s*([^\n|]+)",
-    ])
+    # Patient name
+    name = find_value(
+        r"(?:patient\s+name|name\s+of\s+patient|name)"
+    )
 
     if name:
-        fields["patient_name"] = name
-    if age:
-        fields["age"] = age
-    if gender:
-        fields["gender"] = gender.capitalize()
+        name = re.sub(
+            r"\s*\(fictional\)\s*$",
+            "",
+            name,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        # Do not treat a patient ID or another label as a name.
+        if not re.fullmatch(
+            r"(?:patient\s+id|age|sex|gender|report\s+date)",
+            name,
+            flags=re.IGNORECASE,
+        ):
+            fields["patient_name"] = name
+
+    # Patient ID
+    patient_id = find_value(
+        r"(?:patient\s+id|patient\s+number)"
+    )
+
+    if patient_id:
+        fields["patient_id"] = patient_id.strip()
+
+    # Age and sex on the same line: "45 years / Female"
+    age_sex = find_value(r"age\s*/\s*sex")
+
+    if age_sex:
+        age_match = re.search(
+            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
+            age_sex,
+            flags=re.IGNORECASE,
+        )
+        sex_match = re.search(
+            r"\b(male|female|other)\b",
+            age_sex,
+            flags=re.IGNORECASE,
+        )
+
+        if age_match:
+            fields["age"] = age_match.group(1)
+
+        if sex_match:
+            fields["gender"] = sex_match.group(1).capitalize()
+
+    # Separate age field
+    if "age" not in fields:
+        age_text = find_value(r"(?:patient\s+)?age")
+
+        age_match = re.search(
+            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
+            age_text,
+            flags=re.IGNORECASE,
+        )
+
+        if age_match:
+            fields["age"] = age_match.group(1)
+
+    # Separate gender or sex field
+    if "gender" not in fields:
+        gender_text = find_value(r"(?:gender|sex)")
+
+        gender_match = re.search(
+            r"\b(male|female|other)\b",
+            gender_text,
+            flags=re.IGNORECASE,
+        )
+
+        if gender_match:
+            fields["gender"] = gender_match.group(1).capitalize()
+
+    # Report date
+    report_date = find_value(
+        r"(?:report\s+date|date\s+of\s+(?:report|visit|collection)|"
+        r"collection\s+date)"
+    )
+
+    if not report_date:
+        report_date = find_value(r"date")
+
     if report_date:
-        fields["report_date"] = report_date
+        fields["report_date"] = report_date.strip()
 
     return fields
+    
+def extract_patient_fields(extracted_text: str) -> dict[str, str]:
+    """
+    Extract patient details from medical reports.
+
+    Supports labels and values on separate lines, for example:
+        Patient Name
+        Ananya Sharma (fictional)
+
+        Age / Sex
+        45 years / Female
+
+        Report Date
+        22 October 2026
+
+    Also supports common same-line formats such as:
+        Patient Name: Ananya Sharma
+        Age: 45
+        Sex: Female
+        Report Date: 22 October 2026
+    """
+    text = _normalize_text(extracted_text)
+    lines = [line.strip() for line in text.splitlines()]
+    fields: dict[str, str] = {}
+
+    def find_value(label_pattern: str) -> str:
+        # First, support labels and values on separate lines.
+        for index, line in enumerate(lines):
+            if re.fullmatch(
+                label_pattern + r"\s*:?\s*",
+                line,
+                flags=re.IGNORECASE,
+            ):
+                for candidate in lines[index + 1:index + 5]:
+                    candidate = candidate.strip()
+
+                    if not candidate:
+                        continue
+
+                    # Stop when another known label is encountered.
+                    if re.fullmatch(
+                        r"(?:patient\s+name|name|patient\s+id|"
+                        r"age\s*/\s*sex|age|gender|sex|"
+                        r"report\s+date|date|referring\s+doctor|"
+                        r"doctor|specimen|clinical\s+note|"
+                        r"report\s+status)\s*:?",
+                        candidate,
+                        flags=re.IGNORECASE,
+                    ):
+                        break
+
+                    return candidate
+
+        # Then support labels and values on the same line.
+        match = re.search(
+            r"^\s*(?:" + label_pattern + r")\s*:\s*(.+?)\s*$",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+
+        if match:
+            return match.group(1).strip()
+
+        return ""
+
+    # Patient name
+    name = find_value(
+        r"(?:patient\s+name|name\s+of\s+patient|name)"
+    )
+
+    if name:
+        name = re.sub(
+            r"\s*\(fictional\)\s*$",
+            "",
+            name,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        # Do not treat a patient ID or another label as a name.
+        if not re.fullmatch(
+            r"(?:patient\s+id|age|sex|gender|report\s+date)",
+            name,
+            flags=re.IGNORECASE,
+        ):
+            fields["patient_name"] = name
+
+    # Patient ID
+    patient_id = find_value(
+        r"(?:patient\s+id|patient\s+number)"
+    )
+
+    if patient_id:
+        fields["patient_id"] = patient_id.strip()
+
+    # Age and sex on the same line: "45 years / Female"
+    age_sex = find_value(r"age\s*/\s*sex")
+
+    if age_sex:
+        age_match = re.search(
+            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
+            age_sex,
+            flags=re.IGNORECASE,
+        )
+        sex_match = re.search(
+            r"\b(male|female|other)\b",
+            age_sex,
+            flags=re.IGNORECASE,
+        )
+
+        if age_match:
+            fields["age"] = age_match.group(1)
+
+        if sex_match:
+            fields["gender"] = sex_match.group(1).capitalize()
+
+    # Separate age field
+    if "age" not in fields:
+        age_text = find_value(r"(?:patient\s+)?age")
+
+        age_match = re.search(
+            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
+            age_text,
+            flags=re.IGNORECASE,
+        )
+
+        if age_match:
+            fields["age"] = age_match.group(1)
+
+    # Separate gender or sex field
+    if "gender" not in fields:
+        gender_text = find_value(r"(?:gender|sex)")
+
+        gender_match = re.search(
+            r"\b(male|female|other)\b",
+            gender_text,
+            flags=re.IGNORECASE,
+        )
+
+        if gender_match:
+            fields["gender"] = gender_match.group(1).capitalize()
+
+    # Report date
+    report_date = find_value(
+        r"(?:report\s+date|date\s+of\s+(?:report|visit|collection)|"
+        r"collection\s+date)"
+    )
+
+    if not report_date:
+        report_date = find_value(r"date")
+
+    if report_date:
+        fields["report_date"] = report_date.strip()
+
+    return fields
+
+
+
+
+  
+  
