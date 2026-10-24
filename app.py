@@ -1,16 +1,14 @@
 
+import io
+import re
+import html
 import streamlit as st
 import pandas as pd
-import hashlib
-import html
-import re
 
+# Existing project modules
 from extractor import extract_text_from_pdf
-from ocr_service import (
-    extract_text_from_image,
-    extract_text_from_scanned_pdf,
-)
-from analyzer import analyze_report, extract_patient_fields
+from ocr_service import extract_text_from_image
+from analyzer import analyze_report
 from ai_explainer import explain_report
 from report_generator import generate_pdf_report
 
@@ -20,7 +18,7 @@ from report_generator import generate_pdf_report
 # =========================================================
 
 st.set_page_config(
-    page_title="MediLens | Medical Report Intelligence",
+    page_title="MediLens | Medical Report Explainer",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -28,366 +26,315 @@ st.set_page_config(
 
 
 # =========================================================
-# PROFESSIONAL DARK MEDICAL THEME
+# MEDILENS DARK 3D THEME + ANIMATIONS
 # =========================================================
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --navy: #0B1728;
-    --panel: #112238;
-    --teal: #12CFC3;
-    --blue: #4AA8FF;
-    --border: #263D53;
-    --muted: #A0B3C8;
-    --ink: #EDF5FF;
-}
-
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
+    --bg: #07111f;
+    --panel: #10243a;
+    --teal: #19e0d0;
+    --blue: #168ba5;
+    --text: #edf8ff;
+    --muted: #a6bdd0;
 }
 
 .stApp {
     background:
-        radial-gradient(ellipse at 80% 0%, #16344A 0%, transparent 40%),
-        #07111F;
-    color: var(--ink);
+        radial-gradient(ellipse at 85% 0%, #123b50 0%, transparent 35%),
+        radial-gradient(ellipse at 0% 50%, #0a2338 0%, transparent 45%),
+        linear-gradient(140deg, #050c17, #091827 60%, #07111f);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
 }
 
 .block-container {
-    max-width: 1450px;
+    max-width: 1250px;
     padding-top: 1.5rem;
     padding-bottom: 3rem;
 }
 
-h1, h2, h3, p, label {
-    color: var(--ink);
+[data-testid="stHeader"] {
+    background: transparent;
 }
 
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #102238, #091421);
-    border-right: 1px solid #263D53;
+    background: linear-gradient(180deg, #0b2033, #07111f);
+    border-right: 1px solid #19384c;
 }
 
 [data-testid="stSidebar"] * {
-    color: #EAF2FA;
+    color: #eaf7ff;
 }
 
-[data-testid="stSidebar"] hr {
-    border-color: #33475D;
+/* Animations */
+@keyframes float3d {
+    0%, 100% { transform: translateY(0) rotateY(-4deg); }
+    50% { transform: translateY(-10px) rotateY(4deg); }
 }
 
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(25,224,208,.12);
+    }
+    50% {
+        box-shadow: 0 0 28px rgba(25,224,208,.40);
+    }
+}
+
+@keyframes appear {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: .65; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.06); }
+}
+
+/* Header */
 .hero {
     position: relative;
     overflow: hidden;
-    padding: 36px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 30px;
+    border-radius: 25px;
+    border: 1px solid rgba(25,224,208,.30);
+    background: linear-gradient(130deg, #12364d, #0b1b2e 70%);
+    box-shadow: 0 20px 45px rgba(0,0,0,.32);
+    animation: appear .8s ease-out;
+}
+
+.hero::after {
+    content: "✚";
+    position: absolute;
+    right: 30px;
+    top: -22px;
+    font-size: 150px;
+    color: rgba(25,224,208,.07);
+    transform: rotate(12deg);
+    pointer-events: none;
+}
+
+.logo3d {
+    flex-shrink: 0;
+    width: 82px;
+    height: 82px;
     border-radius: 24px;
-    border: 1px solid #28606F;
-    background: linear-gradient(120deg, #102238, #104B59 65%, #087F83);
-    box-shadow: 0 18px 45px rgba(0,0,0,.3);
-    margin-bottom: 30px;
-}
-
-.hero h1 {
-    color: #FFFFFF;
-    font-family: 'Manrope', sans-serif;
-    font-size: clamp(30px, 4vw, 45px);
-    font-weight: 800;
-    letter-spacing: -1.2px;
-    margin: 12px 0;
-}
-
-.hero p {
-    color: #D4E8F2;
-    max-width: 760px;
-    line-height: 1.8;
-    font-size: 15px;
-}
-
-.eyebrow {
-    color: #7DF5E5;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 2px;
-}
-
-.hero-pill {
-    display: inline-block;
-    border: 1px solid #5598A6;
-    color: #E0FFFA;
-    padding: 7px 12px;
-    border-radius: 30px;
-    font-size: 11px;
-    margin: 5px 4px 0 0;
-}
-
-.medical-logo {
-    width: 64px;
-    height: 64px;
-    border-radius: 19px;
-    background: linear-gradient(145deg, #20E1D0, #087F8C);
-    color: #06202D;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 36px;
+    font-size: 53px;
     font-weight: 800;
-    box-shadow: 0 10px 25px rgba(18,207,195,.25);
-    border: 1px solid #75F7E9;
+    color: white;
+    background: linear-gradient(145deg, #34f7e4, #087b99);
+    box-shadow:
+        8px 8px 18px #040b13,
+        inset 3px 3px 7px rgba(255,255,255,.35);
+    animation: float3d 4s ease-in-out infinite, glow 3s infinite;
 }
 
-.section-heading {
-    font-family: 'Manrope', sans-serif;
-    font-size: 22px;
+.hero-title {
+    font-size: clamp(32px, 5vw, 49px);
+    line-height: 1.1;
     font-weight: 800;
-    color: #EDF5FF;
-    margin-top: 25px;
-    margin-bottom: 5px;
+    letter-spacing: -1.5px;
+    color: #ffffff;
 }
 
-.section-caption {
-    color: var(--muted);
-    font-size: 13px;
-    margin-bottom: 18px;
+.hero-title span {
+    color: var(--teal);
 }
 
-.panel {
-    background: linear-gradient(145deg, #142840, #0D1B2D);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 22px;
-    margin-bottom: 16px;
-    box-shadow: 0 12px 28px rgba(0,0,0,.22);
-    transition: transform .2s ease, border-color .2s ease;
+.hero-description {
+    color: #bad0df;
+    font-size: 15px;
+    line-height: 1.8;
+    margin-top: 10px;
+    max-width: 650px;
 }
 
-.panel:hover {
-    transform: translateY(-2px);
-    border-color: #168C91;
-}
-
-.panel-title {
-    color: #F0F7FF;
-    font-size: 16px;
-    font-weight: 800;
+.eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--teal);
     margin-bottom: 8px;
 }
 
-.panel-description {
-    color: #A0B3C8;
-    font-size: 13px;
-    line-height: 1.8;
+/* Medical illustration */
+.visual-panel {
+    margin-top: 22px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    border: 1px solid rgba(25,224,208,.25);
+    background: linear-gradient(140deg, #112d44, #081522);
+    box-shadow: 0 15px 35px rgba(0,0,0,.28);
+    animation: appear 1s ease-out;
 }
 
-.kpi {
-    background: linear-gradient(145deg, #152A42, #0D1B2D);
-    border: 1px solid #263D53;
-    border-radius: 16px;
-    padding: 18px;
-    min-height: 120px;
-    box-shadow: 0 10px 24px rgba(0,0,0,.2);
-    transition: transform .2s ease, box-shadow .2s ease;
+.visual-panel img {
+    display: block;
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    opacity: .84;
+    transition: transform .5s ease, opacity .5s ease;
 }
 
-.kpi:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 14px 30px rgba(18,207,195,.12);
+.visual-panel img:hover {
+    transform: scale(1.035);
+    opacity: 1;
 }
 
-.kpi-label {
-    color: #A0B3C8;
+.visual-label {
+    padding: 13px 18px;
+    color: #b7d0e1;
     font-size: 12px;
-    font-weight: 600;
+    letter-spacing: .5px;
 }
 
-.kpi-value {
-    color: #12CFC3;
-    font-family: 'Manrope', sans-serif;
-    font-size: 30px;
+/* 3D cards */
+.feature-card {
+    min-height: 155px;
+    padding: 20px;
+    border-radius: 19px;
+    background: linear-gradient(145deg, #142f47, #091725);
+    border: 1px solid rgba(100,183,205,.20);
+    box-shadow: 7px 9px 20px rgba(0,0,0,.25);
+    transition: transform .3s ease, box-shadow .3s ease;
+    animation: appear .8s ease-out;
+}
+
+.feature-card:hover {
+    transform: translateY(-7px) perspective(700px) rotateX(2deg);
+    box-shadow: 0 15px 30px rgba(25,224,208,.15);
+    border-color: rgba(25,224,208,.55);
+}
+
+.feature-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+    animation: pulse 3s infinite;
+}
+
+.feature-title {
+    font-size: 16px;
+    font-weight: 750;
+    color: #f3fbff;
+}
+
+.feature-text {
+    font-size: 12px;
+    line-height: 1.7;
+    color: #a8bfd1;
+    margin-top: 7px;
+}
+
+/* Section heading */
+.section-heading {
+    font-size: 23px;
     font-weight: 800;
-    margin-top: 8px;
+    color: #f0fbff;
+    margin-top: 30px;
+    margin-bottom: 12px;
 }
 
-.kpi-note {
-    color: #8FA5BC;
-    font-size: 11px;
-    margin-top: 3px;
-}
-
-.status-box {
-    background: #102E32;
-    border: 1px solid #1B6564;
-    border-radius: 13px;
-    padding: 16px;
-    color: #A9F3E8;
-    font-size: 13px;
-    line-height: 1.8;
-}
-
-.warning-box {
-    background: #332817;
-    border: 1px solid #745B2E;
-    border-radius: 13px;
-    padding: 16px;
-    color: #FFE4A9;
-    font-size: 13px;
-    line-height: 1.8;
-}
-
-.disclaimer {
-    background: #292519;
-    border-left: 4px solid #E5B84F;
-    border-radius: 9px;
-    padding: 17px;
-    color: #FFE6AC;
-    font-size: 12px;
-    line-height: 1.8;
-}
-
-div[data-testid="stFileUploader"] {
-    background: #102238;
-    border: 1px dashed #347C91;
-    border-radius: 14px;
+/* Upload area */
+[data-testid="stFileUploader"] {
+    border: 1px dashed #19bcb7;
+    border-radius: 17px;
+    background: rgba(11,35,52,.75);
     padding: 12px;
 }
 
-div[data-testid="stMetric"] {
-    background: #112238;
-    border: 1px solid #263D53;
-    padding: 15px;
-    border-radius: 14px;
-}
-
-div[data-testid="stExpander"] {
-    background: #102238;
-    border: 1px solid #263D53;
-    border-radius: 13px;
-}
-
-div[data-testid="stDataFrame"] {
-    border: 1px solid #263D53;
+/* Buttons */
+.stButton > button,
+.stDownloadButton > button {
+    background: linear-gradient(110deg, #20e3d2, #128aa6);
+    color: #04131d;
+    border: none;
     border-radius: 12px;
+    font-weight: 800;
+    transition: all .25s ease;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(25,224,208,.25);
+    color: white;
+}
+
+/* Metrics */
+[data-testid="stMetric"] {
+    padding: 17px;
+    border-radius: 16px;
+    border: 1px solid rgba(25,224,208,.22);
+    background: linear-gradient(145deg, #122c43, #091725);
+    box-shadow: 5px 7px 17px rgba(0,0,0,.20);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #b8d0df;
+}
+
+[data-testid="stMetricValue"] {
+    color: #20e3d2;
+}
+
+/* Expanders and data */
+[data-testid="stExpander"] {
+    border: 1px solid #24465b;
+    border-radius: 14px;
+    background: rgba(12,32,49,.70);
+}
+
+[data-testid="stDataFrame"] {
+    border: 1px solid #24465b;
+    border-radius: 13px;
     overflow: hidden;
 }
 
-.stButton button, .stDownloadButton button {
-    border-radius: 11px;
-    font-weight: 700;
-    min-height: 44px;
-    border: 1px solid #247C83;
-    transition: all .2s ease;
+p, label, li {
+    color: #dcebf5;
 }
 
-.stButton button:hover, .stDownloadButton button:hover {
-    border-color: #12CFC3;
-    box-shadow: 0 5px 18px rgba(18,207,195,.15);
+.small-note {
+    font-size: 12px;
+    line-height: 1.7;
+    color: #a9bfd0;
 }
 
-div[data-baseweb="select"] > div {
-    background-color: #102238;
-    border-color: #344A61;
+.footer {
+    margin-top: 35px;
+    padding: 20px;
+    text-align: center;
+    color: #90aabd;
+    border-top: 1px solid #1a3649;
+    font-size: 12px;
 }
 
-input, textarea {
-    color: #EDF5FF !important;
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 
-hr {
-    border-color: #263D53;
-}
-
-footer {
-    visibility: hidden;
-}
-
-@media (max-width: 700px) {
-    .hero { padding: 23px; }
-    .panel { padding: 16px; }
-    .kpi { padding: 13px; }
+@media (max-width: 600px) {
+    .hero { padding: 20px; gap: 15px; }
+    .logo3d { width: 60px; height: 60px; font-size: 38px; }
+    .visual-panel img { height: 180px; }
 }
 </style>
 """, unsafe_allow_html=True)
-
-
-# =========================================================
-# REUSABLE HELPERS
-# =========================================================
-
-def section(title, caption=""):
-    st.markdown(
-        f'<div class="section-heading">{html.escape(title)}</div>',
-        unsafe_allow_html=True,
-    )
-    if caption:
-        st.markdown(
-            f'<div class="section-caption">{html.escape(caption)}</div>',
-            unsafe_allow_html=True,
-        )
-
-
-def safe_text(value):
-    if value is None:
-        return "Not available"
-    return html.escape(str(value))
-
-
-def kpi_card(label, value, note):
-    st.markdown(
-        f"""
-        <div class="kpi">
-            <div class="kpi-label">{safe_text(label)}</div>
-            <div class="kpi-value">{safe_text(value)}</div>
-            <div class="kpi-note">{safe_text(note)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def find_column(df, candidates):
-    normalized_columns = {
-        str(col).strip().lower().replace("_", " "): col
-        for col in df.columns
-    }
-
-    for candidate in candidates:
-        if candidate in normalized_columns:
-            return normalized_columns[candidate]
-
-    return None
-
-
-def get_status_column(df):
-    return find_column(df, ["status", "result status", "flag"])
-
-
-def get_counts(df):
-    status_col = get_status_column(df)
-
-    if status_col is None:
-        return 0, 0, 0, 0
-
-    status = df[status_col].fillna("").astype(str).str.lower()
-
-    urgent = status.str.contains(
-        r"urgent|critical", regex=True
-    ).sum()
-
-    low = status.str.contains(
-        r"\b(below|low|decreased)\b", regex=True
-    ).sum()
-
-    high = status.str.contains(
-        r"\b(above|high|elevated|increased)\b", regex=True
-    ).sum()
-
-    normal = status.str.contains(
-        r"\b(within range|normal|normal range)\b", regex=True
-    ).sum()
-
-    return int(urgent), int(low), int(high), int(normal)
 
 
 # =========================================================
@@ -396,641 +343,669 @@ def get_counts(df):
 
 with st.sidebar:
     st.markdown("""
-    <div style="padding:10px 0 22px;">
-        <div class="medical-logo">✚</div>
-        <div style="font-size:27px;font-weight:800;margin-top:13px;">
+    <div style="text-align:center; padding:12px 0 22px;">
+        <div style="font-size:48px;">🩺</div>
+        <div style="font-size:24px;font-weight:800;color:#19e0d0;">
             MediLens
         </div>
-        <div style="font-size:10px;color:#A0B3C8;letter-spacing:1.5px;">
-            MEDICAL REPORT INTELLIGENCE
+        <div style="font-size:11px;color:#9eb8cb;letter-spacing:2px;">
+            MEDICAL REPORT EXPLAINER
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.divider()
+    st.markdown("---")
+    st.markdown("### Navigation")
+    page = st.radio(
+        "Choose a section",
+        ["Home & Report Analysis", "About MediLens"],
+        label_visibility="collapsed"
+    )
 
-    st.markdown("**YOUR WORKSPACE**")
-    st.caption("01  Report analysis")
-    st.caption("02  Laboratory dashboard")
-    st.caption("03  Clinical insights")
-    st.caption("04  PDF export")
+    st.markdown("---")
+    st.markdown("### Supported uploads")
+    st.write("📄 PDF medical reports")
+    st.write("🖼️ JPG, JPEG and PNG images")
 
-    st.divider()
-
-    st.markdown("**SUPPORTED FILES**")
-    st.caption("PDF · JPG · JPEG · PNG")
-
-    st.divider()
-
-    st.markdown("**WORKFLOW**")
-    st.caption("Extract → Structure → Review → Export")
-
-    st.divider()
-    st.caption("MediLens · Educational support only")
+    st.markdown("---")
+    st.caption("Educational support only — not a medical diagnosis.")
 
 
 # =========================================================
-# HERO
+# HEADER
 # =========================================================
 
 st.markdown("""
 <div class="hero">
-    <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
-        <div class="medical-logo">✚</div>
-        <div>
-            <div class="eyebrow">AI-ASSISTED HEALTHCARE TECHNOLOGY</div>
-            <h1>Medical Report Intelligence</h1>
+    <div class="logo3d">+</div>
+    <div>
+        <div class="eyebrow">SMART HEALTH • CLEARER INSIGHTS</div>
+        <div class="hero-title">Medi<span>Lens</span></div>
+        <div class="hero-description">
+            Your medical report, explained more clearly.
+            Upload a laboratory report to organize results,
+            review reference ranges, and explore educational explanations.
         </div>
     </div>
-    <p>
-        Understand laboratory reports through structured results,
-        a combined visual dashboard, and educational explanations.
-        Review every extracted value against the original report.
-    </p>
-    <span class="hero-pill">REPORT ANALYSIS</span>
-    <span class="hero-pill">VISUAL DASHBOARD</span>
-    <span class="hero-pill">EDUCATIONAL INSIGHTS</span>
+</div>
+""", unsafe_allow_html=True)
+
+
+# Medical photo
+st.markdown("""
+<div class="visual-panel">
+    <img
+        src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1400&q=85"
+        alt="Healthcare professionals working with medical information">
+    <div class="visual-label">
+        ✦ MEDICAL TECHNOLOGY &nbsp; • &nbsp;
+        LABORATORY INSIGHTS &nbsp; • &nbsp; PATIENT EDUCATION
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
 
 # =========================================================
-# UPLOAD WORKSPACE
+# FEATURE CARDS
 # =========================================================
 
-section(
-    "01  Report workspace",
-    "Upload one patient's medical report to start a new analysis.",
-)
+st.markdown('<div class="section-heading">Your health information, organized</div>',
+            unsafe_allow_html=True)
 
-left, right = st.columns([1.5, 1], gap="large")
+c1, c2, c3 = st.columns(3)
 
-with left:
+with c1:
     st.markdown("""
-    <div class="panel">
-        <div class="panel-title">📄 Upload medical report</div>
-        <div class="panel-description">
-            Import a laboratory report as a PDF or image.
-            A clear, readable file generally improves text extraction.
+    <div class="feature-card">
+        <div class="feature-icon">🧬</div>
+        <div class="feature-title">Report Analysis</div>
+        <div class="feature-text">
+            Extract and organize test values from a supported report.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    uploaded_file = st.file_uploader(
-        "Choose a report",
-        type=["pdf", "jpg", "jpeg", "png"],
-        key="medilens_upload",
-    )
-
-with right:
+with c2:
     st.markdown("""
-    <div class="panel">
-        <div class="panel-title">✦ Analysis features</div>
-        <div class="panel-description">
-            • Patient information extraction<br>
-            • Laboratory result structuring<br>
-            • Abnormal value identification<br>
-            • One combined results graph<br>
-            • Educational explanations<br>
-            • Downloadable PDF report
+    <div class="feature-card">
+        <div class="feature-icon">🔬</div>
+        <div class="feature-title">Laboratory Insights</div>
+        <div class="feature-text">
+            Review reported values alongside available reference ranges.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown("""
+    <div class="feature-card">
+        <div class="feature-icon">🩺</div>
+        <div class="feature-title">Health Education</div>
+        <div class="feature-text">
+            Explore general explanations and prepare questions for your clinician.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 
-if not uploaded_file:
-    st.markdown("""
-    <div class="status-box">
-        <b>✦ Your workspace is ready</b><br>
-        Upload a report to display the patient overview,
-        laboratory findings, graph, and educational explanations.
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="disclaimer">
-        <b>Medical disclaimer</b><br>
-        MediLens can make extraction and interpretation errors.
-        It does not establish a confirmed diagnosis or replace
-        professional medical care.
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.stop()
-
-
 # =========================================================
-# FILE PROCESSING
+# ABOUT PAGE
 # =========================================================
 
-file_hash = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
+if page == "About MediLens":
+    st.markdown('<div class="section-heading">About MediLens</div>',
+                unsafe_allow_html=True)
 
-if st.session_state.get("report_hash") != file_hash:
-    st.session_state["report_hash"] = file_hash
-    st.session_state.pop("report_data", None)
-    st.session_state.pop("report_insights", None)
-    st.session_state.pop("report_pdf", None)
+    st.write("""
+    MediLens is an educational application designed to help users
+    organize information found in medical laboratory reports.
 
+    **Features**
+    - PDF and image upload
+    - Text extraction and OCR support
+    - Laboratory result analysis
+    - Reference-range review
+    - Educational explanations
+    - Laboratory result visualization
+    - PDF report export
+    """)
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-if st.button(
-    "✦ Run medical report analysis",
-    type="primary",
-    use_container_width=True,
-):
-    try:
-        with st.spinner("Extracting text from your report..."):
-            if uploaded_file.type == "application/pdf":
-                uploaded_file.seek(0)
-                report_text = extract_text_from_pdf(uploaded_file)
-
-                if not report_text or len(report_text.strip()) < 20:
-                    uploaded_file.seek(0)
-                    report_text = extract_text_from_scanned_pdf(
-                        uploaded_file
-                    )
-            else:
-                uploaded_file.seek(0)
-                report_text = extract_text_from_image(uploaded_file)
-
-        if not report_text or len(report_text.strip()) < 20:
-            st.error(
-                "Not enough text could be extracted. "
-                "Upload a clearer report or check OCR configuration."
-            )
-            st.stop()
-
-        with st.spinner("Structuring laboratory results..."):
-            results = analyze_report(report_text)
-            patient = extract_patient_fields(report_text)
-
-        if results is None:
-            results = pd.DataFrame()
-        elif not isinstance(results, pd.DataFrame):
-            results = pd.DataFrame(results)
-
-        st.session_state["report_data"] = {
-            "hash": file_hash,
-            "filename": uploaded_file.name,
-            "text": report_text,
-            "results": results,
-            "patient": patient if isinstance(patient, dict) else {},
-        }
-
-    except Exception as error:
-        st.error("Report analysis failed.")
-        st.caption(
-            "Check function names in extractor.py, ocr_service.py, "
-            "and analyzer.py."
-        )
-        st.exception(error)
-
-
-data = st.session_state.get("report_data")
-
-if not data or data.get("hash") != file_hash:
-    st.stop()
-
-report_text = data["text"]
-results = data["results"]
-patient = data["patient"]
-
-
-# =========================================================
-# PATIENT OVERVIEW
-# =========================================================
-
-section(
-    "02  Patient overview",
-    "Information extracted from the uploaded report.",
-)
-
-if patient:
-    fields = list(patient.items())[:6]
-    cols = st.columns(min(3, len(fields)))
-
-    for index, (key, value) in enumerate(fields):
-        with cols[index % len(cols)]:
-            st.markdown(
-                f"""
-                <div class="panel">
-                    <div class="kpi-label">
-                        {safe_text(str(key).replace("_", " ").title())}
-                    </div>
-                    <div style="font-size:17px;font-weight:800;
-                                color:#EDF5FF;margin-top:10px;">
-                        {safe_text(value)[:120]}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-else:
-    st.info(
-        "Patient details could not be confidently extracted. "
-        "Verify the original report."
-    )
-
-
-# =========================================================
-# LABORATORY DASHBOARD
-# =========================================================
-
-section(
-    "03  Laboratory dashboard",
-    "Review extracted results and their analyzer status.",
-)
-
-if results.empty:
     st.warning(
-        "No structured laboratory values were detected. "
-        "Check the test patterns in analyzer.py."
+        "MediLens is not a substitute for a doctor. "
+        "Extraction and interpretation can be inaccurate. "
+        "Always verify the original report with a qualified healthcare professional."
     )
-else:
-    urgent_count, low_count, high_count, normal_count = get_counts(results)
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    st.stop()
 
-    with c1:
-        kpi_card("Tests identified", len(results), "Extracted records")
 
-    with c2:
-        kpi_card("Urgent review", urgent_count, "Check promptly")
+# =========================================================
+# REPORT UPLOAD
+# =========================================================
 
-    with c3:
-        kpi_card("Below range", low_count, "Analyzer flags")
+st.markdown('<div class="section-heading">📄 Upload your medical report</div>',
+            unsafe_allow_html=True)
 
-    with c4:
-        kpi_card("Above range", high_count, "Analyzer flags")
+st.write("Choose a PDF or an image of your medical report.")
 
-    with c5:
-        kpi_card("Within range", normal_count, "Analyzer flags")
+uploaded_file = st.file_uploader(
+    "Select your report",
+    type=["pdf", "png", "jpg", "jpeg"],
+    key="medical_report_upload"
+)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+analyze_button = st.button(
+    "🔍 Analyze Medical Report",
+    type="primary",
+    use_container_width=True
+)
 
-    status_col = get_status_column(results)
 
-    if status_col:
-        statuses = results[status_col].fillna("").astype(str).str.lower()
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
 
-        selected_filter = st.selectbox(
-            "Filter findings",
-            [
-                "All findings",
-                "Urgent review",
-                "Below range",
-                "Above range",
-                "Within range",
-            ],
+def find_column(dataframe, possible_names):
+    """Find a column without depending on capitalization."""
+    if dataframe is None or dataframe.empty:
+        return None
+
+    normalized = {
+        str(column).strip().lower().replace("_", " "): column
+        for column in dataframe.columns
+    }
+
+    for name in possible_names:
+        key = name.strip().lower().replace("_", " ")
+        if key in normalized:
+            return normalized[key]
+
+    for normalized_name, original_name in normalized.items():
+        for name in possible_names:
+            key = name.strip().lower().replace("_", " ")
+            if key in normalized_name or normalized_name in key:
+                return original_name
+
+    return None
+
+
+def get_status_column(dataframe):
+    return find_column(
+        dataframe,
+        ["status", "result status", "interpretation", "condition"]
+    )
+
+
+def safe_number(value):
+    """Convert a simple numeric lab value into a number."""
+    if pd.isna(value):
+        return None
+
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    # Remove common separators and extract the first numeric value.
+    value_text = str(value).replace(",", "")
+    match = re.search(r"[-+]?\d*\.?\d+", value_text)
+
+    if not match:
+        return None
+
+    try:
+        return float(match.group())
+    except (TypeError, ValueError):
+        return None
+
+
+def get_patient_fields(report_text):
+    """
+    Extract basic patient details only if the existing module supports it.
+    Otherwise, use an empty dictionary.
+    """
+    try:
+        from ai_explainer import extract_patient_fields
+        result = extract_patient_fields(report_text)
+        return result if isinstance(result, dict) else {}
+    except (ImportError, AttributeError, TypeError, ValueError):
+        return {}
+
+
+def get_explanation(report_text, results, patient):
+    """Call the existing educational explanation module."""
+    return explain_report(
+        report_text=report_text,
+        results_df=results,
+        patient_fields=patient
+    )
+
+
+# =========================================================
+# PROCESS UPLOAD
+# =========================================================
+
+if analyze_button:
+    if uploaded_file is None:
+        st.warning("Please upload a medical report first.")
+
+    else:
+        report_text = ""
+
+        try:
+            with st.spinner("Reading your report..."):
+                file_bytes = uploaded_file.getvalue()
+                extension = uploaded_file.name.lower().rsplit(".", 1)[-1]
+
+                if extension == "pdf":
+                    try:
+                        # First try ordinary PDF text extraction.
+                        report_text = extract_text_from_pdf(
+                            io.BytesIO(file_bytes)
+                        )
+                    except Exception:
+                        report_text = ""
+
+                    # Scanned PDFs may not contain selectable text.
+                    if not report_text or not report_text.strip():
+                        try:
+                            from extractor import extract_text_from_scanned_pdf
+                            report_text = extract_text_from_scanned_pdf(
+                                io.BytesIO(file_bytes)
+                            )
+                        except (ImportError, AttributeError):
+                            try:
+                                from ocr_service import extract_text_from_pdf
+                                report_text = extract_text_from_pdf(
+                                    io.BytesIO(file_bytes)
+                                )
+                            except (ImportError, AttributeError):
+                                report_text = ""
+
+                else:
+                    # Image OCR is provided by the existing project module.
+                    report_text = extract_text_from_image(
+                        io.BytesIO(file_bytes)
+                    )
+
+            if not report_text or not str(report_text).strip():
+                st.error(
+                    "No readable text was extracted. "
+                    "Try a clearer image or a PDF with selectable text. "
+                    "Scanned PDFs require a working OCR function."
+                )
+                st.stop()
+
+            with st.spinner("Analyzing laboratory results..."):
+                results = analyze_report(report_text)
+
+            if not isinstance(results, pd.DataFrame):
+                results = pd.DataFrame(results)
+
+            patient = get_patient_fields(report_text)
+
+            # Keep the result available across Streamlit reruns.
+            st.session_state["medilens_report_text"] = report_text
+            st.session_state["medilens_results"] = results
+            st.session_state["medilens_patient"] = patient
+            st.session_state["medilens_filename"] = uploaded_file.name
+
+        except Exception as error:
+            st.error("The report could not be processed.")
+            st.code(str(error))
+            st.info(
+                "Check that extractor.py, ocr_service.py, analyzer.py, "
+                "ai_explainer.py and report_generator.py contain the "
+                "functions imported by this app."
+            )
+
+
+# =========================================================
+# SHOW ANALYSIS RESULTS
+# =========================================================
+
+if "medilens_results" in st.session_state:
+    results = st.session_state["medilens_results"]
+    report_text = st.session_state["medilens_report_text"]
+    patient = st.session_state["medilens_patient"]
+
+    st.markdown('<div class="section-heading">📊 Report overview</div>',
+                unsafe_allow_html=True)
+
+    st.caption(
+        "File: " + str(st.session_state.get("medilens_filename", "Report"))
+    )
+
+    # Patient details
+    if patient:
+        with st.expander("👤 Patient details extracted from report"):
+            for key, value in patient.items():
+                st.write(f"**{key.replace('_', ' ').title()}:** {value}")
+
+    # Status counts
+    status_column = get_status_column(results)
+
+    below_count = 0
+    above_count = 0
+    within_count = 0
+    urgent_count = 0
+
+    if status_column is not None:
+        status_values = results[status_column].astype(str).str.lower()
+
+        below_count = int(
+            status_values.str.contains(
+                r"below|low", regex=True, na=False
+            ).sum()
         )
 
-        if selected_filter == "Urgent review":
-            view = results[
-                statuses.str.contains(r"urgent|critical", regex=True)
-            ]
-        elif selected_filter == "Below range":
-            view = results[
-                statuses.str.contains(
-                    r"\b(below|low|decreased)\b", regex=True
-                )
-            ]
-        elif selected_filter == "Above range":
-            view = results[
-                statuses.str.contains(
-                    r"\b(above|high|elevated|increased)\b", regex=True
-                )
-            ]
-        elif selected_filter == "Within range":
-            view = results[
-                statuses.str.contains(
-                    r"\b(within range|normal|normal range)\b", regex=True
-                )
-            ]
-        else:
-            view = results
+        above_count = int(
+            status_values.str.contains(
+                r"above|high|elevated", regex=True, na=False
+            ).sum()
+        )
 
-        st.dataframe(
-            view,
-            use_container_width=True,
-            hide_index=True,
+        within_count = int(
+            status_values.str.contains(
+                r"within|normal|in range", regex=True, na=False
+            ).sum()
+        )
+
+        urgent_count = int(
+            status_values.str.contains(
+                r"critical|urgent", regex=True, na=False
+            ).sum()
+        )
+
+    m1, m2, m3, m4 = st.columns(4)
+
+    m1.metric("Tests found", len(results))
+    m2.metric("Below range", below_count)
+    m3.metric("Above range", above_count)
+    m4.metric("Within range", within_count)
+
+    if urgent_count:
+        st.warning(
+            f"{urgent_count} result(s) are marked critical or urgent "
+            "by the analyzer. Contact a healthcare professional promptly "
+            "and follow the original report's instructions."
+        )
+
+    # Table
+    st.markdown('<div class="section-heading">🧪 Laboratory findings</div>',
+                unsafe_allow_html=True)
+
+    if results.empty:
+        st.warning(
+            "No structured laboratory findings were detected. "
+            "Check the extracted report text below."
         )
     else:
         st.dataframe(
             results,
             use_container_width=True,
-            hide_index=True,
+            hide_index=True
         )
 
+    # =====================================================
+    # COMBINED GRAPH
+    # =====================================================
 
-# =========================================================
-# ONE COMBINED NUMERICAL GRAPH
-# =========================================================
+    st.markdown('<div class="section-heading">📈 Lab results visualization</div>',
+                unsafe_allow_html=True)
 
-section(
-    "04  Visual laboratory analysis",
-    "All detected numeric results appear together in one graph.",
-)
-
-name_col = find_column(
-    results,
-    [
-        "test", "test name", "parameter", "lab test",
-        "investigation", "test parameter",
-    ],
-) if not results.empty else None
-
-value_col = find_column(
-    results,
-    [
-        "result", "value", "test result",
-        "result value", "observed value",
-    ],
-) if not results.empty else None
-
-if not results.empty and name_col is not None and value_col is not None:
-    graph_df = results[[name_col, value_col]].copy()
-    graph_df.columns = ["Test", "Original result"]
-
-    graph_df["Numeric value"] = pd.to_numeric(
-        graph_df["Original result"]
-        .astype(str)
-        .str.replace(",", "", regex=False)
-        .str.extract(r"([-+]?\d*\.?\d+)")[0],
-        errors="coerce",
+    test_column = find_column(
+        results,
+        ["test", "test name", "parameter", "test_name",
+         "lab test", "investigation", "name"]
     )
 
-    graph_df = graph_df.dropna(subset=["Numeric value"])
-    graph_df = graph_df.drop_duplicates(subset=["Test"]).head(30)
+    value_column = find_column(
+        results,
+        ["result", "value", "test result", "numeric value",
+         "observed value", "reading"]
+    )
 
-    if not graph_df.empty:
-        st.markdown("""
-        <div class="panel">
-            <div class="panel-title">📊 Combined laboratory results</div>
-            <div class="panel-description">
-                Each bar shows one numeric result extracted from the report.
-                The graph is intended for visual exploration.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    if test_column is not None and value_column is not None:
+        chart_data = results[[test_column, value_column]].copy()
 
-        chart_data = graph_df.set_index("Test")[["Numeric value"]]
-
-        st.bar_chart(
-            chart_data,
-            y="Numeric value",
-            color="#12CFC3",
-            height=440,
-            use_container_width=True,
+        chart_data.columns = ["Test", "Original value"]
+        chart_data["Numeric value"] = chart_data["Original value"].apply(
+            safe_number
         )
+        chart_data = chart_data.dropna(subset=["Numeric value"])
 
-        with st.expander("View the values used in the graph"):
-            st.dataframe(
-                graph_df,
-                use_container_width=True,
-                hide_index=True,
+        if not chart_data.empty:
+            chart_data["Test"] = chart_data["Test"].astype(str)
+
+            st.bar_chart(
+                chart_data.set_index("Test")["Numeric value"],
+                color="#19e0d0",
+                height=400,
+                use_container_width=True
             )
 
-        st.caption(
-            "Clinical note: different tests may use different units and "
-            "scales. Bar height alone does not indicate normality or severity. "
-            "Use the reference range for each individual test."
-        )
+            st.caption(
+                "The graph displays numeric values extracted from the report. "
+                "Tests may use different units and reference ranges, so bar "
+                "heights should not be interpreted as a direct comparison "
+                "of medical importance."
+            )
+
+            with st.expander("View graph values"):
+                st.dataframe(
+                    chart_data[["Test", "Original value"]],
+                    use_container_width=True,
+                    hide_index=True
+                )
+        else:
+            st.info(
+                "No numeric test values were recognized for the graph. "
+                "The table above still displays the analyzer's findings."
+            )
     else:
-        st.info("No numeric results were detected for the graph.")
-else:
-    st.info(
-        "A graph requires identifiable test-name and result columns. "
-        "Check the column names returned by analyzer.py."
+        st.info(
+            "The graph needs a test-name column and a numeric result column. "
+            "Your analyzer's column names were not recognized automatically. "
+            "The findings table above remains available."
+        )
+
+    # =====================================================
+    # EDUCATIONAL EXPLANATION
+    # =====================================================
+
+    st.markdown(
+        '<div class="section-heading">🤖 Educational explanation</div>',
+        unsafe_allow_html=True
     )
 
+    if st.button("✨ Generate report explanation", use_container_width=True):
+        try:
+            with st.spinner("Preparing educational explanations..."):
+                explanation = get_explanation(
+                    report_text,
+                    results,
+                    patient
+                )
 
-# =========================================================
-# CLINICAL INSIGHTS
-# =========================================================
+            st.session_state["medilens_explanation"] = explanation
 
-section(
-    "05  Educational clinical insights",
-    "Review the explanation for each extracted result.",
-)
+        except Exception as error:
+            st.error("Could not generate the explanation.")
+            st.code(str(error))
 
-st.markdown("""
-<div class="panel">
-    <div class="panel-title">✦ Report interpretation</div>
-    <div class="panel-description">
-        These explanations support understanding of the report.
-        They are not a diagnosis and must be checked against the original report.
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    if "medilens_explanation" in st.session_state:
+        explanation = st.session_state["medilens_explanation"]
 
-if st.button(
-    "Generate clinical insights",
-    key="generate_clinical_insights",
-    use_container_width=True,
-):
-    try:
-        with st.spinner("Preparing educational explanations..."):
-            insights = explain_report(
+        if isinstance(explanation, dict):
+            summary = explanation.get(
+                "summary",
+                explanation.get("overall_summary", "")
+            )
+
+            if isinstance(summary, dict):
+                summary = summary.get(
+                    "text",
+                    summary.get("message", str(summary))
+                )
+
+            if summary:
+                st.markdown("#### 🩺 Summary")
+                st.write(summary)
+
+            test_explanations = explanation.get(
+                "test_explanations",
+                explanation.get("explanations", [])
+            )
+
+            if isinstance(test_explanations, dict):
+                test_explanations = [
+                    {"test": key, "explanation": value}
+                    for key, value in test_explanations.items()
+                ]
+
+            if isinstance(test_explanations, list):
+                st.markdown("#### 🔬 Individual test explanations")
+
+                for item in test_explanations:
+                    if isinstance(item, dict):
+                        title = item.get(
+                            "test",
+                            item.get("test_name", "Test explanation")
+                        )
+                        body = item.get(
+                            "explanation",
+                            item.get("description", item.get("meaning", ""))
+                        )
+
+                        with st.expander(str(title)):
+                            st.write(body)
+
+                            for key in [
+                                "status", "possible_causes",
+                                "causes", "follow_up",
+                                "recommendation", "notes"
+                            ]:
+                                if key in item and item[key]:
+                                    st.write(
+                                        f"**{key.replace('_', ' ').title()}:**"
+                                    )
+                                    value = item[key]
+                                    if isinstance(value, list):
+                                        for entry in value:
+                                            st.write(f"- {entry}")
+                                    else:
+                                        st.write(value)
+
+            for key in [
+                "general_notes",
+                "follow_up",
+                "recommendations",
+                "disclaimer"
+            ]:
+                if explanation.get(key):
+                    st.markdown(
+                        f"#### {key.replace('_', ' ').title()}"
+                    )
+                    value = explanation[key]
+
+                    if isinstance(value, list):
+                        for entry in value:
+                            st.write(f"- {entry}")
+                    else:
+                        st.write(value)
+
+        elif isinstance(explanation, str):
+            st.markdown(explanation)
+
+        else:
+            st.write(explanation)
+
+    # =====================================================
+    # EXTRACTED TEXT
+    # =====================================================
+
+    with st.expander("🔎 Verify extracted report text"):
+        st.caption(
+            "Check the extracted text against the original report. "
+            "OCR can misread numbers, units, names and reference ranges."
+        )
+        st.text_area(
+            "Extracted text",
+            value=str(report_text),
+            height=300,
+            disabled=True,
+            key="medilens_extracted_text"
+        )
+
+    # =====================================================
+    # PDF EXPORT
+    # =====================================================
+
+    st.markdown('<div class="section-heading">📥 Export report</div>',
+                unsafe_allow_html=True)
+
+    if st.button("Create downloadable PDF report"):
+        try:
+            pdf_result = generate_pdf_report(
                 report_text=report_text,
                 results_df=results,
-                patient_fields=patient,
+                explanation=st.session_state.get(
+                    "medilens_explanation", {}
+                )
             )
 
-        if isinstance(insights, dict):
-            st.session_state["report_insights"] = {
-                "hash": file_hash,
-                "text": insights,
-            }
-            st.session_state.pop("report_pdf", None)
-        else:
-            st.error("The explanation function returned an unexpected format.")
+            if isinstance(pdf_result, bytes):
+                pdf_bytes = pdf_result
+            elif isinstance(pdf_result, bytearray):
+                pdf_bytes = bytes(pdf_result)
+            elif hasattr(pdf_result, "getvalue"):
+                pdf_bytes = pdf_result.getvalue()
+            else:
+                pdf_bytes = None
 
-    except Exception as error:
-        st.error("Unable to generate clinical insights.")
-        st.exception(error)
-
-
-insights_data = st.session_state.get("report_insights")
-
-if insights_data and insights_data.get("hash") == file_hash:
-    insights = insights_data.get("text", {})
-
-    section("Overall summary")
-    summary = insights.get("summary", "No summary is available.")
-
-    if isinstance(summary, dict):
-        for key, value in summary.items():
-            st.markdown(
-                f"**{safe_text(str(key).replace('_', ' ').title())}:** "
-                f"{safe_text(value)}"
-            )
-    else:
-        st.write(summary)
-
-    section("Individual test explanations")
-    explanations = insights.get("results", [])
-
-    if explanations:
-        for index, item in enumerate(explanations, start=1):
-            if not isinstance(item, dict):
-                continue
-
-            test_name = str(item.get("Test", f"Test {index}"))
-
-            with st.expander(
-                f"🧪 {test_name}",
-                expanded=(index == 1),
-            ):
-                st.write("**Result:**", item.get("Result", "Not available"))
-                st.write(
-                    "**Reference range:**",
-                    item.get("Reference Range", "Not available"),
-                )
-                st.write("**Status:**", item.get("Status", "Needs review"))
-                st.write("**Meaning:**", item.get("Meaning", "Not available"))
-                st.write(
-                    "**Importance:**",
-                    item.get("Importance", "Not available"),
-                )
-                st.write(
-                    "**Interpretation:**",
-                    item.get("Interpretation", "Not available"),
+            if pdf_bytes:
+                st.session_state["medilens_pdf"] = pdf_bytes
+            else:
+                st.warning(
+                    "The PDF generator did not return PDF bytes. "
+                    "Check its function's return value."
                 )
 
-                causes = item.get("Possible Causes", [])
-                st.write("**Possible causes:**")
-                if isinstance(causes, list):
-                    if causes:
-                        for cause in causes:
-                            st.markdown(f"- {cause}")
-                    else:
-                        st.write(
-                            "No cause list is available. This does not mean "
-                            "the result has no possible causes."
-                        )
-                else:
-                    st.write(causes or "Not available")
+        except Exception as error:
+            st.error("PDF export failed.")
+            st.code(str(error))
 
-                st.write(
-                    "**Follow-up:**",
-                    item.get(
-                        "Follow-up",
-                        "Discuss the result with a healthcare professional.",
-                    ),
-                )
-    else:
-        st.warning(
-            "No individual explanations were returned. "
-            "Check ai_explainer.py and the extracted results."
+    if "medilens_pdf" in st.session_state:
+        st.download_button(
+            "⬇️ Download PDF",
+            data=st.session_state["medilens_pdf"],
+            file_name="MediLens_Report.pdf",
+            mime="application/pdf",
+            use_container_width=True
         )
 
-    section("Important notes")
-    notes = insights.get("general_notes", [])
-
-    if notes:
-        for note in notes:
-            st.markdown(f"- {note}")
-    else:
-        st.markdown(
-            "- Verify extracted values against the original report.\n"
-            "- Reference ranges vary between laboratories.\n"
-            "- Discuss uncertain results with a healthcare professional."
-        )
-
-    st.warning(
-        "Do not use these explanations alone to diagnose a condition "
-        "or change medication."
-    )
-else:
-    st.info(
-        "Select 'Generate clinical insights' to display the explanations."
-    )
-
 
 # =========================================================
-# VERIFY SOURCE TEXT
+# DISCLAIMER + FOOTER
 # =========================================================
 
-with st.expander("Verify extracted source text"):
-    st.write(
-        "Compare extracted text against the original report to identify "
-        "OCR errors, missing values, units, or reference ranges."
-    )
+st.markdown("---")
 
-    st.text_area(
-        "Extracted report text",
-        value=report_text,
-        height=260,
-        disabled=True,
-    )
-
-
-# =========================================================
-# PDF EXPORT
-# =========================================================
-
-section(
-    "06  Export report",
-    "Create a downloadable PDF copy of the analysis.",
+st.warning(
+    "Medical disclaimer: MediLens provides educational information only. "
+    "It does not diagnose diseases, replace professional medical advice, "
+    "or determine treatment. Automated text extraction and analysis may "
+    "be incorrect. Verify every result, unit and reference range against "
+    "the original report and consult a qualified healthcare professional."
 )
 
-if st.button("Generate PDF report", use_container_width=True):
-    try:
-        summary = "Clinical insights have not been generated."
-
-        if insights_data and insights_data.get("hash") == file_hash:
-            summary = insights_data["text"]
-
-        pdf_bytes = generate_pdf_report(
-            data["filename"],
-            patient,
-            results,
-            summary,
-        )
-
-        st.session_state["report_pdf"] = {
-            "hash": file_hash,
-            "bytes": pdf_bytes,
-        }
-
-    except Exception as error:
-        st.error("PDF generation failed.")
-        st.exception(error)
-
-
-pdf_data = st.session_state.get("report_pdf")
-
-if pdf_data and pdf_data.get("hash") == file_hash:
-    st.download_button(
-        "Download MediLens report",
-        data=pdf_data["bytes"],
-        file_name="MediLens_Clinical_Report.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-    )
-
-
-# =========================================================
-# FOOTER
-# =========================================================
-
-st.markdown("<br>", unsafe_allow_html=True)
-
 st.markdown("""
-<div class="disclaimer">
-    <b>Medical disclaimer</b><br>
-    MediLens provides educational support for understanding medical reports.
-    Extracted values and explanations can be incomplete or inaccurate and
-    do not constitute a confirmed diagnosis. Consult a qualified healthcare
-    professional for interpretation and treatment decisions.
+<div class="footer">
+    <div style="font-size:22px;margin-bottom:8px;">🩺</div>
+    <strong style="color:#19e0d0;">MediLens</strong>
+    <br>
+    Medical Report Explainer • Built for patient education
+    <br><br>
+    Your report. Clearer information. Better questions for your clinician.
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<div style="text-align:center;color:#8FA5BC;font-size:11px;padding:24px;">
-    ✚ MEDILENS · MEDICAL REPORT INTELLIGENCE
-</div>
-""", unsafe_allow_html=True)
