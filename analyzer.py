@@ -9,6 +9,7 @@ Important:
 - Does not invent missing values or reference ranges.
 - Does not automatically correct decimal/OCR errors.
 - Marks ambiguous results for manual review.
+- Extracts patient details from common report layouts.
 """
 
 import re
@@ -46,18 +47,18 @@ TEST_ALIASES = {
     "Monocytes": ["monocytes", "monocyte"],
     "Basophils": ["basophils", "basophil"],
     "Fasting Glucose": [
-        "fasting blood glucose", "fasting glucose",
-        "fasting blood sugar", "fbs"
+        "fasting plasma glucose", "fasting blood glucose",
+        "fasting glucose", "fasting blood sugar", "fbs"
     ],
     "Random Glucose": [
-        "random blood glucose", "random glucose",
-        "random blood sugar", "rbs"
+        "random plasma glucose", "random blood glucose",
+        "random glucose", "random blood sugar", "rbs"
     ],
     "HbA1c": [
-        "hba1c", "glycated hemoglobin",
+        "hba1c", "hb a1c", "glycated hemoglobin",
         "glycosylated hemoglobin"
     ],
-    "Creatinine": ["creatinine", "serum creatinine"],
+    "Creatinine": ["serum creatinine", "creatinine"],
     "Urea": ["blood urea", "serum urea", "urea"],
     "BUN": ["bun", "blood urea nitrogen"],
     "Uric Acid": ["uric acid", "serum uric acid"],
@@ -101,7 +102,7 @@ RANGE_RE = re.compile(
     rf"(?<!\w)(?:"
     rf"{NUMBER}\s*(?:-|–|—|to)\s*{NUMBER}"
     rf"|[<>≤≥]\s*\d[\d,]*(?:\.\d+)?"
-    rf"|(?:less than|greater than|up to|at least)\s*"
+    rf"|(?:less than|greater than|up to|at least|below|above)\s*"
     rf"\d[\d,]*(?:\.\d+)?"
     rf")",
     re.IGNORECASE,
@@ -132,6 +133,7 @@ def _clean_number(value: str) -> str:
 
 def _to_float(value: str):
     cleaned = _clean_number(value)
+
     if cleaned.startswith(("<", ">", "≤", "≥")):
         return None
 
@@ -151,6 +153,179 @@ def _normalize_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     return text
 
+
+# ---------------------------------------------------------
+# PATIENT INFORMATION EXTRACTION
+# ---------------------------------------------------------
+
+def extract_patient_fields(extracted_text: str) -> dict[str, str]:
+    """
+    Extract patient details when labels and values appear
+    either on the same line or on separate lines.
+
+    Example:
+        Patient Name
+        Ananya Sharma (fictional)
+        Patient ID
+        ML-TEST-104
+        Age / Sex
+        45 years / Female
+        Report Date
+        22 October 2026
+    """
+    text = _normalize_text(extracted_text)
+    lines = [line.strip() for line in text.splitlines()]
+    fields: dict[str, str] = {}
+
+    label_pattern = (
+        r"patient\s+name|name\s+of\s+patient|name|"
+        r"patient\s+id|patient\s+number|id|"
+        r"age\s*/\s*sex|age|gender|sex|"
+        r"report\s+date|date\s+of\s+report|"
+        r"date\s+of\s+visit|date\s+of\s+collection|"
+        r"collection\s+date|date|"
+        r"referring\s+doctor|doctor|specimen|"
+        r"clinical\s+note|report\s+status"
+    )
+
+    def is_label(value: str) -> bool:
+        return bool(
+            re.fullmatch(
+                rf"(?:{label_pattern})\s*:?",
+                value.strip(),
+                flags=re.IGNORECASE,
+            )
+        )
+
+    def find_value(pattern: str) -> str:
+        # Labels and values on separate lines.
+        for index, line in enumerate(lines):
+            if re.fullmatch(
+                rf"(?:{pattern})\s*:?",
+                line,
+                flags=re.IGNORECASE,
+            ):
+                for candidate in lines[index + 1:index + 5]:
+                    candidate = candidate.strip()
+
+                    if not candidate:
+                        continue
+
+                    if is_label(candidate):
+                        break
+
+                    # Ignore obvious headings instead of treating
+                    # them as patient values.
+                    if re.fullmatch(
+                        r"(?:page\s+\d+|laboratory results|"
+                        r"sample interpretation note)",
+                        candidate,
+                        flags=re.IGNORECASE,
+                    ):
+                        continue
+
+                    return candidate
+
+        # Labels and values on the same line, e.g. "Age: 45".
+        match = re.search(
+            rf"^\s*(?:{pattern})\s*:\s*(.+?)\s*$",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+
+        if match:
+            return match.group(1).strip()
+
+        return ""
+
+    # Patient name
+    name = find_value(
+        r"patient\s+name|name\s+of\s+patient|name"
+    )
+
+    if name:
+        name = re.sub(
+            r"\s*\(fictional\)\s*$",
+            "",
+            name,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        if name and not is_label(name):
+            fields["patient_name"] = name
+
+    # Patient ID
+    patient_id = find_value(
+        r"patient\s+id|patient\s+number|id"
+    )
+
+    if patient_id and not is_label(patient_id):
+        fields["patient_id"] = patient_id
+
+    # Age and sex together, e.g. "45 years / Female".
+    age_sex = find_value(r"age\s*/\s*sex")
+
+    if age_sex:
+        age_match = re.search(
+            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
+            age_sex,
+            flags=re.IGNORECASE,
+        )
+        sex_match = re.search(
+            r"\b(male|female|other)\b",
+            age_sex,
+            flags=re.IGNORECASE,
+        )
+
+        if age_match:
+            fields["age"] = age_match.group(1)
+
+        if sex_match:
+            fields["gender"] = sex_match.group(1).capitalize()
+
+    # Separate age field.
+    if "age" not in fields:
+        age_text = find_value(r"(?:patient\s+)?age")
+        age_match = re.search(
+            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
+            age_text,
+            flags=re.IGNORECASE,
+        )
+
+        if age_match:
+            fields["age"] = age_match.group(1)
+
+    # Separate gender/sex field.
+    if "gender" not in fields:
+        gender_text = find_value(r"gender|sex")
+        gender_match = re.search(
+            r"\b(male|female|other)\b",
+            gender_text,
+            flags=re.IGNORECASE,
+        )
+
+        if gender_match:
+            fields["gender"] = gender_match.group(1).capitalize()
+
+    # Report date, including labels on separate lines.
+    report_date = find_value(
+        r"report\s+date|date\s+of\s+report|"
+        r"date\s+of\s+visit|date\s+of\s+collection|"
+        r"collection\s+date"
+    )
+
+    if not report_date:
+        report_date = find_value(r"date")
+
+    if report_date and not is_label(report_date):
+        fields["report_date"] = report_date.strip()
+
+    return fields
+
+
+# ---------------------------------------------------------
+# LABORATORY RESULT EXTRACTION
+# ---------------------------------------------------------
 
 def _find_test(line: str):
     """Return the longest matching test alias."""
@@ -218,6 +393,7 @@ def _extract_value(line: str, test_match, reference_range):
     start, _, raw = candidates[0]
 
     between = line[test_match.end():start].strip(" :|=\t")
+
     if len(between) > 35:
         return None, "Result position is ambiguous"
 
@@ -229,6 +405,7 @@ def _status(value_text, reference_range):
         return "Needs review"
 
     value = _to_float(value_text)
+
     if value is None:
         return "Needs review"
 
@@ -252,6 +429,7 @@ def _status(value_text, reference_range):
 
     if value < low:
         return "Below range"
+
     if value > high:
         return "Above range"
 
@@ -270,8 +448,8 @@ def analyze_report(extracted_text: str) -> list[dict[str, Any]]:
     """
     Analyze report text conservatively.
 
-    Supports a test name, result and range on the same line, and
-    attempts a limited multi-line fallback when a label is isolated.
+    Supports test name, result and range on the same line.
+    Attempts a limited multi-line fallback for isolated labels.
     """
     if not extracted_text or not str(extracted_text).strip():
         return []
@@ -281,30 +459,37 @@ def analyze_report(extracted_text: str) -> list[dict[str, Any]]:
     results = []
     seen = set()
 
-    for index, line in enumerate(lines):
+    for index, original_line in enumerate(lines):
+        line = original_line
         found = _find_test(line)
-        source_line = line
 
-        # Limited fallback for PDFs where a test name is on one line
-        # and its numeric result/range appears on the next line.
+        # Limited fallback when the label and result are separated.
         if found and not VALUE_RE.search(line):
-            next_line = lines[index + 1] if index + 1 < len(lines) else ""
+            next_line = (
+                lines[index + 1]
+                if index + 1 < len(lines)
+                else ""
+            )
+
             if next_line and len(next_line) < 200:
                 combined = f"{line} {next_line}"
                 combined_found = _find_test(combined)
 
                 if combined_found:
                     line = combined
-                    source_line = combined
                     found = combined_found
 
         if not found or len(line) > 300:
             continue
 
         canonical, alias, test_match = found
+
         reference_range = _extract_range(line, test_match)
+
         value_text, _ = _extract_value(
-            line, test_match, reference_range
+            line,
+            test_match,
+            reference_range,
         )
 
         if value_text is None:
@@ -319,6 +504,7 @@ def analyze_report(extracted_text: str) -> list[dict[str, Any]]:
             reference_range or "",
             unit.lower(),
         )
+
         if key in seen:
             continue
 
@@ -332,17 +518,22 @@ def analyze_report(extracted_text: str) -> list[dict[str, Any]]:
             "status": status,
             "meaning": (
                 f"{canonical} is a laboratory measurement. "
-                "Its meaning depends on the laboratory method and clinical context."
+                "Its meaning depends on the laboratory method "
+                "and clinical context."
             ),
             "interpretation": (
-                "Compared with the reference range detected in the extracted text. "
-                "This is not a diagnosis."
-                if status in ("Below range", "Above range", "Within range")
+                "Compared with the reference range detected in "
+                "the extracted text. This is not a diagnosis."
+                if status in (
+                    "Below range",
+                    "Above range",
+                    "Within range",
+                )
                 else
-                "The result or reference range could not be safely classified. "
-                "Check the original report."
+                "The result or reference range could not be safely "
+                "classified. Check the original report."
             ),
-            "source_line": source_line,
+            "source_line": line,
             "needs_review": status in (
                 "Needs review",
                 "Reference range unavailable",
@@ -350,317 +541,3 @@ def analyze_report(extracted_text: str) -> list[dict[str, Any]]:
         })
 
     return results
-
-def extract_patient_fields(extracted_text: str) -> dict[str, str]:
-    """
-    Extract patient details from medical reports.
-
-    Supports labels and values on separate lines, for example:
-        Patient Name
-        Ananya Sharma (fictional)
-
-        Age / Sex
-        45 years / Female
-
-        Report Date
-        22 October 2026
-
-    Also supports common same-line formats such as:
-        Patient Name: Ananya Sharma
-        Age: 45
-        Sex: Female
-        Report Date: 22 October 2026
-    """
-    text = _normalize_text(extracted_text)
-    lines = [line.strip() for line in text.splitlines()]
-    fields: dict[str, str] = {}
-
-    def find_value(label_pattern: str) -> str:
-        # First, support labels and values on separate lines.
-        for index, line in enumerate(lines):
-            if re.fullmatch(
-                label_pattern + r"\s*:?\s*",
-                line,
-                flags=re.IGNORECASE,
-            ):
-                for candidate in lines[index + 1:index + 5]:
-                    candidate = candidate.strip()
-
-                    if not candidate:
-                        continue
-
-                    # Stop when another known label is encountered.
-                    if re.fullmatch(
-                        r"(?:patient\s+name|name|patient\s+id|"
-                        r"age\s*/\s*sex|age|gender|sex|"
-                        r"report\s+date|date|referring\s+doctor|"
-                        r"doctor|specimen|clinical\s+note|"
-                        r"report\s+status)\s*:?",
-                        candidate,
-                        flags=re.IGNORECASE,
-                    ):
-                        break
-
-                    return candidate
-
-        # Then support labels and values on the same line.
-        match = re.search(
-            r"^\s*(?:" + label_pattern + r")\s*:\s*(.+?)\s*$",
-            text,
-            flags=re.IGNORECASE | re.MULTILINE,
-        )
-
-        if match:
-            return match.group(1).strip()
-
-        return ""
-
-    # Patient name
-    name = find_value(
-        r"(?:patient\s+name|name\s+of\s+patient|name)"
-    )
-
-    if name:
-        name = re.sub(
-            r"\s*\(fictional\)\s*$",
-            "",
-            name,
-            flags=re.IGNORECASE,
-        ).strip()
-
-        # Do not treat a patient ID or another label as a name.
-        if not re.fullmatch(
-            r"(?:patient\s+id|age|sex|gender|report\s+date)",
-            name,
-            flags=re.IGNORECASE,
-        ):
-            fields["patient_name"] = name
-
-    # Patient ID
-    patient_id = find_value(
-        r"(?:patient\s+id|patient\s+number)"
-    )
-
-    if patient_id:
-        fields["patient_id"] = patient_id.strip()
-
-    # Age and sex on the same line: "45 years / Female"
-    age_sex = find_value(r"age\s*/\s*sex")
-
-    if age_sex:
-        age_match = re.search(
-            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
-            age_sex,
-            flags=re.IGNORECASE,
-        )
-        sex_match = re.search(
-            r"\b(male|female|other)\b",
-            age_sex,
-            flags=re.IGNORECASE,
-        )
-
-        if age_match:
-            fields["age"] = age_match.group(1)
-
-        if sex_match:
-            fields["gender"] = sex_match.group(1).capitalize()
-
-    # Separate age field
-    if "age" not in fields:
-        age_text = find_value(r"(?:patient\s+)?age")
-
-        age_match = re.search(
-            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
-            age_text,
-            flags=re.IGNORECASE,
-        )
-
-        if age_match:
-            fields["age"] = age_match.group(1)
-
-    # Separate gender or sex field
-    if "gender" not in fields:
-        gender_text = find_value(r"(?:gender|sex)")
-
-        gender_match = re.search(
-            r"\b(male|female|other)\b",
-            gender_text,
-            flags=re.IGNORECASE,
-        )
-
-        if gender_match:
-            fields["gender"] = gender_match.group(1).capitalize()
-
-    # Report date
-    report_date = find_value(
-        r"(?:report\s+date|date\s+of\s+(?:report|visit|collection)|"
-        r"collection\s+date)"
-    )
-
-    if not report_date:
-        report_date = find_value(r"date")
-
-    if report_date:
-        fields["report_date"] = report_date.strip()
-
-    return fields
-    
-def extract_patient_fields(extracted_text: str) -> dict[str, str]:
-    """
-    Extract patient details from medical reports.
-
-    Supports labels and values on separate lines, for example:
-        Patient Name
-        Ananya Sharma (fictional)
-
-        Age / Sex
-        45 years / Female
-
-        Report Date
-        22 October 2026
-
-    Also supports common same-line formats such as:
-        Patient Name: Ananya Sharma
-        Age: 45
-        Sex: Female
-        Report Date: 22 October 2026
-    """
-    text = _normalize_text(extracted_text)
-    lines = [line.strip() for line in text.splitlines()]
-    fields: dict[str, str] = {}
-
-    def find_value(label_pattern: str) -> str:
-        # First, support labels and values on separate lines.
-        for index, line in enumerate(lines):
-            if re.fullmatch(
-                label_pattern + r"\s*:?\s*",
-                line,
-                flags=re.IGNORECASE,
-            ):
-                for candidate in lines[index + 1:index + 5]:
-                    candidate = candidate.strip()
-
-                    if not candidate:
-                        continue
-
-                    # Stop when another known label is encountered.
-                    if re.fullmatch(
-                        r"(?:patient\s+name|name|patient\s+id|"
-                        r"age\s*/\s*sex|age|gender|sex|"
-                        r"report\s+date|date|referring\s+doctor|"
-                        r"doctor|specimen|clinical\s+note|"
-                        r"report\s+status)\s*:?",
-                        candidate,
-                        flags=re.IGNORECASE,
-                    ):
-                        break
-
-                    return candidate
-
-        # Then support labels and values on the same line.
-        match = re.search(
-            r"^\s*(?:" + label_pattern + r")\s*:\s*(.+?)\s*$",
-            text,
-            flags=re.IGNORECASE | re.MULTILINE,
-        )
-
-        if match:
-            return match.group(1).strip()
-
-        return ""
-
-    # Patient name
-    name = find_value(
-        r"(?:patient\s+name|name\s+of\s+patient|name)"
-    )
-
-    if name:
-        name = re.sub(
-            r"\s*\(fictional\)\s*$",
-            "",
-            name,
-            flags=re.IGNORECASE,
-        ).strip()
-
-        # Do not treat a patient ID or another label as a name.
-        if not re.fullmatch(
-            r"(?:patient\s+id|age|sex|gender|report\s+date)",
-            name,
-            flags=re.IGNORECASE,
-        ):
-            fields["patient_name"] = name
-
-    # Patient ID
-    patient_id = find_value(
-        r"(?:patient\s+id|patient\s+number)"
-    )
-
-    if patient_id:
-        fields["patient_id"] = patient_id.strip()
-
-    # Age and sex on the same line: "45 years / Female"
-    age_sex = find_value(r"age\s*/\s*sex")
-
-    if age_sex:
-        age_match = re.search(
-            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
-            age_sex,
-            flags=re.IGNORECASE,
-        )
-        sex_match = re.search(
-            r"\b(male|female|other)\b",
-            age_sex,
-            flags=re.IGNORECASE,
-        )
-
-        if age_match:
-            fields["age"] = age_match.group(1)
-
-        if sex_match:
-            fields["gender"] = sex_match.group(1).capitalize()
-
-    # Separate age field
-    if "age" not in fields:
-        age_text = find_value(r"(?:patient\s+)?age")
-
-        age_match = re.search(
-            r"\b(\d{1,3})\s*(?:years?|yrs?)?\b",
-            age_text,
-            flags=re.IGNORECASE,
-        )
-
-        if age_match:
-            fields["age"] = age_match.group(1)
-
-    # Separate gender or sex field
-    if "gender" not in fields:
-        gender_text = find_value(r"(?:gender|sex)")
-
-        gender_match = re.search(
-            r"\b(male|female|other)\b",
-            gender_text,
-            flags=re.IGNORECASE,
-        )
-
-        if gender_match:
-            fields["gender"] = gender_match.group(1).capitalize()
-
-    # Report date
-    report_date = find_value(
-        r"(?:report\s+date|date\s+of\s+(?:report|visit|collection)|"
-        r"collection\s+date)"
-    )
-
-    if not report_date:
-        report_date = find_value(r"date")
-
-    if report_date:
-        fields["report_date"] = report_date.strip()
-
-    return fields
-
-
-
-
-  
-  
